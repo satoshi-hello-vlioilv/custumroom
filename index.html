@@ -599,18 +599,10 @@ const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 const DEFAULT_CAM_POS = new THREE.Vector3(8.5, 9.5, 9.5);
 camera.position.copy(DEFAULT_CAM_POS);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.07;
-controls.minPolarAngle = Math.PI / 10;
-controls.maxPolarAngle = Math.PI / 2.05;
-controls.minDistance = 2.5;
-controls.maxDistance = 32;
-// 左ドラッグ=回転, 右ドラッグ=平行移動, 中ドラッグ=ズーム
-controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
-controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
-controls.target.set(0, 0.4, 0);
-controls.update();
+// OrbitControls is created AFTER our pointer event listeners (see bottom of interaction section).
+// This ensures our handlers run first so we can call stopImmediatePropagation()
+// to block OrbitControls from seeing pointer events when dragging furniture.
+let controls;
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -822,7 +814,8 @@ function registerWall(mesh) {
   if (n.length() < 0.35) n.set(0, 0, 0); else n.normalize();
   mesh.userData.isWall = true;
   mesh.userData.fadeNormal = n;
-  mesh.material.transparent = true;
+  // transparent: true must be set in the material constructor to avoid shader recompilation.
+  // We enforce this in buildRoom() and buildPartition() so nothing extra needed here.
   wallMeshes.push(mesh);
 }
 
@@ -864,7 +857,7 @@ function buildRoom() {
   wallSpecs.forEach(({ pos, size, rep }) => {
     const tex = wallTexSrc.clone(); tex.needsUpdate = true; tex.repeat.set(rep[0], rep[1]);
     const m = new THREE.Mesh(new THREE.BoxGeometry(...size),
-      new THREE.MeshStandardMaterial({ map: tex, color: 0xfbf6ec, roughness: 0.95, metalness: 0, envMapIntensity: 0.3 }));
+      new THREE.MeshStandardMaterial({ map: tex, color: 0xfbf6ec, roughness: 0.95, metalness: 0, envMapIntensity: 0.3, transparent: true, opacity: 1.0 }));
     m.position.set(...pos); m.castShadow = true; m.receiveShadow = true;
     roomGroup.add(m); registerWall(m);
   });
@@ -877,7 +870,8 @@ function buildRoom() {
     [-w/2 + baseD/2, baseH/2, 0, baseD, baseH, d],
     [ w/2 - baseD/2, baseH/2, 0, baseD, baseH, d],
   ].forEach(([x,y,z,sw,sh,sd]) => {
-    const bb = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, sd), mat('#fbf7ef', 0.7, 0));
+    const bb = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, sd),
+      new THREE.MeshStandardMaterial({ color: 0xfbf7ef, roughness: 0.7, metalness: 0, transparent: true, opacity: 1.0 }));
     bb.position.set(x, y, z); bb.castShadow = true; bb.receiveShadow = true;
     roomGroup.add(bb); registerWall(bb);
   });
@@ -912,14 +906,15 @@ function buildPartition(seg) {
   const tex = wallTexSrc.clone(); tex.needsUpdate = true; tex.repeat.set(len/1.5, h/1.5);
   const m = new THREE.Mesh(
     new THREE.BoxGeometry(len, h, WALL_T),
-    new THREE.MeshStandardMaterial({ map: tex, color: 0xf6f0e5, roughness: 0.95, metalness: 0, envMapIntensity: 0.3 })
+    new THREE.MeshStandardMaterial({ map: tex, color: 0xf6f0e5, roughness: 0.95, metalness: 0, envMapIntensity: 0.3, transparent: true, opacity: 1.0 })
   );
   m.position.set(cxp, h/2, czp);
   m.rotation.y = Math.atan2(-dz, dx);
   m.castShadow = true; m.receiveShadow = true;
   roomGroup.add(m); registerWall(m);
   // top trim
-  const trim = new THREE.Mesh(new THREE.BoxGeometry(len, 0.06, WALL_T + 0.04), mat('#fbf7ef', 0.7));
+  const trim = new THREE.Mesh(new THREE.BoxGeometry(len, 0.06, WALL_T + 0.04),
+    new THREE.MeshStandardMaterial({ color: 0xfbf7ef, roughness: 0.7, metalness: 0, transparent: true, opacity: 1.0 }));
   trim.position.set(cxp, h - 0.03, czp); trim.rotation.y = m.rotation.y;
   trim.castShadow = true; roomGroup.add(trim); registerWall(trim);
 }
@@ -1491,10 +1486,13 @@ let pointerStart = { x: 0, y: 0 }, dragOffset = new THREE.Vector3(), dragItemSta
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   pointerStart = { x: e.clientX, y: e.clientY }; pointerDown = true; dragStarted = false; grabbed = false;
-  if (state === 'PLACING') return; // 左ドラッグはカメラ回転、クリックで配置 (pointerupで判定)
+  if (state === 'PLACING') return; // In placement mode, camera orbit is handled by OrbitControls
   const hit = getHitFurniture(e);
   if (hit) {
-    grabbed = true; select(hit); state = 'SELECTED'; controls.enabled = false;
+    // stopImmediatePropagation blocks OrbitControls (registered after us) from seeing this
+    // pointerdown — otherwise OrbitControls would start rotation tracking before we can stop it.
+    e.stopImmediatePropagation();
+    grabbed = true; select(hit); state = 'SELECTED';
     const pt = getFloorPoint(e); if (pt) { dragItemStart = hit.position.clone(); dragOffset.copy(pt).sub(hit.position); dragOffset.y = 0; }
   }
 });
@@ -1525,7 +1523,8 @@ canvas.addEventListener('pointerup', e => {
   const isClick = Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y) < 6;
   if (grabbed) {
     if (dragStarted && selectedGroup) { const item = placedItems.find(i => i.group === selectedGroup); if (item && dragItemStart && !dragItemStart.equals(item.position)) pushHistory({ type:'move', item, from: dragItemStart, to: item.position.clone() }); }
-    controls.enabled = true;
+    // No need to restore controls.enabled — we used stopImmediatePropagation instead,
+    // so OrbitControls never started tracking and its state remains clean.
   }
   if (isClick) {
     if (state === 'PLACING' && currentDef && ghostGroup && ghostGroup.visible) {
@@ -1539,6 +1538,22 @@ canvas.addEventListener('pointerup', e => {
 });
 canvas.addEventListener('contextmenu', e => { e.preventDefault(); if (state === 'PLACING') cancelPlacement(); });
 
+// ============================================================ ORBIT CONTROLS
+// Created here — AFTER our pointer listeners — so our handlers run first on every
+// pointer event. This lets stopImmediatePropagation() block OrbitControls cleanly.
+controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.minPolarAngle = Math.PI / 10;
+controls.maxPolarAngle = Math.PI / 2.05;
+controls.minDistance = 2.5;
+controls.maxDistance = 32;
+// 左ドラッグ=視点回転  右ドラッグ=平行移動  ホイール=ズーム
+controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+controls.target.set(0, 0.4, 0);
+controls.update();
+
 // ============================================================ WALL CUTAWAY
 function updateWalls() {
   camDirH.set(camera.position.x - controls.target.x, 0, camera.position.z - controls.target.z).normalize();
@@ -1548,10 +1563,9 @@ function updateWalls() {
     else if (wallMode === 'ghost') target = 0.24;
     else { const d = w.userData.fadeNormal.dot(camDirH); target = d > 0.15 ? 0.0 : 1.0; }
     m.opacity += (target - m.opacity) * 0.18;
-    const vis = m.opacity > 0.02;
-    w.visible = vis;
-    m.transparent = m.opacity < 0.985;
-    m.depthWrite = m.opacity > 0.6;
+    // transparent is already true in the constructor — never toggle it (would need needsUpdate)
+    w.visible = m.opacity > 0.02;
+    m.depthWrite = m.opacity > 0.5;
     if (showShadows) w.castShadow = m.opacity > 0.5;
   }
 }
