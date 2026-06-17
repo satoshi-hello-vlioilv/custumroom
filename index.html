@@ -332,6 +332,18 @@ body {
 .modal-backdrop.open { display: flex; }
 .modal { background: var(--bg-panel); border-radius: var(--r-xl); box-shadow: var(--shadow-xl); width: 400px; max-width: calc(100vw - 32px); max-height: calc(100vh - 64px); overflow: hidden; display: flex; flex-direction: column; animation: modal-in 0.2s ease; }
 .modal.wide { width: 560px; }
+.modal.editor { width: min(960px, 96vw); }
+/* 2D editor controls */
+.ed-tools { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); align-items: center; }
+.ed-tool { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; font-size: 12px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg-panel-alt); color: var(--text-secondary); transition: all 0.15s; }
+.ed-tool:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.ed-tool.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); }
+.ed-floorsel { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.ed-floorsel select { padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg-panel-alt); font-size: 12px; }
+#editor-canvas { width: 100%; display: block; border: 1px solid var(--border); border-radius: var(--r-md); background: #f1ece1; cursor: crosshair; touch-action: none; }
+.ed-footer { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+.ed-hint { font-size: 11px; color: var(--text-muted); margin-right: auto; }
 @keyframes modal-in { from { opacity: 0; transform: scale(0.96) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 .modal-header { padding: var(--sp-5) var(--sp-6); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: var(--sp-3); flex-shrink: 0; }
 .modal-icon { width: 40px; height: 40px; background: var(--accent-light); border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; color: var(--accent-dark); font-size: 17px; }
@@ -423,6 +435,7 @@ body {
 
     <div class="toolbar-actions">
       <button class="tb-btn primary" id="btn-presets" data-tip="間取りプリセット"><i class="fa-solid fa-house-chimney"></i> プリセット</button>
+      <button class="tb-btn" id="btn-editor" data-tip="間取りエディタ"><i class="fa-solid fa-pen-ruler"></i> 間取り編集</button>
       <div class="toolbar-divider"></div>
       <button class="tb-btn" id="btn-undo" disabled data-tip="元に戻す (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
       <button class="tb-btn" id="btn-redo" disabled data-tip="やり直し (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
@@ -545,6 +558,39 @@ body {
   </div>
 </div>
 
+<!-- 2D FLOOR-PLAN EDITOR MODAL -->
+<div class="modal-backdrop" id="editor-modal">
+  <div class="modal editor">
+    <div class="modal-header">
+      <div class="modal-icon"><i class="fa-solid fa-pen-ruler"></i></div>
+      <div>
+        <div class="modal-title">間取りエディタ</div>
+        <div class="modal-subtitle">部屋の形・壁・扉・床を編集（3Dに即反映）</div>
+      </div>
+      <button class="modal-close" id="editor-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="ed-tools">
+        <button class="ed-tool active" data-tool="floor"><i class="fa-solid fa-fill-drip"></i> 床を描く</button>
+        <button class="ed-tool" data-tool="erase"><i class="fa-solid fa-eraser"></i> 床を消す</button>
+        <button class="ed-tool" data-tool="wall"><i class="fa-solid fa-grip-lines"></i> 壁</button>
+        <button class="ed-tool" data-tool="door"><i class="fa-solid fa-door-open"></i> 扉</button>
+        <button class="ed-tool" data-tool="delwall"><i class="fa-solid fa-link-slash"></i> 壁を消す</button>
+        <div class="ed-floorsel"><i class="fa-solid fa-layer-group"></i> 床材
+          <select id="editor-floor-select"></select>
+        </div>
+      </div>
+      <canvas id="editor-canvas" width="900" height="540"></canvas>
+      <div class="ed-footer">
+        <span class="ed-hint" id="editor-hint">床を描くとその部分に床が作られます。</span>
+        <button class="ed-tool" id="editor-clear"><i class="fa-solid fa-trash"></i> 全消去</button>
+        <button class="ed-tool" id="editor-rect"><i class="fa-solid fa-vector-square"></i> 長方形に戻す</button>
+        <button class="ed-tool" id="editor-apply" style="background:var(--accent);border-color:var(--accent);color:#fff;"><i class="fa-solid fa-check"></i> 完了</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i><span id="toast-text"></span></div>
 
 <script type="module">
@@ -588,7 +634,11 @@ let wallMeshes = [];
 let floorType = 'wood', wallType = 'cream';
 let paintMode = false;
 let paintableWalls = [];
-let floorPatches = new Map(); // key "ix,iz" -> { mesh, type }
+// PLAN model — single source of truth for room shape / walls / doors / floor.
+// cells: key "ix,iz" (integer grid indices) -> floorType string. Presence = floor exists.
+//   Cell center is world meters: x = ix*CELL, z = iz*CELL (centered at origin, ix/iz may be negative).
+// walls: [ { x1,z1,x2,z2 (world meters), doors:[ { t (0..1 along wall), w (door width m) } ] } ]
+let roomPlan = { cells: new Map(), walls: [] };
 
 // ============================================================ RENDERER
 const canvas = document.getElementById('three-canvas');
@@ -916,6 +966,110 @@ function makePanelTexture() {
   return t;
 }
 
+// 玄関タイル (三和土風): warm gray-beige stone tiles, small square pattern + grout
+function makeGenkanTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  const tiles = 6, ts = s / tiles, grout = 4;
+  ctx.fillStyle = '#b8ad9b'; ctx.fillRect(0, 0, s, s); // grout
+  for (let i = 0; i < tiles; i++) for (let j = 0; j < tiles; j++) {
+    const x = i*ts + grout/2, y = j*ts + grout/2, w = ts - grout;
+    const f = 0.92 + Math.random()*0.14;
+    ctx.fillStyle = `rgb(${0xdd*f|0},${0xd6*f|0},${0xc8*f|0})`;
+    ctx.fillRect(x, y, w, w);
+    // stone speckle
+    for (let k = 0; k < 55; k++) {
+      const v = Math.random();
+      ctx.fillStyle = `rgba(${v<0.5?120:230},${v<0.5?112:222},${v<0.5?98:205},${0.05+Math.random()*0.12})`;
+      ctx.fillRect(x + Math.random()*w, y + Math.random()*w, 1.5, 1.5);
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.fillRect(x, y, w, 1.5);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+// 土: brown earth, irregular speckles + small pebbles
+function makeDirtTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#8a6a47'; ctx.fillRect(0, 0, s, s);
+  // mottled darker/lighter earth
+  for (let i = 0; i < 600; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 4 + Math.random()*30;
+    const g = ctx.createRadialGradient(x, y, 1, x, y, r);
+    const dark = Math.random() < 0.5;
+    g.addColorStop(0, `rgba(${dark?90:170},${dark?68:135},${dark?44:95},${0.05+Math.random()*0.12})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  // pebbles
+  for (let i = 0; i < 120; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 1.5 + Math.random()*3.5;
+    const v = 130 + Math.random()*80;
+    ctx.fillStyle = `rgba(${v},${v-18},${v-40},0.6)`;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+// 草 (wild grass): varied green blades / noise, uneven, darker patches
+function makeGrassTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#5f8a44'; ctx.fillRect(0, 0, s, s);
+  // darker/lighter patches
+  for (let i = 0; i < 140; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 20 + Math.random()*60;
+    const g = ctx.createRadialGradient(x, y, 1, x, y, r);
+    const dark = Math.random() < 0.5;
+    g.addColorStop(0, `rgba(${dark?60:120},${dark?100:150},${dark?40:80},${0.06+Math.random()*0.10})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  // blades
+  for (let i = 0; i < 4200; i++) {
+    const x = Math.random()*s, y = Math.random()*s, len = 3 + Math.random()*7;
+    const g = 110 + Math.random()*70;
+    ctx.strokeStyle = `rgba(${40+Math.random()*40|0},${g},${30+Math.random()*40|0},${0.4+Math.random()*0.4})`;
+    ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.lineTo(x + (Math.random()-0.5)*3, y - len); ctx.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+// 芝生 (manicured lawn): even green with subtle mowing stripes
+function makeLawnTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#6fa050'; ctx.fillRect(0, 0, s, s);
+  // mowing stripes (alternating horizontal bands)
+  const bands = 8, bh = s / bands;
+  for (let i = 0; i < bands; i++) {
+    ctx.fillStyle = (i % 2 === 0) ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+    ctx.fillRect(0, i*bh, s, bh);
+  }
+  // fine even blade noise
+  for (let i = 0; i < 6000; i++) {
+    const x = Math.random()*s, y = Math.random()*s;
+    const g = 140 + Math.random()*50;
+    ctx.fillStyle = `rgba(${60+Math.random()*30|0},${g},${50+Math.random()*30|0},${0.18+Math.random()*0.2})`;
+    ctx.fillRect(x, y, 1, 1 + Math.random()*1.5);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
 const woodTex = makeWoodTexture();
 const concreteTex = makeConcreteTexture();
 const wallTexSrc = makeWallTexture();
@@ -926,6 +1080,10 @@ const carpetTex = makeCarpetTexture();
 const tatamiTex = makeTatamiTexture();
 const brickTex = makeBrickTexture();
 const panelTex = makePanelTexture();
+const genkanTex = makeGenkanTexture();
+const dirtTex = makeDirtTexture();
+const grassTex = makeGrassTexture();
+const lawnTex = makeLawnTexture();
 
 // Floor & wall material registries — single source of truth for the selectors
 const FLOOR_TYPES = {
@@ -935,6 +1093,10 @@ const FLOOR_TYPES = {
   marble:   { name: '大理石',           tex: marbleTex,   color: 0xffffff, rough: 0.18, metal: 0.06, per: 3.0 },
   carpet:   { name: 'カーペット',       tex: carpetTex,   color: 0xc9c2b4, rough: 0.98, metal: 0.0,  per: 1.2 },
   tatami:   { name: '畳',               tex: tatamiTex,   color: 0xffffff, rough: 0.85, metal: 0.0,  per: 0.9 },
+  genkan:   { name: '玄関タイル',       tex: genkanTex,   color: 0xffffff, rough: 0.55, metal: 0.03, per: 1.0 },
+  dirt:     { name: '土',               tex: dirtTex,     color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 2.0 },
+  grass:    { name: '草',               tex: grassTex,    color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 1.5 },
+  lawn:     { name: '芝生',             tex: lawnTex,     color: 0xffffff, rough: 0.98, metal: 0.0,  per: 1.8 },
 };
 const WALL_TYPES = {
   cream:    { name: 'クリーム壁紙',  tex: wallTexSrc, color: 0xfbf6ec, rough: 0.95, metal: 0.0 },
@@ -1050,10 +1212,10 @@ function applyFloorSpec(material, type, w, d) {
   material.needsUpdate = true;
 }
 
+// Non-paint mode: floor select repaints the WHOLE floor — set every cell to floorType, rebuild.
 function updateFloorTexture() {
-  roomGroup.traverse(c => {
-    if (c.isMesh && c.userData.isFloor) applyFloorSpec(c.material, floorType, roomW, roomD);
-  });
+  roomPlan.cells.forEach((_, key) => roomPlan.cells.set(key, floorType));
+  buildFloorMeshes();
 }
 
 function applyWallType() {
@@ -1070,111 +1232,154 @@ function applyWallType() {
   });
 }
 
-// ============================================================ FLOOR PAINT (partial floor)
-const PAINT_CELL = GRID_SNAP; // 0.5m brush cells
-function paintCellKey(x, z) {
-  const ix = Math.floor((x + roomW / 2) / PAINT_CELL);
-  const iz = Math.floor((z + roomD / 2) / PAINT_CELL);
-  return { ix, iz };
+// ============================================================ PLAN MODEL
+const CELL = GRID_SNAP; // 0.5m cell — cells & walls share world-meter coords centered at origin
+const DOOR_H = 2.05;    // door opening height
+function cellKey(ix, iz) { return ix + ',' + iz; }
+function cellCenterX(ix) { return ix * CELL; }
+function cellCenterZ(iz) { return iz * CELL; }
+// Bounding box of filled cells (falls back to walls, then a small default).
+function planBounds() {
+  let minIx = Infinity, maxIx = -Infinity, minIz = Infinity, maxIz = -Infinity, any = false;
+  roomPlan.cells.forEach((_, key) => {
+    const [ix, iz] = key.split(',').map(Number);
+    if (ix < minIx) minIx = ix; if (ix > maxIx) maxIx = ix;
+    if (iz < minIz) minIz = iz; if (iz > maxIz) maxIz = iz; any = true;
+  });
+  if (!any && roomPlan.walls.length) {
+    // derive extent from wall endpoints (in cell units)
+    let xs = [], zs = [];
+    roomPlan.walls.forEach(w => { xs.push(w.x1, w.x2); zs.push(w.z1, w.z2); });
+    minIx = Math.round(Math.min(...xs) / CELL); maxIx = Math.round(Math.max(...xs) / CELL);
+    minIz = Math.round(Math.min(...zs) / CELL); maxIz = Math.round(Math.max(...zs) / CELL); any = true;
+  }
+  if (!any) { minIx = maxIx = minIz = maxIz = 0; }
+  const w = (maxIx - minIx + 1) * CELL, d = (maxIz - minIz + 1) * CELL;
+  return { minIx, maxIx, minIz, maxIz, w, d };
 }
+// Build a rectangular plan (used by the room-size slider, presets, reset-to-rect).
+function rectToPlan(w, d, parts, ftype) {
+  const cells = new Map();
+  // Integer-centered cells (center = ix*CELL, spanning ±CELL/2) can't symmetrically tile an
+  // even-cell-count room, so we center the cell range and align the walls to the cell-union
+  // edges — floor and walls then match exactly and stay centered at origin.
+  const nx = Math.max(1, Math.round(w / CELL)), nz = Math.max(1, Math.round(d / CELL));
+  const ixMin = -Math.floor(nx / 2), ixMax = ixMin + nx - 1;
+  const izMin = -Math.floor(nz / 2), izMax = izMin + nz - 1;
+  for (let ix = ixMin; ix <= ixMax; ix++) for (let iz = izMin; iz <= izMax; iz++) cells.set(cellKey(ix, iz), ftype);
+  const x0 = (ixMin - 0.5) * CELL, x1 = (ixMax + 0.5) * CELL;  // union edges
+  const z0 = (izMin - 0.5) * CELL, z1 = (izMax + 0.5) * CELL;
+  const walls = [
+    { x1: x0, z1: z0, x2: x1, z2: z0, doors: [] },
+    { x1: x0, z1: z1, x2: x1, z2: z1, doors: [] },
+    { x1: x0, z1: z0, x2: x0, z2: z1, doors: [] },
+    { x1: x1, z1: z0, x2: x1, z2: z1, doors: [] },
+  ];
+  (parts || []).forEach(p => walls.push({ x1: p.x1, z1: p.z1, x2: p.x2, z2: p.z2, doors: [] }));
+  return { cells, walls };
+}
+
+// ============================================================ FLOOR PAINT (quick toolbar — edits plan cells)
+// Quick-paint only REPAINTS existing cells (never changes shape — that's the 2D editor's job).
 function paintFloorAt(worldX, worldZ, type) {
-  const { ix, iz } = paintCellKey(worldX, worldZ);
-  if (ix < 0 || iz < 0 || ix * PAINT_CELL >= roomW || iz * PAINT_CELL >= roomD) return;
-  const key = ix + ',' + iz;
-  const existing = floorPatches.get(key);
-  if (existing && existing.type === type) return;
-  if (existing) { roomGroup.remove(existing.mesh); existing.mesh.geometry.dispose(); existing.mesh.material.dispose(); }
-  const cx = -roomW / 2 + (ix + 0.5) * PAINT_CELL;
-  const cz = -roomD / 2 + (iz + 0.5) * PAINT_CELL;
-  const spec = FLOOR_TYPES[type] || FLOOR_TYPES.wood;
-  const tex = spec.tex.clone(); tex.needsUpdate = true;
-  tex.repeat.set(PAINT_CELL / spec.per, PAINT_CELL / spec.per);
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(PAINT_CELL, PAINT_CELL),
-    new THREE.MeshStandardMaterial({ map: tex, color: spec.color, roughness: spec.rough, metalness: spec.metal, envMapIntensity: 0.35 })
-  );
-  mesh.rotation.x = -Math.PI / 2; mesh.position.set(cx, 0.006, cz);
-  mesh.receiveShadow = true; mesh.userData.isFloorPatch = true;
-  roomGroup.add(mesh);
-  floorPatches.set(key, { mesh, type });
+  const ix = Math.round(worldX / CELL), iz = Math.round(worldZ / CELL);
+  const key = cellKey(ix, iz);
+  if (!roomPlan.cells.has(key)) return;       // only existing floor
+  if (roomPlan.cells.get(key) === type) return;
+  roomPlan.cells.set(key, type);
+  buildFloorMeshes();
 }
 function eraseFloorAt(worldX, worldZ) {
-  const { ix, iz } = paintCellKey(worldX, worldZ);
-  const key = ix + ',' + iz;
-  const existing = floorPatches.get(key);
-  if (existing) { roomGroup.remove(existing.mesh); existing.mesh.geometry.dispose(); existing.mesh.material.dispose(); floorPatches.delete(key); }
+  // In quick-paint "erase" resets the cell to the base floorType (does NOT delete the cell).
+  const ix = Math.round(worldX / CELL), iz = Math.round(worldZ / CELL);
+  const key = cellKey(ix, iz);
+  if (!roomPlan.cells.has(key)) return;
+  if (roomPlan.cells.get(key) === floorType) return;
+  roomPlan.cells.set(key, floorType);
+  buildFloorMeshes();
 }
-function clearFloorPatches() {
-  floorPatches.forEach(p => { roomGroup.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.material.dispose(); });
-  floorPatches = new Map();
+
+// Representative swatch colors for the 2D editor (when FLOOR_TYPES.color is white).
+const FLOOR_SWATCH = {
+  wood:'#caa46d', concrete:'#9ca3a8', tile:'#e7eaee', marble:'#f0eee9',
+  carpet:'#c9c2b4', tatami:'#cdbf86', genkan:'#ddd6c8', dirt:'#8a6a47',
+  grass:'#5f8a44', lawn:'#6fa050'
+};
+function floorSwatch(type) { return FLOOR_SWATCH[type] || '#caa46d'; }
+
+// Build (or rebuild) the floor: one merged BufferGeometry mesh per floor type present.
+function buildFloorMeshes() {
+  // remove existing floor meshes
+  for (let i = roomGroup.children.length - 1; i >= 0; i--) {
+    const c = roomGroup.children[i];
+    if (c.userData && c.userData.isFloor) {
+      c.geometry.dispose(); if (c.material.map) c.material.map.dispose(); c.material.dispose();
+      roomGroup.remove(c);
+    }
+  }
+  // group cells by type
+  const byType = new Map();
+  roomPlan.cells.forEach((type, key) => {
+    const [ix, iz] = key.split(',').map(Number);
+    if (!byType.has(type)) byType.set(type, []);
+    byType.get(type).push([ix, iz]);
+  });
+  const half = CELL / 2;
+  byType.forEach((cellsArr, type) => {
+    if (!cellsArr.length) return;
+    const spec = FLOOR_TYPES[type] || FLOOR_TYPES.wood;
+    const positions = [], normals = [], uvs = [], indices = [];
+    let v = 0;
+    for (const [ix, iz] of cellsArr) {
+      const cx = cellCenterX(ix), cz = cellCenterZ(iz);
+      const x0 = cx - half, x1 = cx + half, z0 = cz - half, z1 = cz + half;
+      // quad in XZ at y=0.002 (CCW viewed from above so normal +Y)
+      positions.push(x0,0.002,z0,  x1,0.002,z0,  x1,0.002,z1,  x0,0.002,z1);
+      for (let k = 0; k < 4; k++) normals.push(0,1,0);
+      // tile texture by `per` meters
+      uvs.push(x0/spec.per, z0/spec.per,  x1/spec.per, z0/spec.per,  x1/spec.per, z1/spec.per,  x0/spec.per, z1/spec.per);
+      indices.push(v, v+2, v+1,  v, v+3, v+2);
+      v += 4;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    const tex = spec.tex.clone(); tex.needsUpdate = true; tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+      map: tex, color: spec.color, roughness: spec.rough, metalness: spec.metal, envMapIntensity: 0.35
+    }));
+    m.receiveShadow = true; m.userData.isFloor = true; m.userData.floorType = type;
+    roomGroup.add(m);
+  });
 }
 
 function buildRoom() {
   while (roomGroup.children.length) {
     const c = roomGroup.children[0];
-    if (c.geometry) c.geometry.dispose();
-    if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); }
+    // traverse so meshes nested in pivot groups (door slabs) are disposed too
+    c.traverse(n => { if (n.geometry) n.geometry.dispose(); if (n.material) { if (n.material.map) n.material.map.dispose(); n.material.dispose(); } });
     roomGroup.remove(c);
   }
   if (gridHelper) { scene.remove(gridHelper); gridHelper.geometry.dispose(); gridHelper.material.dispose(); gridHelper = null; }
   wallMeshes = [];
   paintableWalls = [];
-  floorPatches = new Map(); // meshes were disposed with roomGroup above
 
+  // Update roomW/roomD to the plan bounding box (keeps clamp / camera framing working).
+  const b = planBounds();
+  roomW = Math.max(CELL, b.w); roomD = Math.max(CELL, b.d);
   const w = roomW, d = roomD;
 
-  // Floor base
-  const floorBase = plainBox(w, 0.1, d, mat('#b89460', 0.9, 0));
-  floorBase.position.y = -0.05; floorBase.castShadow = false;
-  roomGroup.add(floorBase);
+  // Floor: one merged mesh per floor type present in the plan.
+  buildFloorMeshes();
 
-  // Textured floor surface (material driven by FLOOR_TYPES registry)
-  const floorTop = new THREE.Mesh(
-    new THREE.PlaneGeometry(w, d),
-    new THREE.MeshStandardMaterial({ roughness: 0.72, metalness: 0.02, envMapIntensity: 0.35 })
-  );
-  applyFloorSpec(floorTop.material, floorType, w, d);
-  floorTop.rotation.x = -Math.PI / 2; floorTop.position.y = 0.002; floorTop.receiveShadow = true;
-  floorTop.userData.isFloor = true;
-  roomGroup.add(floorTop);
+  // Walls (with door openings) from the plan.
+  roomPlan.walls.forEach(wall => buildWallSegment(wall));
 
-  // Outer walls (material driven by WALL_TYPES registry)
-  const wallSpec = WALL_TYPES[wallType] || WALL_TYPES.cream;
-  const wallSpecs = [
-    { pos: [0, WALL_H/2, -d/2], size: [w + WALL_T*2, WALL_H, WALL_T], rep: [w/1.5, WALL_H/1.5] },
-    { pos: [0, WALL_H/2,  d/2], size: [w + WALL_T*2, WALL_H, WALL_T], rep: [w/1.5, WALL_H/1.5] },
-    { pos: [-w/2, WALL_H/2, 0], size: [WALL_T, WALL_H, d], rep: [d/1.5, WALL_H/1.5] },
-    { pos: [ w/2, WALL_H/2, 0], size: [WALL_T, WALL_H, d], rep: [d/1.5, WALL_H/1.5] },
-  ];
-  wallSpecs.forEach(({ pos, size, rep }) => {
-    const tex = wallSpec.tex.clone(); tex.needsUpdate = true; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(rep[0], rep[1]);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(...size),
-      new THREE.MeshStandardMaterial({ map: tex, color: wallSpec.color, roughness: wallSpec.rough, metalness: wallSpec.metal, envMapIntensity: 0.3, transparent: true, opacity: 1.0 }));
-    m.position.set(...pos); m.castShadow = true; m.receiveShadow = true;
-    m.userData.rep = rep; m.userData.isMainWall = true;
-    roomGroup.add(m); registerWall(m); paintableWalls.push(m);
-  });
-
-  // Baseboards (fade with their wall)
-  const baseH = 0.14, baseD = 0.05;
-  [
-    [0, baseH/2, -d/2 + baseD/2, w, baseH, baseD],
-    [0, baseH/2,  d/2 - baseD/2, w, baseH, baseD],
-    [-w/2 + baseD/2, baseH/2, 0, baseD, baseH, d],
-    [ w/2 - baseD/2, baseH/2, 0, baseD, baseH, d],
-  ].forEach(([x,y,z,sw,sh,sd]) => {
-    const bb = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, sd),
-      new THREE.MeshStandardMaterial({ color: 0xfbf7ef, roughness: 0.7, metalness: 0, transparent: true, opacity: 1.0 }));
-    bb.position.set(x, y, z); bb.castShadow = true; bb.receiveShadow = true;
-    roomGroup.add(bb); registerWall(bb);
-  });
-
-  // Interior partitions (from preset)
-  partitions.forEach(seg => buildPartition(seg));
-
-  // Grid
+  // Grid sized to the plan bounding box.
   if (showGrid) {
-    const maxG = Math.round(Math.max(w, d) / GRID_SNAP);
+    const maxG = Math.max(1, Math.round(Math.max(w, d) / GRID_SNAP));
     gridHelper = new THREE.GridHelper(Math.max(w, d), maxG, 0x9c8f78, 0xc4b89f);
     gridHelper.material.transparent = true; gridHelper.material.opacity = 0.4;
     gridHelper.position.y = 0.02; gridHelper.visible = showGrid;
@@ -1190,29 +1395,88 @@ function buildRoom() {
   applyShadowSetting();
 }
 
-function buildPartition(seg) {
-  const { x1, z1, x2, z2, h = PART_H } = seg;
+// Build a wall (full height WALL_H) along the segment, with door gaps + frames + slabs.
+function buildWallSegment(wall) {
+  const { x1, z1, x2, z2 } = wall;
   const dx = x2 - x1, dz = z2 - z1;
   const len = Math.hypot(dx, dz);
   if (len < 0.01) return;
-  const cxp = (x1 + x2) / 2, czp = (z1 + z2) / 2;
+  const ux = dx / len, uz = dz / len;            // unit dir along wall
+  const rotY = Math.atan2(-dz, dx);              // same convention as partitions
   const wallSpec = WALL_TYPES[wallType] || WALL_TYPES.cream;
-  const rep = [len/1.5, h/1.5];
-  const tex = wallSpec.tex.clone(); tex.needsUpdate = true; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(rep[0], rep[1]);
-  const m = new THREE.Mesh(
-    new THREE.BoxGeometry(len, h, WALL_T),
-    new THREE.MeshStandardMaterial({ map: tex, color: wallSpec.color, roughness: wallSpec.rough, metalness: wallSpec.metal, envMapIntensity: 0.3, transparent: true, opacity: 1.0 })
-  );
-  m.position.set(cxp, h/2, czp);
-  m.rotation.y = Math.atan2(-dz, dx);
-  m.castShadow = true; m.receiveShadow = true;
-  m.userData.isPartition = true; m.userData.rep = rep; m.userData.isMainWall = true;
-  roomGroup.add(m); registerWall(m); paintableWalls.push(m);
-  // top trim
-  const trim = new THREE.Mesh(new THREE.BoxGeometry(len, 0.06, WALL_T + 0.04),
-    new THREE.MeshStandardMaterial({ color: 0xfbf7ef, roughness: 0.7, metalness: 0, transparent: true, opacity: 1.0 }));
-  trim.position.set(cxp, h - 0.03, czp); trim.rotation.y = m.rotation.y;
-  trim.castShadow = true; trim.userData.isPartition = true; roomGroup.add(trim); registerWall(trim);
+  // helper to spawn a wall material (cloned tex sized to a piece length)
+  const wallMat = (pieceLen) => {
+    const rep = [Math.max(0.1, pieceLen / 1.5), WALL_H / 1.5];
+    const tex = wallSpec.tex.clone(); tex.needsUpdate = true; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(rep[0], rep[1]);
+    const m = new THREE.MeshStandardMaterial({ map: tex, color: wallSpec.color, roughness: wallSpec.rough, metalness: wallSpec.metal, envMapIntensity: 0.3, transparent: true, opacity: 1.0 });
+    return { m, rep };
+  };
+  // point at distance s along the wall from (x1,z1)
+  const ptAt = s => [x1 + ux * s, z1 + uz * s];
+  // a solid full-height piece spanning [s0,s1]
+  const addSolid = (s0, s1) => {
+    const pieceLen = s1 - s0; if (pieceLen < 0.001) return;
+    const [cx, cz] = ptAt((s0 + s1) / 2);
+    const { m: material, rep } = wallMat(pieceLen);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(pieceLen, WALL_H, WALL_T), material);
+    mesh.position.set(cx, WALL_H / 2, cz); mesh.rotation.y = rotY;
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.userData.rep = rep; mesh.userData.isMainWall = true;
+    roomGroup.add(mesh); registerWall(mesh); paintableWalls.push(mesh);
+  };
+
+  // Door spans, sorted; doors centered at s = t*len with width w.
+  const doors = (wall.doors || []).map(dr => {
+    const dw = dr.w || 0.9, s = clamp(dr.t, 0, 1) * len;
+    return { s0: clamp(s - dw / 2, 0, len), s1: clamp(s + dw / 2, 0, len) };
+  }).filter(o => o.s1 - o.s0 > 0.05).sort((a, b) => a.s0 - b.s0);
+
+  // Solid pieces between door openings.
+  let cursor = 0;
+  doors.forEach(o => { addSolid(cursor, o.s0); cursor = o.s1; });
+  addSolid(cursor, len);
+
+  // Door frames / lintels / slabs.
+  doors.forEach(o => {
+    const ow = o.s1 - o.s0;                       // opening width
+    const [cx, cz] = ptAt((o.s0 + o.s1) / 2);
+    // Lintel (matches wall material) above the opening, y = DOOR_H..WALL_H
+    const lh = WALL_H - DOOR_H;
+    const { m: lmat, rep: lrep } = wallMat(ow);
+    lmat.map.repeat.set(Math.max(0.1, ow / 1.5), Math.max(0.1, lh / 1.5));
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+    lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+    lintel.castShadow = true; lintel.receiveShadow = true;
+    lintel.userData.rep = [Math.max(0.1, ow / 1.5), Math.max(0.1, lh / 1.5)]; lintel.userData.isMainWall = true;
+    roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+    // Frame posts + top (wood) — own material, fade in cutaway
+    const frameMat = () => new THREE.MeshStandardMaterial({ color: 0x9c7b4f, roughness: 0.6, metalness: 0.0, transparent: true, opacity: 1.0 });
+    const ft = WALL_T + 0.02, fw = 0.06;
+    [o.s0, o.s1].forEach(sp => {
+      const [px, pz] = ptAt(sp);
+      const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), frameMat());
+      post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY;
+      post.castShadow = true; roomGroup.add(post); registerWall(post);
+    });
+    const top = new THREE.Mesh(new THREE.BoxGeometry(ow + fw, fw, ft), frameMat());
+    top.position.set(cx, DOOR_H - fw / 2, cz); top.rotation.y = rotY;
+    top.castShadow = true; roomGroup.add(top); registerWall(top);
+    // Door slab (thin box), rendered slightly ajar about its hinge (at s0 side).
+    const slabW = ow - fw, slabH = DOOR_H - fw;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(slabW, slabH, 0.04),
+      new THREE.MeshStandardMaterial({ color: 0xb9925e, roughness: 0.55, metalness: 0.05, transparent: true, opacity: 1.0 }));
+    slab.userData.colorable = false;
+    // hinge at s0, swing inward by ~0.35 rad. Build a pivot group at the hinge point.
+    const pivot = new THREE.Group();
+    const [hx, hz] = ptAt(o.s0 + fw / 2);
+    pivot.position.set(hx, slabH / 2, hz); pivot.rotation.y = rotY;
+    slab.position.set(slabW / 2, 0, 0.06);      // local: extend along +x from hinge, offset off the wall
+    slab.castShadow = true; pivot.add(slab); pivot.rotation.y = rotY - 0.35;
+    roomGroup.add(pivot); registerWall(slab);   // fade the slab with cutaway
+    // slab is parented to a pivot, so its local position is wrong for fadeNormal — use the door's world center
+    const fn = new THREE.Vector3(cx, 0, cz); if (fn.length() < 0.35) fn.set(0, 0, 0); else fn.normalize();
+    slab.userData.fadeNormal = fn;
+  });
 }
 
 function applyShadowSetting() {
@@ -1757,6 +2021,8 @@ function toast(msg) {
 function updateRoomSize(w, d, keepPartitions = false) {
   roomW = w; roomD = d;
   if (!keepPartitions) partitions = [];
+  // Regenerate the plan as a rectangle (preserves the slider / preset / reset-to-rect flow).
+  roomPlan = rectToPlan(w, d, keepPartitions ? partitions : [], floorType);
   document.getElementById('room-w-val').textContent = w + 'm';
   document.getElementById('room-d-val').textContent = d + 'm';
   document.getElementById('room-size-display').textContent = `${w}m × ${d}m`;
@@ -1766,9 +2032,11 @@ function updateRoomSize(w, d, keepPartitions = false) {
 
 // ============================================================ SERIALIZE
 function saveLayout() {
-  const patches = [];
-  floorPatches.forEach((p, key) => { const [ix, iz] = key.split(',').map(Number); patches.push({ ix, iz, type: p.type }); });
-  const data = { version: 3, room: { w: roomW, d: roomD }, partitions, floorType, wallType, patches,
+  // v4: serialize the full plan (cells + walls). Floor types are carried by the plan.
+  const cells = [];
+  roomPlan.cells.forEach((type, key) => { const [ix, iz] = key.split(',').map(Number); cells.push([ix, iz, type]); });
+  const data = { version: 4, room: { w: roomW, d: roomD }, partitions, floorType, wallType,
+    plan: { cells, walls: roomPlan.walls },
     items: placedItems.map(i => ({ defId: i.defId, x: i.position.x, y: i.position.y, z: i.position.z, rotY: i.rotY, color: i.color })) };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'room-layout.json'; a.click(); URL.revokeObjectURL(url);
@@ -1780,15 +2048,27 @@ function applyLayout(layout) {
   partitions = layout.partitions ? JSON.parse(JSON.stringify(layout.partitions)) : [];
   if (layout.floorType && FLOOR_TYPES[layout.floorType]) floorType = layout.floorType;
   if (layout.wallType && WALL_TYPES[layout.wallType]) wallType = layout.wallType;
-  updateRoomSize(layout.room.w, layout.room.d, true);
+  updateRoomSize(layout.room.w, layout.room.d, true); // builds a rectangular plan
   // sync the toolbar selects
   const ws = document.getElementById('wall-type-select'); if (ws) ws.value = wallType;
   const fs = document.getElementById('floor-type-select'); if (fs) fs.value = floorType;
-  (layout.patches || []).forEach(p => {
-    const cx = -roomW / 2 + (p.ix + 0.5) * PAINT_CELL;
-    const cz = -roomD / 2 + (p.iz + 0.5) * PAINT_CELL;
-    paintFloorAt(cx, cz, p.type);
-  });
+  if (layout.plan) {
+    // v4: explicit plan replaces the rectangle.
+    const cells = new Map();
+    (layout.plan.cells || []).forEach(([ix, iz, type]) => cells.set(cellKey(ix, iz), type));
+    roomPlan = { cells, walls: (layout.plan.walls || []).map(w => ({ x1: w.x1, z1: w.z1, x2: w.x2, z2: w.z2, doors: (w.doors || []).map(dd => ({ t: dd.t, w: dd.w })) })) };
+    buildRoom();
+  } else if (layout.patches) {
+    // v3: paint patches onto the existing (rectangular) cells, converting old coords to indices.
+    layout.patches.forEach(p => {
+      const cx = -layout.room.w / 2 + (p.ix + 0.5) * CELL;
+      const cz = -layout.room.d / 2 + (p.iz + 0.5) * CELL;
+      const ix = Math.round(cx / CELL), iz = Math.round(cz / CELL);
+      const key = cellKey(ix, iz);
+      if (roomPlan.cells.has(key)) roomPlan.cells.set(key, p.type);
+    });
+    buildFloorMeshes();
+  }
   (layout.items || []).forEach(it => {
     const def = FURNITURE_DEFS.find(d => d.id === it.defId); if (!def) return;
     // Auto-rest stackable items (TV/plant) on whatever was placed earlier in the list
@@ -1986,6 +2266,24 @@ function initUI() {
   document.getElementById('preset-close').addEventListener('click', closePresetModal);
   document.getElementById('preset-modal').addEventListener('click', e => { if (e.target.id === 'preset-modal') closePresetModal(); });
 
+  // 2D floor-plan editor
+  document.getElementById('btn-editor').addEventListener('click', openEditor);
+  document.getElementById('editor-close').addEventListener('click', closeEditor);
+  document.getElementById('editor-modal').addEventListener('click', e => { if (e.target.id === 'editor-modal') closeEditor(); });
+  const edHints = { floor:'クリック/ドラッグで床を追加（部屋の形になります）', erase:'クリック/ドラッグで床を削除', wall:'2点をドラッグして壁を追加（グリッドにスナップ）', door:'壁をクリックして扉を追加/削除', delwall:'壁をクリックして削除' };
+  document.querySelectorAll('.ed-tool[data-tool]').forEach(btn => btn.addEventListener('click', () => {
+    edTool = btn.dataset.tool;
+    document.querySelectorAll('.ed-tool[data-tool]').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('editor-hint').textContent = edHints[edTool] || '';
+  }));
+  const edSel = document.getElementById('editor-floor-select');
+  Object.entries(FLOOR_TYPES).forEach(([key, spec]) => { const o = document.createElement('option'); o.value = key; o.textContent = spec.name; edSel.appendChild(o); });
+  edSel.value = editorFloorType;
+  edSel.addEventListener('change', () => { editorFloorType = edSel.value; });
+  document.getElementById('editor-clear').addEventListener('click', () => { roomPlan = { cells: new Map(), walls: [] }; syncPlanTo3D(); });
+  document.getElementById('editor-rect').addEventListener('click', () => { roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType); syncPlanTo3D(); });
+  document.getElementById('editor-apply').addEventListener('click', closeEditor);
+
   document.getElementById('btn-zoom-in').addEventListener('click', () => { camera.position.sub(controls.target).multiplyScalar(0.85).add(controls.target); controls.update(); });
   document.getElementById('btn-zoom-out').addEventListener('click', () => { camera.position.sub(controls.target).multiplyScalar(1.18).add(controls.target); controls.update(); });
   document.getElementById('btn-reset-cam').addEventListener('click', () => { camera.position.copy(DEFAULT_CAM_POS); controls.target.set(0, 0.4, 0); controls.maxPolarAngle = Math.PI/2.05; controls.update(); isTopView = false; document.getElementById('btn-topview').classList.remove('active'); });
@@ -2004,7 +2302,7 @@ function initUI() {
 
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT') return;
-    if (e.key === 'Escape') { if (state==='PLACING') cancelPlacement(); else if (paintMode) exitPaintMode(); else { deselect(); closePresetModal(); } }
+    if (e.key === 'Escape') { if (state==='PLACING') cancelPlacement(); else if (paintMode) exitPaintMode(); else { deselect(); closePresetModal(); closeEditor(); } }
     if ((e.key==='Delete'||e.key==='Backspace') && selectedGroup && state!=='PLACING') { removeFurniture(selectedGroup); deselect(); }
     if (e.key==='r'||e.key==='R') {
       if (state==='PLACING') { ghostRotOffset = (ghostRotOffset+90)%360; if (ghostGroup) ghostGroup.rotation.y = (ghostRotOffset*Math.PI)/180; }
@@ -2156,9 +2454,215 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+// ============================================================ 2D FLOOR-PLAN EDITOR
+const edCanvas = document.getElementById('editor-canvas');
+const edCtx = edCanvas.getContext('2d');
+let edTool = 'floor';
+let editorFloorType = 'wood';
+let editorScale = 36;                 // px per meter
+let editorPan = { x: 0, y: 0 };       // pan offset (px)
+let edDrag = null;                    // { type:'paint'|'wall'|'pan', ... }
+
+// Rebuild the 3D room from the plan (live), then redraw the 2D canvas.
+function syncPlanTo3D() { buildRoom(); drawEditor(); }
+
+// coordinate transforms (world meters ↔ canvas pixels), origin centered + pan
+function worldToScreen(wx, wz) {
+  return { x: edCanvas.width / 2 + editorPan.x + wx * editorScale,
+           y: edCanvas.height / 2 + editorPan.y + wz * editorScale };
+}
+function screenToWorld(px, py) {
+  return { x: (px - edCanvas.width / 2 - editorPan.x) / editorScale,
+           z: (py - edCanvas.height / 2 - editorPan.y) / editorScale };
+}
+function edSnap(v) { return Math.round(v / CELL) * CELL; }
+// canvas pixel coords from a pointer event
+function edPointer(e) {
+  const r = edCanvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (edCanvas.width / r.width),
+           y: (e.clientY - r.top) * (edCanvas.height / r.height) };
+}
+// distance from point P to segment AB, plus projection parameter t (0..1)
+function segDist(px, pz, ax, az, bx, bz) {
+  const dx = bx - ax, dz = bz - az, l2 = dx*dx + dz*dz;
+  let t = l2 ? ((px - ax) * dx + (pz - az) * dz) / l2 : 0;
+  t = clamp(t, 0, 1);
+  const cx = ax + t * dx, cz = az + t * dz;
+  return { dist: Math.hypot(px - cx, pz - cz), t };
+}
+
+function drawEditor() {
+  const W = edCanvas.width, H = edCanvas.height, ctx = edCtx;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#f1ece1'; ctx.fillRect(0, 0, W, H);
+  // grid (0.5m light, 1m darker)
+  const x0 = screenToWorld(0, 0).x, x1 = screenToWorld(W, 0).x;
+  const z0 = screenToWorld(0, 0).z, z1 = screenToWorld(0, H).z;
+  const gx0 = Math.floor(x0 / CELL) * CELL, gz0 = Math.floor(z0 / CELL) * CELL;
+  ctx.lineWidth = 1;
+  for (let x = gx0; x <= x1; x += CELL) {
+    const sx = worldToScreen(x, 0).x;
+    ctx.strokeStyle = (Math.abs(Math.round(x) - x) < 1e-6) ? '#cdc3ae' : '#e2dac9';
+    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
+  }
+  for (let z = gz0; z <= z1; z += CELL) {
+    const sy = worldToScreen(0, z).y;
+    ctx.strokeStyle = (Math.abs(Math.round(z) - z) < 1e-6) ? '#cdc3ae' : '#e2dac9';
+    ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+  }
+  // floor cells
+  const half = CELL / 2;
+  roomPlan.cells.forEach((type, key) => {
+    const [ix, iz] = key.split(',').map(Number);
+    const p = worldToScreen(cellCenterX(ix) - half, cellCenterZ(iz) - half);
+    ctx.fillStyle = floorSwatch(type);
+    ctx.fillRect(p.x, p.y, CELL * editorScale + 0.6, CELL * editorScale + 0.6);
+  });
+  // origin crosshair + axes
+  const o = worldToScreen(0, 0);
+  ctx.strokeStyle = 'rgba(98,168,109,0.7)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(o.x - 9, o.y); ctx.lineTo(o.x + 9, o.y); ctx.moveTo(o.x, o.y - 9); ctx.lineTo(o.x, o.y + 9); ctx.stroke();
+  ctx.fillStyle = 'rgba(110,100,80,0.6)'; ctx.font = '10px sans-serif';
+  ctx.fillText('X →', o.x + 12, o.y - 4); ctx.fillText('↓ Z', o.x + 4, o.y + 16);
+  // walls + doors
+  roomPlan.walls.forEach(wall => {
+    const a = worldToScreen(wall.x1, wall.z1), b = worldToScreen(wall.x2, wall.z2);
+    ctx.strokeStyle = '#5b5048'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    // doors as lighter gaps + swing arc
+    (wall.doors || []).forEach(dr => {
+      const dw = dr.w || 0.9, len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
+      if (len < 0.01) return;
+      const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len;
+      const s = clamp(dr.t, 0, 1) * len;
+      const ax = wall.x1 + ux * (s - dw/2), az = wall.z1 + uz * (s - dw/2);
+      const bx = wall.x1 + ux * (s + dw/2), bz = wall.z1 + uz * (s + dw/2);
+      const pa = worldToScreen(ax, az), pb = worldToScreen(bx, bz);
+      ctx.strokeStyle = '#f1ece1'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+      ctx.strokeStyle = '#b9925e'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(pa.x, pa.y, dw * editorScale, 0, Math.PI / 2); ctx.stroke();
+    });
+  });
+  ctx.lineCap = 'butt';
+  // wall-drawing preview
+  if (edDrag && edDrag.type === 'wall' && edDrag.cur) {
+    const a = worldToScreen(edDrag.x1, edDrag.z1), b = worldToScreen(edDrag.cur.x, edDrag.cur.z);
+    ctx.strokeStyle = 'rgba(98,168,109,0.85)'; ctx.lineWidth = 4;
+    ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+
+// Constrain an endpoint to horiz/vertical when near-axis (cleaner plans).
+function edAxisSnap(x1, z1, x2, z2) {
+  const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz);
+  if (len < 1e-6) return { x: x2, z: z2 };
+  const ang = Math.abs(Math.atan2(dz, dx));
+  const near = 15 * Math.PI / 180;
+  if (ang < near || Math.abs(ang - Math.PI) < near) return { x: x2, z: z1 };     // horizontal
+  if (Math.abs(ang - Math.PI/2) < near) return { x: x1, z: z2 };                 // vertical
+  return { x: x2, z: z2 };
+}
+
+function edFindWall(wx, wz, pxThreshold) {
+  const wt = pxThreshold / editorScale; let best = null, bi = -1;
+  roomPlan.walls.forEach((wall, i) => {
+    const r = segDist(wx, wz, wall.x1, wall.z1, wall.x2, wall.z2);
+    if (r.dist < wt && (!best || r.dist < best.dist)) { best = r; bi = i; }
+  });
+  return best ? { index: bi, t: best.t } : null;
+}
+
+function edApplyAt(px, py) {
+  const w = screenToWorld(px, py);
+  if (edTool === 'floor' || edTool === 'erase') {
+    const ix = Math.round(w.x / CELL), iz = Math.round(w.z / CELL), key = cellKey(ix, iz);
+    if (edTool === 'floor') {
+      if (roomPlan.cells.get(key) === editorFloorType) return false;
+      roomPlan.cells.set(key, editorFloorType);
+    } else {
+      if (!roomPlan.cells.has(key)) return false;
+      roomPlan.cells.delete(key);
+    }
+    return true;
+  }
+  return false;
+}
+
+edCanvas.addEventListener('pointerdown', e => {
+  e.preventDefault(); edCanvas.setPointerCapture(e.pointerId);
+  const p = edPointer(e);
+  // middle button or space-less pan via right button
+  if (e.button === 1 || e.button === 2) { edDrag = { type: 'pan', sx: p.x, sy: p.y, ox: editorPan.x, oy: editorPan.y }; return; }
+  const w = screenToWorld(p.x, p.y);
+  if (edTool === 'floor' || edTool === 'erase') {
+    edDrag = { type: 'paint' };
+    if (edApplyAt(p.x, p.y)) syncPlanTo3D(); else drawEditor();
+  } else if (edTool === 'wall') {
+    edDrag = { type: 'wall', x1: edSnap(w.x), z1: edSnap(w.z), cur: { x: edSnap(w.x), z: edSnap(w.z) } };
+    drawEditor();
+  } else if (edTool === 'door') {
+    const hit = edFindWall(w.x, w.z, 14);
+    if (hit) {
+      const wall = roomPlan.walls[hit.index];
+      const di = wall.doors.findIndex(dr => Math.abs(dr.t - hit.t) < 0.18);
+      if (di >= 0) wall.doors.splice(di, 1); else wall.doors.push({ t: clamp(hit.t, 0.05, 0.95), w: 0.9 });
+      syncPlanTo3D();
+    }
+  } else if (edTool === 'delwall') {
+    const hit = edFindWall(w.x, w.z, 14);
+    if (hit) { roomPlan.walls.splice(hit.index, 1); syncPlanTo3D(); }
+  }
+});
+edCanvas.addEventListener('pointermove', e => {
+  if (!edDrag) return;
+  const p = edPointer(e);
+  if (edDrag.type === 'pan') { editorPan.x = edDrag.ox + (p.x - edDrag.sx); editorPan.y = edDrag.oy + (p.y - edDrag.sy); drawEditor(); return; }
+  if (edDrag.type === 'paint') { if (edApplyAt(p.x, p.y)) syncPlanTo3D(); return; }
+  if (edDrag.type === 'wall') { const w = screenToWorld(p.x, p.y); edDrag.cur = { x: edSnap(w.x), z: edSnap(w.z) }; drawEditor(); }
+});
+edCanvas.addEventListener('pointerup', e => {
+  if (edDrag && edDrag.type === 'wall' && edDrag.cur) {
+    let { x: ex, z: ez } = edAxisSnap(edDrag.x1, edDrag.z1, edDrag.cur.x, edDrag.cur.z);
+    ex = edSnap(ex); ez = edSnap(ez);
+    if (Math.hypot(ex - edDrag.x1, ez - edDrag.z1) >= CELL) {
+      roomPlan.walls.push({ x1: edDrag.x1, z1: edDrag.z1, x2: ex, z2: ez, doors: [] });
+      syncPlanTo3D();
+    } else drawEditor();
+  }
+  edDrag = null;
+});
+edCanvas.addEventListener('pointerleave', () => { if (edDrag && edDrag.type !== 'wall') edDrag = null; });
+edCanvas.addEventListener('contextmenu', e => e.preventDefault());
+edCanvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const p = edPointer(e);
+  const before = screenToWorld(p.x, p.y);
+  editorScale = clamp(editorScale * (e.deltaY < 0 ? 1.12 : 0.89), 12, 120);
+  const after = screenToWorld(p.x, p.y);
+  // keep the point under the cursor stable
+  editorPan.x += (after.x - before.x) * editorScale;
+  editorPan.y += (after.z - before.z) * editorScale;
+  drawEditor();
+}, { passive: false });
+
+function openEditor() {
+  if (state === 'PLACING') cancelPlacement(); exitPaintMode(); deselect();
+  editorFloorType = floorType;
+  const sel = document.getElementById('editor-floor-select'); if (sel) sel.value = editorFloorType;
+  // frame the plan: fit bounding box to canvas
+  const b = planBounds();
+  editorScale = clamp(Math.min(edCanvas.width / (b.w + 4), edCanvas.height / (b.d + 4)), 14, 80);
+  editorPan = { x: 0, y: 0 };
+  document.getElementById('editor-modal').classList.add('open');
+  drawEditor();
+}
+function closeEditor() { document.getElementById('editor-modal').classList.remove('open'); }
+
 // ============================================================ BOOT
 function boot() {
   if (typeof WebGLRenderingContext === 'undefined') { document.getElementById('no-webgl').classList.add('show'); document.getElementById('app').style.display = 'none'; return; }
+  roomPlan = rectToPlan(6, 6, [], 'wood'); // valid plan before first build
   buildRoom(); initUI(); updateHistoryButtons(); handleResize(); animate();
   // Welcome with the 1LDK preset so users see a furnished room immediately
   applyLayout(PRESETS[2]);
