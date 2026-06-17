@@ -996,6 +996,13 @@ const FURNITURE_DEFS = [
   { id:'plant',   cat:'deco',    name:'観葉植物',          icon:'fa-leaf',           w:0.4, d:0.4,  h:1.3,  colorIdx:5, build:buildPlant },
   { id:'tv',      cat:'deco',    name:'テレビ',            icon:'fa-tv',             w:1.4, d:0.1,  h:0.85, colorIdx:2, build:buildTV },
   { id:'rug',     cat:'deco',    name:'ラグ',              icon:'fa-rug',            w:2.0, d:1.5,  h:0.02, colorIdx:9, build:buildRug },
+  { id:'workbench',  cat:'factory', name:'作業台',          icon:'fa-screwdriver-wrench', w:1.5,  d:0.75, h:0.9,  colorIdx:2, build:buildWorkbench },
+  { id:'toolcab',    cat:'factory', name:'ツールキャビネット', icon:'fa-toolbox',          w:0.7,  d:0.45, h:1.12, colorIdx:3, build:buildToolCabinet },
+  { id:'conveyor',   cat:'factory', name:'コンベアベルト',   icon:'fa-arrows-left-right',  w:2.4,  d:0.5,  h:0.82, colorIdx:2, build:buildConveyor },
+  { id:'robot',      cat:'factory', name:'産業ロボット',     icon:'fa-robot',              w:0.65, d:0.65, h:1.65, colorIdx:7, build:buildIndustrialRobot },
+  { id:'cnc',        cat:'factory', name:'CNC工作機械',      icon:'fa-gear',               w:1.2,  d:1.0,  h:1.54, colorIdx:2, build:buildCNCMachine },
+  { id:'palletrack', cat:'factory', name:'パレットラック',   icon:'fa-layer-group',         w:1.7,  d:0.5,  h:2.46, colorIdx:3, build:buildPalletRack },
+  { id:'ctrlpanel',  cat:'factory', name:'制御盤',           icon:'fa-sliders',            w:0.8,  d:0.45, h:1.86, colorIdx:2, build:buildControlPanel },
 ];
 
 // ============================================================ FURNITURE BUILDERS
@@ -1175,6 +1182,165 @@ function buildRug({ color='#3f5d7a', w=2.0, d=1.5 } = {}) {
   const tex = makeRugTexture(color);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.98, metalness: 0, envMapIntensity: 0.15 }));
   m.rotation.x = -Math.PI/2; m.position.y = 0.012; m.receiveShadow = true; m.userData.colorable = false; g.add(m);
+  return g;
+}
+
+function buildWorkbench(color) {
+  const g = new THREE.Group();
+  const metal = mat('#7a8490', 0.3, 0.7);
+  const top = box(1.5, 0.06, 0.75, mat('#6b7280', 0.4, 0.5), 0, 0.87, 0);
+  top.userData.colorable = true; g.add(top);
+  // legs
+  [[-0.67,-0.32],[-0.67,0.32],[0.67,-0.32],[0.67,0.32]].forEach(([x,z]) => {
+    const leg = box(0.06, 0.88, 0.06, metal, x, 0.44, z); g.add(leg);
+  });
+  // lower shelf
+  const shelf = box(1.38, 0.04, 0.63, mat('#5a6370', 0.5, 0.4), 0, 0.3, 0); g.add(shelf);
+  // vise
+  const vise = box(0.18, 0.12, 0.12, mat('#4a5260', 0.3, 0.7), 0.55, 0.93, 0.34); g.add(vise);
+  const vise2 = box(0.06, 0.1, 0.18, mat('#3a4250', 0.3, 0.8), 0.55, 0.93, 0.37); g.add(vise2);
+  return g;
+}
+
+function buildToolCabinet(color) {
+  const g = new THREE.Group();
+  const body = box(0.7, 1.1, 0.45, mat(color, 0.35, 0.6), 0, 0.55, 0); body.userData.colorable = true; g.add(body);
+  const top = box(0.72, 0.04, 0.47, mat('#333a42', 0.2, 0.8), 0, 1.12, 0); g.add(top);
+  // drawer fronts
+  for (let i = 0; i < 5; i++) {
+    const dr = box(0.62, 0.16, 0.03, mat(color, 0.4, 0.5), 0, 0.18 + i*0.18, 0.24); dr.userData.colorable = true; g.add(dr);
+    const hdl = box(0.18, 0.03, 0.025, mat('#888fa0', 0.2, 0.9), 0, 0.18 + i*0.18, 0.258); g.add(hdl);
+  }
+  // wheels
+  [[-0.28,0.18],[0.28,0.18],[-0.28,-0.18],[0.28,-0.18]].forEach(([x,z]) => {
+    const w = cyl(0.045, 0.045, 0.04, 10, mat('#222', 0.9, 0)); w.rotation.x = Math.PI/2; w.position.set(x, 0.05, z); g.add(w);
+  });
+  return g;
+}
+
+function buildConveyor(color) {
+  const g = new THREE.Group();
+  const frame = mat('#5a6370', 0.3, 0.7);
+  const belt = mat('#222831', 0.85, 0.1);
+  // main frame
+  [-0.22, 0.22].forEach(z => {
+    const side = box(2.4, 0.06, 0.06, frame, 0, 0.75, z); g.add(side);
+  });
+  // belt surface
+  const beltTop = box(2.36, 0.04, 0.38, belt, 0, 0.78, 0); beltTop.userData.colorable = true; g.add(beltTop);
+  // belt lines
+  for (let i = -1.0; i <= 1.0; i += 0.2) {
+    const line = box(0.02, 0.005, 0.38, mat('#3a3f47', 0.9, 0), i, 0.802, 0); g.add(line);
+  }
+  // rollers at ends
+  [-1.15, 1.15].forEach(x => {
+    const roll = cyl(0.07, 0.07, 0.5, 12, mat('#7a8490', 0.3, 0.6)); roll.rotation.z = Math.PI/2; roll.position.set(x, 0.75, 0); g.add(roll);
+  });
+  // legs
+  [[-0.9,0],[0.9,0]].forEach(([x]) => {
+    [-0.18, 0.18].forEach(z => {
+      const leg = box(0.05, 0.72, 0.05, frame, x, 0.36, z); g.add(leg);
+      const foot = box(0.12, 0.04, 0.12, frame, x, 0.02, z); g.add(foot);
+    });
+  });
+  return g;
+}
+
+function buildIndustrialRobot(color) {
+  const g = new THREE.Group();
+  const matte = mat('#e8e0d0', 0.5, 0.1);
+  const joint = mat('#c0bdb8', 0.3, 0.4);
+  // base
+  const base = cyl(0.28, 0.32, 0.22, 16, mat('#4a5260', 0.4, 0.5)); base.position.y = 0.11; g.add(base);
+  // shoulder body
+  const shoulder = box(0.28, 0.3, 0.22, matte, 0, 0.37, 0); g.add(shoulder);
+  const j1 = cyl(0.13, 0.13, 0.26, 12, joint); j1.rotation.z = Math.PI/2; j1.position.set(0, 0.52, 0); g.add(j1);
+  // upper arm
+  const uarm = box(0.14, 0.52, 0.16, matte, 0, 0.78, 0); g.add(uarm);
+  const j2 = cyl(0.1, 0.1, 0.22, 12, joint); j2.rotation.z = Math.PI/2; j2.position.set(0, 1.06, 0); g.add(j2);
+  // forearm (angled forward)
+  const farm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.14), matte.clone());
+  farm.position.set(0, 1.27, 0.14); farm.rotation.x = -0.38; g.add(farm);
+  // wrist
+  const wrist = cyl(0.08, 0.08, 0.14, 10, joint); wrist.position.set(0, 1.48, 0.26); g.add(wrist);
+  // gripper
+  [-0.07, 0.07].forEach(x => {
+    const finger = box(0.04, 0.13, 0.04, mat('#333', 0.6, 0.3), x, 1.56, 0.3); g.add(finger);
+  });
+  return g;
+}
+
+function buildCNCMachine(color) {
+  const g = new THREE.Group();
+  const bodyMat = mat(color, 0.4, 0.3);
+  const darkMat = mat('#2a3038', 0.5, 0.2);
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x88aacc, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.35 });
+  // main body
+  const body = box(1.2, 1.4, 1.0, bodyMat, 0, 0.7, 0); body.userData.colorable = true; g.add(body);
+  // top cover
+  const topCover = box(1.22, 0.12, 1.02, darkMat, 0, 1.46, 0); g.add(topCover);
+  // viewing window
+  const glass = box(0.65, 0.55, 0.02, glassMat, 0, 0.85, 0.515); g.add(glass);
+  // window frame
+  const wf = box(0.69, 0.59, 0.025, mat('#3a4250', 0.4, 0.4), 0, 0.85, 0.51); g.add(wf);
+  // control panel on right
+  const panel = box(0.28, 0.55, 0.08, darkMat, 0.55, 0.85, 0.46); g.add(panel);
+  // buttons on panel
+  [[0,0.15],[0,0],[0,-0.15]].forEach(([dx,dy]) => {
+    const btn = cyl(0.025, 0.025, 0.03, 8, mat(dy>0?'#22c55e':dy<0?'#ef4444':'#f59e0b', 0.5, 0.2));
+    btn.rotation.z = Math.PI/2; btn.position.set(0.595, 0.85 + dy, 0.44 + dx); g.add(btn);
+  });
+  // base / feet
+  const base = box(1.28, 0.08, 1.08, darkMat, 0, 0.04, 0); g.add(base);
+  // spindle head visible at top
+  const spindle = cyl(0.04, 0.06, 0.18, 10, mat('#aab4c0', 0.2, 0.7)); spindle.position.set(0, 1.34, 0); g.add(spindle);
+  return g;
+}
+
+function buildPalletRack(color) {
+  const g = new THREE.Group();
+  const steel = mat('#8a9aaa', 0.3, 0.6);
+  const shelfMat = mat(color, 0.5, 0.3);
+  // uprights
+  [-0.8, 0.8].forEach(x => {
+    const up = box(0.05, 2.4, 0.06, steel, x, 1.2, 0); g.add(up);
+    // diagonal braces
+    for (let y = 0.3; y < 2.2; y += 0.8) {
+      const br = box(0.03, 0.58, 0.5, steel, x, y + 0.29, 0); g.add(br);
+    }
+  });
+  // shelf beams + boards at 3 levels
+  [0.42, 1.22, 2.02].forEach(y => {
+    [-0.8, 0.8].forEach(x => {
+      const beam = box(0.05, 0.06, 0.46, mat('#6a7a8a', 0.3, 0.5), x, y, 0); g.add(beam);
+    });
+    const board = box(1.52, 0.04, 0.44, shelfMat, 0, y + 0.05, 0); board.userData.colorable = true; g.add(board);
+    // pallet
+    const pallet = box(1.1, 0.1, 0.38, mat('#b8985c', 0.8, 0), 0, y + 0.12, 0); g.add(pallet);
+  });
+  return g;
+}
+
+function buildControlPanel(color) {
+  const g = new THREE.Group();
+  const cabinet = box(0.8, 1.8, 0.45, mat(color, 0.4, 0.3), 0, 0.9, 0); cabinet.userData.colorable = true; g.add(cabinet);
+  const top = box(0.82, 0.06, 0.47, mat('#222', 0.5, 0.3), 0, 1.83, 0); g.add(top);
+  const door = box(0.68, 1.5, 0.02, mat('#d4dae0', 0.3, 0.4), 0, 0.85, 0.235); g.add(door);
+  // indicators
+  const colors = ['#22c55e','#22c55e','#f59e0b','#ef4444','#3b82f6'];
+  colors.forEach((cl, i) => {
+    const ind = cyl(0.022, 0.022, 0.04, 8, mat(cl, 0.3, 0.2));
+    ind.rotation.z = Math.PI/2; ind.position.set(0.25 - i*0.1, 1.35, 0.248); g.add(ind);
+  });
+  // switches
+  for (let i = 0; i < 6; i++) {
+    const sw = box(0.04, 0.08, 0.03, mat('#555', 0.5, 0.3), -0.25 + (i%3)*0.24, 0.9 + Math.floor(i/3)*0.18, 0.248); g.add(sw);
+  }
+  // display screen
+  const screen = box(0.5, 0.26, 0.015, mat('#001a1a', 0.9, 0.1), 0, 1.1, 0.24);
+  g.add(screen);
+  // base
+  const base = box(0.82, 0.06, 0.47, mat('#222', 0.5, 0.2), 0, 0.03, 0); g.add(base);
   return g;
 }
 
@@ -1460,6 +1626,18 @@ function buildCatalog(filter = '', cat = 'all') {
   });
 }
 
+// ============================================================ ROTATE HELPER
+function rotateSelected(delta) {
+  if (!selectedGroup) return;
+  const item = placedItems.find(i => i.group === selectedGroup);
+  if (!item) return;
+  const newRot = ((item.rotY + delta) % 360 + 360) % 360;
+  pushHistory({ type: 'rotate', item, fromRot: item.rotY, toRot: newRot });
+  item.rotY = newRot;
+  selectedGroup.rotation.y = (item.rotY * Math.PI) / 180;
+  refreshSelection();
+}
+
 // ============================================================ UI INIT
 function initUI() {
   buildCatalog(); buildPresetCards();
@@ -1508,16 +1686,6 @@ function initUI() {
   document.getElementById('btn-zoom-out').addEventListener('click', () => { camera.position.sub(controls.target).multiplyScalar(1.18).add(controls.target); controls.update(); });
   document.getElementById('btn-reset-cam').addEventListener('click', () => { camera.position.copy(DEFAULT_CAM_POS); controls.target.set(0, 0.4, 0); controls.maxPolarAngle = Math.PI/2.05; controls.update(); isTopView = false; document.getElementById('btn-topview').classList.remove('active'); });
 
-  function rotateSelected(delta) {
-    if (!selectedGroup) return;
-    const item = placedItems.find(i => i.group === selectedGroup);
-    if (!item) return;
-    const newRot = ((item.rotY + delta) % 360 + 360) % 360;
-    pushHistory({ type: 'rotate', item, fromRot: item.rotY, toRot: newRot });
-    item.rotY = newRot;
-    selectedGroup.rotation.y = (item.rotY * Math.PI) / 180;
-    refreshSelection();
-  }
   document.getElementById('btn-rot-ccw').addEventListener('click', () => rotateSelected(-90));
   document.getElementById('btn-rot-cw').addEventListener('click', () => rotateSelected(90));
   document.getElementById('btn-duplicate').addEventListener('click', () => {
