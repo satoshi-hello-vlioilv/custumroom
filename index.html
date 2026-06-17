@@ -155,6 +155,17 @@ body {
 .seg button.active { background: var(--bg-panel); color: var(--accent-dark); box-shadow: var(--shadow-xs); }
 .seg button i { font-size: 11px; }
 
+.mat-select {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 var(--sp-2) 0 var(--sp-3);
+  background: var(--bg-panel-alt); border: 1px solid var(--border); border-radius: var(--r-sm);
+  color: var(--text-muted); cursor: pointer;
+}
+.mat-select i { font-size: 12px; }
+.mat-select select {
+  border: none; background: transparent; font: inherit; font-size: 11px; font-weight: 600;
+  color: var(--text-secondary); cursor: pointer; outline: none; padding: 4px 2px; max-width: 110px;
+}
+
 .room-size-ctrl {
   display: flex; align-items: center; gap: var(--sp-2);
   background: var(--bg-panel-alt); border: 1px solid var(--border);
@@ -403,10 +414,9 @@ body {
         <button data-mode="ghost"><i class="fa-regular fa-square"></i> 全半透明</button>
       </div>
       <div class="toolbar-divider"></div>
-      <div class="seg" id="floor-seg" data-tip="床の種類">
-        <button data-floor="wood" class="active"><i class="fa-solid fa-border-none"></i> 木床</button>
-        <button data-floor="concrete"><i class="fa-solid fa-grip"></i> コンクリート</button>
-      </div>
+      <label class="mat-select" data-tip="壁の種類"><i class="fa-solid fa-paint-roller"></i><select id="wall-type-select"></select></label>
+      <label class="mat-select" data-tip="床の種類"><i class="fa-solid fa-layer-group"></i><select id="floor-type-select"></select></label>
+      <button class="tb-btn" id="btn-floor-paint" data-tip="床を部分的に塗る（左:塗る / 右:消す）"><i class="fa-solid fa-fill-drip"></i></button>
       <button class="tb-btn active" id="btn-grid" data-tip="グリッド表示"><i class="fa-solid fa-border-all"></i></button>
       <button class="tb-btn" id="btn-topview" data-tip="真上から見る"><i class="fa-solid fa-angles-down"></i></button>
     </div>
@@ -575,7 +585,10 @@ let roomW = 6, roomD = 6, partitions = [];
 let showGrid = true, showShadows = true, isTopView = false;
 let wallMode = 'cutaway';
 let wallMeshes = [];
-let floorType = 'wood'; // 'wood' | 'concrete'
+let floorType = 'wood', wallType = 'cream';
+let paintMode = false;
+let paintableWalls = [];
+let floorPatches = new Map(); // key "ix,iz" -> { mesh, type }
 
 // ============================================================ RENDERER
 const canvas = document.getElementById('three-canvas');
@@ -757,10 +770,182 @@ function makeConcreteTexture() {
   return t;
 }
 
+function makeTileTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  const tiles = 4, ts = s / tiles, grout = 6;
+  ctx.fillStyle = '#3c4654'; ctx.fillRect(0, 0, s, s); // grout color
+  for (let i = 0; i < tiles; i++) for (let j = 0; j < tiles; j++) {
+    const x = i*ts + grout/2, y = j*ts + grout/2, w = ts - grout;
+    const shade = 0.94 + Math.random()*0.1;
+    const g = ctx.createLinearGradient(x, y, x+w, y+w);
+    g.addColorStop(0, `rgba(${238*shade|0},${240*shade|0},${243*shade|0},1)`);
+    g.addColorStop(1, `rgba(${214*shade|0},${219*shade|0},${225*shade|0},1)`);
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, w);
+    // subtle speckle
+    for (let k = 0; k < 40; k++) {
+      ctx.fillStyle = `rgba(120,128,140,${Math.random()*0.05})`;
+      ctx.fillRect(x + Math.random()*w, y + Math.random()*w, 1, 1);
+    }
+    // sheen highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(x, y, w, 2);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+function makeMarbleTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#f4f2ee'; ctx.fillRect(0, 0, s, s);
+  // soft cloudy base
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 60 + Math.random()*120;
+    const g = ctx.createRadialGradient(x, y, 1, x, y, r);
+    g.addColorStop(0, `rgba(210,208,202,${0.04 + Math.random()*0.05})`);
+    g.addColorStop(1, 'rgba(210,208,202,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  // veins
+  for (let v = 0; v < 14; v++) {
+    ctx.strokeStyle = `rgba(${90+Math.random()*40|0},${90+Math.random()*40|0},${95+Math.random()*40|0},${0.18+Math.random()*0.25})`;
+    ctx.lineWidth = 0.6 + Math.random()*2;
+    ctx.beginPath();
+    let x = Math.random()*s, y = Math.random()*s; ctx.moveTo(x, y);
+    const steps = 8 + Math.random()*10;
+    for (let i = 0; i < steps; i++) { x += (Math.random()-0.5)*90; y += (Math.random()-0.5)*90; ctx.lineTo(x, y); }
+    ctx.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+function makeCarpetTexture() {
+  const s = 256, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#c9c2b4'; ctx.fillRect(0, 0, s, s);
+  // dense fiber speckle
+  for (let i = 0; i < 26000; i++) {
+    const v = 180 + Math.random()*55;
+    ctx.fillStyle = `rgba(${v},${v-6},${v-18},${0.12 + Math.random()*0.18})`;
+    ctx.fillRect(Math.random()*s, Math.random()*s, 1, 1 + Math.random()*1.5);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+function makeTatamiTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#cdbf86'; ctx.fillRect(0, 0, s, s);
+  const mats = 2, ms = s / mats;
+  for (let i = 0; i < mats; i++) for (let j = 0; j < mats; j++) {
+    const x = i*ms, y = j*ms;
+    // alternate weave direction per mat for the classic checker look
+    const horizontal = (i + j) % 2 === 0;
+    ctx.save(); ctx.beginPath(); ctx.rect(x+4, y+4, ms-8, ms-8); ctx.clip();
+    ctx.strokeStyle = 'rgba(150,135,80,0.4)'; ctx.lineWidth = 1;
+    for (let k = 0; k < ms; k += 4) {
+      ctx.beginPath();
+      if (horizontal) { ctx.moveTo(x, y+k); ctx.lineTo(x+ms, y+k); }
+      else { ctx.moveTo(x+k, y); ctx.lineTo(x+k, y+ms); }
+      ctx.stroke();
+    }
+    ctx.restore();
+    // dark cloth border (heri)
+    ctx.fillStyle = '#2f3a2a';
+    ctx.fillRect(x+2, y+2, ms-4, 5); ctx.fillRect(x+2, y+ms-7, ms-4, 5);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+function makeBrickTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#caa593'; ctx.fillRect(0, 0, s, s); // mortar
+  const rows = 8, bh = s / rows, bw = s / 4;
+  for (let r = 0; r < rows; r++) {
+    const offset = (r % 2) * (bw / 2);
+    for (let b = -1; b < 4; b++) {
+      const x = b*bw + offset + 4, y = r*bh + 4, w = bw - 8, h = bh - 8;
+      const base = [178, 92, 72];
+      const f = 0.85 + Math.random()*0.3;
+      ctx.fillStyle = `rgb(${base[0]*f|0},${base[1]*f|0},${base[2]*f|0})`;
+      ctx.fillRect(x, y, w, h);
+      // speckle on each brick
+      for (let k = 0; k < 30; k++) {
+        ctx.fillStyle = `rgba(${60+Math.random()*40|0},30,20,${Math.random()*0.12})`;
+        ctx.fillRect(x + Math.random()*w, y + Math.random()*h, 1.5, 1.5);
+      }
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+function makePanelTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#e9e2d4'; ctx.fillRect(0, 0, s, s);
+  // vertical wainscot panels
+  const panels = 4, pw = s / panels;
+  for (let i = 0; i < panels; i++) {
+    const x = i*pw;
+    ctx.fillStyle = 'rgba(0,0,0,0.06)'; ctx.fillRect(x + pw - 3, 0, 3, s);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(x + 2, 0, 2, s);
+    // inset rectangle
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 2;
+    ctx.strokeRect(x + 14, 40, pw - 30, s - 80);
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
+    ctx.strokeRect(x + 16, 42, pw - 34, s - 84);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
 const woodTex = makeWoodTexture();
 const concreteTex = makeConcreteTexture();
 const wallTexSrc = makeWallTexture();
 const noiseTex = makeNoiseTexture();
+const tileTex = makeTileTexture();
+const marbleTex = makeMarbleTexture();
+const carpetTex = makeCarpetTexture();
+const tatamiTex = makeTatamiTexture();
+const brickTex = makeBrickTexture();
+const panelTex = makePanelTexture();
+
+// Floor & wall material registries — single source of truth for the selectors
+const FLOOR_TYPES = {
+  wood:     { name: '木目フローリング', tex: woodTex,     color: 0xffffff, rough: 0.72, metal: 0.02, per: 2.2 },
+  concrete: { name: 'コンクリート',     tex: concreteTex, color: 0xb0b8bc, rough: 0.92, metal: 0.04, per: 2.2 },
+  tile:     { name: 'タイル',           tex: tileTex,     color: 0xffffff, rough: 0.35, metal: 0.05, per: 1.5 },
+  marble:   { name: '大理石',           tex: marbleTex,   color: 0xffffff, rough: 0.18, metal: 0.06, per: 3.0 },
+  carpet:   { name: 'カーペット',       tex: carpetTex,   color: 0xc9c2b4, rough: 0.98, metal: 0.0,  per: 1.2 },
+  tatami:   { name: '畳',               tex: tatamiTex,   color: 0xffffff, rough: 0.85, metal: 0.0,  per: 0.9 },
+};
+const WALL_TYPES = {
+  cream:    { name: 'クリーム壁紙',  tex: wallTexSrc, color: 0xfbf6ec, rough: 0.95, metal: 0.0 },
+  white:    { name: 'ホワイト',      tex: wallTexSrc, color: 0xf7f7f5, rough: 0.9,  metal: 0.0 },
+  navy:     { name: 'ネイビー',      tex: wallTexSrc, color: 0x3c4a63, rough: 0.9,  metal: 0.0 },
+  sage:     { name: 'セージグリーン', tex: wallTexSrc, color: 0x8a9a7b, rough: 0.9,  metal: 0.0 },
+  panel:    { name: '腰壁パネル',    tex: panelTex,   color: 0xffffff, rough: 0.85, metal: 0.0 },
+  brick:    { name: 'レンガ',        tex: brickTex,   color: 0xffffff, rough: 0.92, metal: 0.0 },
+  concrete: { name: '打ちっぱなし',   tex: concreteTex, color: 0xc2c6ca, rough: 0.95, metal: 0.02 },
+  wood:     { name: '木目パネル',    tex: woodTex,    color: 0xcaa46d, rough: 0.7,  metal: 0.02 },
+};
 
 // ============================================================ GEOMETRY HELPERS
 // Rounded box for soft, cozy furniture silhouettes
@@ -853,19 +1038,75 @@ function registerWall(mesh) {
   wallMeshes.push(mesh);
 }
 
+// Apply a floor-type spec to a material, sizing the texture to cover `w`×`d` meters.
+function applyFloorSpec(material, type, w, d) {
+  const spec = FLOOR_TYPES[type] || FLOOR_TYPES.wood;
+  const t = spec.tex.clone(); t.needsUpdate = true;
+  t.repeat.set(Math.max(1, w / spec.per), Math.max(1, d / spec.per));
+  material.map = t;
+  material.color.set(spec.color);
+  material.roughness = spec.rough; material.metalness = spec.metal;
+  material.envMapIntensity = 0.35;
+  material.needsUpdate = true;
+}
+
 function updateFloorTexture() {
   roomGroup.traverse(c => {
-    if (c.isMesh && c.userData.isFloor) {
-      const src = floorType === 'concrete' ? concreteTex : woodTex;
-      const t = src.clone(); t.needsUpdate = true;
-      t.repeat.set(Math.max(1, roomW / 2.2), Math.max(1, roomD / 2.2));
-      c.material.map = t;
-      c.material.color.set(floorType === 'concrete' ? 0xb0b8bc : 0xffffff);
-      c.material.roughness = floorType === 'concrete' ? 0.92 : 0.72;
-      c.material.metalness = floorType === 'concrete' ? 0.04 : 0.02;
-      c.material.needsUpdate = true;
-    }
+    if (c.isMesh && c.userData.isFloor) applyFloorSpec(c.material, floorType, roomW, roomD);
   });
+}
+
+function applyWallType() {
+  const spec = WALL_TYPES[wallType] || WALL_TYPES.cream;
+  paintableWalls.forEach(m => {
+    const rep = m.userData.rep || [1, 1];
+    const t = spec.tex.clone(); t.needsUpdate = true;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(rep[0], rep[1]);
+    m.material.map = t;
+    m.material.color.set(spec.color);
+    m.material.roughness = spec.rough; m.material.metalness = spec.metal;
+    m.material.needsUpdate = true;
+  });
+}
+
+// ============================================================ FLOOR PAINT (partial floor)
+const PAINT_CELL = GRID_SNAP; // 0.5m brush cells
+function paintCellKey(x, z) {
+  const ix = Math.floor((x + roomW / 2) / PAINT_CELL);
+  const iz = Math.floor((z + roomD / 2) / PAINT_CELL);
+  return { ix, iz };
+}
+function paintFloorAt(worldX, worldZ, type) {
+  const { ix, iz } = paintCellKey(worldX, worldZ);
+  if (ix < 0 || iz < 0 || ix * PAINT_CELL >= roomW || iz * PAINT_CELL >= roomD) return;
+  const key = ix + ',' + iz;
+  const existing = floorPatches.get(key);
+  if (existing && existing.type === type) return;
+  if (existing) { roomGroup.remove(existing.mesh); existing.mesh.geometry.dispose(); existing.mesh.material.dispose(); }
+  const cx = -roomW / 2 + (ix + 0.5) * PAINT_CELL;
+  const cz = -roomD / 2 + (iz + 0.5) * PAINT_CELL;
+  const spec = FLOOR_TYPES[type] || FLOOR_TYPES.wood;
+  const tex = spec.tex.clone(); tex.needsUpdate = true;
+  tex.repeat.set(PAINT_CELL / spec.per, PAINT_CELL / spec.per);
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(PAINT_CELL, PAINT_CELL),
+    new THREE.MeshStandardMaterial({ map: tex, color: spec.color, roughness: spec.rough, metalness: spec.metal, envMapIntensity: 0.35 })
+  );
+  mesh.rotation.x = -Math.PI / 2; mesh.position.set(cx, 0.006, cz);
+  mesh.receiveShadow = true; mesh.userData.isFloorPatch = true;
+  roomGroup.add(mesh);
+  floorPatches.set(key, { mesh, type });
+}
+function eraseFloorAt(worldX, worldZ) {
+  const { ix, iz } = paintCellKey(worldX, worldZ);
+  const key = ix + ',' + iz;
+  const existing = floorPatches.get(key);
+  if (existing) { roomGroup.remove(existing.mesh); existing.mesh.geometry.dispose(); existing.mesh.material.dispose(); floorPatches.delete(key); }
+}
+function clearFloorPatches() {
+  floorPatches.forEach(p => { roomGroup.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.material.dispose(); });
+  floorPatches = new Map();
 }
 
 function buildRoom() {
@@ -877,6 +1118,8 @@ function buildRoom() {
   }
   if (gridHelper) { scene.remove(gridHelper); gridHelper.geometry.dispose(); gridHelper.material.dispose(); gridHelper = null; }
   wallMeshes = [];
+  paintableWalls = [];
+  floorPatches = new Map(); // meshes were disposed with roomGroup above
 
   const w = roomW, d = roomD;
 
@@ -885,18 +1128,18 @@ function buildRoom() {
   floorBase.position.y = -0.05; floorBase.castShadow = false;
   roomGroup.add(floorBase);
 
-  // Textured wood floor surface
-  const fTex = woodTex.clone(); fTex.needsUpdate = true;
-  fTex.repeat.set(Math.max(1, w/2.2), Math.max(1, d/2.2));
+  // Textured floor surface (material driven by FLOOR_TYPES registry)
   const floorTop = new THREE.Mesh(
     new THREE.PlaneGeometry(w, d),
-    new THREE.MeshStandardMaterial({ map: fTex, roughness: 0.72, metalness: 0.02, envMapIntensity: 0.35 })
+    new THREE.MeshStandardMaterial({ roughness: 0.72, metalness: 0.02, envMapIntensity: 0.35 })
   );
+  applyFloorSpec(floorTop.material, floorType, w, d);
   floorTop.rotation.x = -Math.PI / 2; floorTop.position.y = 0.002; floorTop.receiveShadow = true;
   floorTop.userData.isFloor = true;
   roomGroup.add(floorTop);
 
-  // Outer walls
+  // Outer walls (material driven by WALL_TYPES registry)
+  const wallSpec = WALL_TYPES[wallType] || WALL_TYPES.cream;
   const wallSpecs = [
     { pos: [0, WALL_H/2, -d/2], size: [w + WALL_T*2, WALL_H, WALL_T], rep: [w/1.5, WALL_H/1.5] },
     { pos: [0, WALL_H/2,  d/2], size: [w + WALL_T*2, WALL_H, WALL_T], rep: [w/1.5, WALL_H/1.5] },
@@ -904,11 +1147,12 @@ function buildRoom() {
     { pos: [ w/2, WALL_H/2, 0], size: [WALL_T, WALL_H, d], rep: [d/1.5, WALL_H/1.5] },
   ];
   wallSpecs.forEach(({ pos, size, rep }) => {
-    const tex = wallTexSrc.clone(); tex.needsUpdate = true; tex.repeat.set(rep[0], rep[1]);
+    const tex = wallSpec.tex.clone(); tex.needsUpdate = true; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(rep[0], rep[1]);
     const m = new THREE.Mesh(new THREE.BoxGeometry(...size),
-      new THREE.MeshStandardMaterial({ map: tex, color: 0xfbf6ec, roughness: 0.95, metalness: 0, envMapIntensity: 0.3, transparent: true, opacity: 1.0 }));
+      new THREE.MeshStandardMaterial({ map: tex, color: wallSpec.color, roughness: wallSpec.rough, metalness: wallSpec.metal, envMapIntensity: 0.3, transparent: true, opacity: 1.0 }));
     m.position.set(...pos); m.castShadow = true; m.receiveShadow = true;
-    roomGroup.add(m); registerWall(m);
+    m.userData.rep = rep; m.userData.isMainWall = true;
+    roomGroup.add(m); registerWall(m); paintableWalls.push(m);
   });
 
   // Baseboards (fade with their wall)
@@ -952,16 +1196,18 @@ function buildPartition(seg) {
   const len = Math.hypot(dx, dz);
   if (len < 0.01) return;
   const cxp = (x1 + x2) / 2, czp = (z1 + z2) / 2;
-  const tex = wallTexSrc.clone(); tex.needsUpdate = true; tex.repeat.set(len/1.5, h/1.5);
+  const wallSpec = WALL_TYPES[wallType] || WALL_TYPES.cream;
+  const rep = [len/1.5, h/1.5];
+  const tex = wallSpec.tex.clone(); tex.needsUpdate = true; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(rep[0], rep[1]);
   const m = new THREE.Mesh(
     new THREE.BoxGeometry(len, h, WALL_T),
-    new THREE.MeshStandardMaterial({ map: tex, color: 0xf6f0e5, roughness: 0.95, metalness: 0, envMapIntensity: 0.3, transparent: true, opacity: 1.0 })
+    new THREE.MeshStandardMaterial({ map: tex, color: wallSpec.color, roughness: wallSpec.rough, metalness: wallSpec.metal, envMapIntensity: 0.3, transparent: true, opacity: 1.0 })
   );
   m.position.set(cxp, h/2, czp);
   m.rotation.y = Math.atan2(-dz, dx);
   m.castShadow = true; m.receiveShadow = true;
-  m.userData.isPartition = true;
-  roomGroup.add(m); registerWall(m);
+  m.userData.isPartition = true; m.userData.rep = rep; m.userData.isMainWall = true;
+  roomGroup.add(m); registerWall(m); paintableWalls.push(m);
   // top trim
   const trim = new THREE.Mesh(new THREE.BoxGeometry(len, 0.06, WALL_T + 0.04),
     new THREE.MeshStandardMaterial({ color: 0xfbf7ef, roughness: 0.7, metalness: 0, transparent: true, opacity: 1.0 }));
@@ -993,8 +1239,8 @@ const FURNITURE_DEFS = [
   { id:'chest',   cat:'storage', name:'チェスト',          icon:'fa-box',            w:1.0, d:0.5,  h:1.0,  colorIdx:2, build:buildChest },
   { id:'tvboard', cat:'storage', name:'テレビボード',      icon:'fa-tv',             w:1.8, d:0.45, h:0.5,  colorIdx:2, build:buildTVBoard },
   { id:'lamp',    cat:'deco',    name:'フロアランプ',      icon:'fa-lightbulb',      w:0.3, d:0.3,  h:1.7,  colorIdx:7, build:buildFloorLamp },
-  { id:'plant',   cat:'deco',    name:'観葉植物',          icon:'fa-leaf',           w:0.4, d:0.4,  h:1.3,  colorIdx:5, build:buildPlant },
-  { id:'tv',      cat:'deco',    name:'テレビ',            icon:'fa-tv',             w:1.4, d:0.1,  h:0.85, colorIdx:2, build:buildTV },
+  { id:'plant',   cat:'deco',    name:'観葉植物',          icon:'fa-leaf',           w:0.4, d:0.4,  h:1.3,  colorIdx:5, build:buildPlant, stack:true },
+  { id:'tv',      cat:'deco',    name:'テレビ',            icon:'fa-tv',             w:1.4, d:0.1,  h:0.85, colorIdx:2, build:buildTV, stack:true },
   { id:'rug',     cat:'deco',    name:'ラグ',              icon:'fa-rug',            w:2.0, d:1.5,  h:0.02, colorIdx:9, build:buildRug },
   { id:'workbench',  cat:'factory', name:'作業台',          icon:'fa-screwdriver-wrench', w:1.5,  d:0.75, h:0.9,  colorIdx:2, build:buildWorkbench },
   { id:'toolcab',    cat:'factory', name:'ツールキャビネット', icon:'fa-toolbox',          w:0.7,  d:0.45, h:1.12, colorIdx:3, build:buildToolCabinet },
@@ -1367,6 +1613,22 @@ function clampToRoom(pos, def) {
   return new THREE.Vector3(clamp(pos.x, -hw+hw2, hw-hw2), 0, clamp(pos.z, -hd+hd2, hd-hd2));
 }
 
+// For stackable items: cast a ray straight down at (x,z) and return the top
+// surface Y of whatever furniture is below, so the item rests on it instead of
+// clipping through. Returns 0 (floor) when nothing supports it.
+const _downRay = new THREE.Raycaster();
+const _downOrigin = new THREE.Vector3();
+const _downDir = new THREE.Vector3(0, -1, 0);
+function computeRestY(x, z, excludeGroup) {
+  _downOrigin.set(x, 60, z); _downRay.set(_downOrigin, _downDir);
+  const meshes = [];
+  placedItems.forEach(it => { if (it.group !== excludeGroup) it.group.traverse(c => { if (c.isMesh) meshes.push(c); }); });
+  if (!meshes.length) return 0;
+  const hits = _downRay.intersectObjects(meshes, false);
+  // hits are sorted nearest-first; from far above, the first hit is the highest surface
+  return hits.length ? Math.max(0, hits[0].point.y) : 0;
+}
+
 function placeFurniture(def, position, rotY, color, record = true) {
   const group = def.build({ color, w: def.w, d: def.d, h: def.h });
   group.position.copy(position); group.rotation.y = (rotY*Math.PI)/180;
@@ -1459,7 +1721,14 @@ function applyColor(group, color) {
 }
 
 // ============================================================ GHOST
+function exitPaintMode() {
+  if (!paintMode) return;
+  paintMode = false; paintDragging = false;
+  document.getElementById('btn-floor-paint').classList.remove('active');
+  if (state === 'PAINTING') state = 'IDLE';
+}
 function startPlacement(def) {
+  exitPaintMode();
   cancelPlacement(); state = 'PLACING'; currentDef = def; ghostRotOffset = 0;
   const tmp = def.build({ color: '#62a86d', w: def.w, d: def.d, h: def.h });
   ghostGroup = makeGhost(tmp); ghostGroup.visible = false; scene.add(ghostGroup);
@@ -1497,8 +1766,10 @@ function updateRoomSize(w, d, keepPartitions = false) {
 
 // ============================================================ SERIALIZE
 function saveLayout() {
-  const data = { version: 2, room: { w: roomW, d: roomD }, partitions,
-    items: placedItems.map(i => ({ defId: i.defId, x: i.position.x, z: i.position.z, rotY: i.rotY, color: i.color })) };
+  const patches = [];
+  floorPatches.forEach((p, key) => { const [ix, iz] = key.split(',').map(Number); patches.push({ ix, iz, type: p.type }); });
+  const data = { version: 3, room: { w: roomW, d: roomD }, partitions, floorType, wallType, patches,
+    items: placedItems.map(i => ({ defId: i.defId, x: i.position.x, y: i.position.y, z: i.position.z, rotY: i.rotY, color: i.color })) };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'room-layout.json'; a.click(); URL.revokeObjectURL(url);
   toast('レイアウトを保存しました');
@@ -1507,10 +1778,23 @@ function clearItems() { placedItems.forEach(i => scene.remove(i.group)); placedI
 function applyLayout(layout) {
   clearItems();
   partitions = layout.partitions ? JSON.parse(JSON.stringify(layout.partitions)) : [];
+  if (layout.floorType && FLOOR_TYPES[layout.floorType]) floorType = layout.floorType;
+  if (layout.wallType && WALL_TYPES[layout.wallType]) wallType = layout.wallType;
   updateRoomSize(layout.room.w, layout.room.d, true);
+  // sync the toolbar selects
+  const ws = document.getElementById('wall-type-select'); if (ws) ws.value = wallType;
+  const fs = document.getElementById('floor-type-select'); if (fs) fs.value = floorType;
+  (layout.patches || []).forEach(p => {
+    const cx = -roomW / 2 + (p.ix + 0.5) * PAINT_CELL;
+    const cz = -roomD / 2 + (p.iz + 0.5) * PAINT_CELL;
+    paintFloorAt(cx, cz, p.type);
+  });
   (layout.items || []).forEach(it => {
     const def = FURNITURE_DEFS.find(d => d.id === it.defId); if (!def) return;
-    placeFurniture(def, new THREE.Vector3(it.x, 0, it.z), it.rotY, it.color ?? COLORS[def.colorIdx], false);
+    // Auto-rest stackable items (TV/plant) on whatever was placed earlier in the list
+    const y = (it.y != null) ? it.y : (def.stack ? computeRestY(it.x, it.z, null) : 0);
+    const item = placeFurniture(def, new THREE.Vector3(it.x, y, it.z), it.rotY, it.color ?? COLORS[def.colorIdx], false);
+    item.position.y = y;
   });
 }
 function loadLayout(json) { try { applyLayout(JSON.parse(json)); toast('レイアウトを読み込みました'); } catch (e) { toast('読み込みに失敗しました'); } }
@@ -1658,12 +1942,32 @@ function initUI() {
     const b = e.target.closest('button'); if (!b) return; wallMode = b.dataset.mode;
     document.querySelectorAll('#wall-seg button').forEach(x => x.classList.toggle('active', x === b));
   });
-  // Floor type segmented
-  document.getElementById('floor-seg').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    floorType = b.dataset.floor;
-    document.querySelectorAll('#floor-seg button').forEach(btn => btn.classList.toggle('active', btn === b));
-    updateFloorTexture();
+  // Wall type select
+  const wallSel = document.getElementById('wall-type-select');
+  Object.entries(WALL_TYPES).forEach(([key, spec]) => { const o = document.createElement('option'); o.value = key; o.textContent = spec.name; wallSel.appendChild(o); });
+  wallSel.value = wallType;
+  wallSel.addEventListener('change', () => { wallType = wallSel.value; applyWallType(); });
+  // Floor type select — in paint mode it just sets the brush, otherwise it repaints the whole floor
+  const floorSel = document.getElementById('floor-type-select');
+  Object.entries(FLOOR_TYPES).forEach(([key, spec]) => { const o = document.createElement('option'); o.value = key; o.textContent = spec.name; floorSel.appendChild(o); });
+  floorSel.value = floorType;
+  floorSel.addEventListener('change', () => {
+    floorType = floorSel.value;
+    if (paintMode) toast(FLOOR_TYPES[floorType].name + ' で塗ります（左ドラッグ）');
+    else updateFloorTexture();
+  });
+  // Floor paint mode toggle
+  document.getElementById('btn-floor-paint').addEventListener('click', function() {
+    paintMode = !paintMode;
+    this.classList.toggle('active', paintMode);
+    if (paintMode) {
+      if (state === 'PLACING') cancelPlacement();
+      deselect(); state = 'PAINTING';
+      setStatus('床ペイント: ' + FLOOR_TYPES[floorType].name + '（左ドラッグで塗る / 右ドラッグで消す）', 'busy');
+      toast('床ペイントモード: 床をドラッグして塗ります');
+    } else {
+      state = 'IDLE'; paintDragging = false; setStatus('準備完了');
+    }
   });
   document.getElementById('btn-grid').addEventListener('click', function() { showGrid = !showGrid; this.classList.toggle('active', showGrid); if (gridHelper) gridHelper.visible = showGrid; });
   document.getElementById('btn-topview').addEventListener('click', function() {
@@ -1691,14 +1995,16 @@ function initUI() {
   document.getElementById('btn-duplicate').addEventListener('click', () => {
     if (!selectedGroup) return; const item = placedItems.find(i => i.group === selectedGroup); if (!item) return;
     const def = FURNITURE_DEFS.find(d => d.id === item.defId);
-    placeFurniture(def, item.position.clone().add(new THREE.Vector3(GRID_SNAP, 0, GRID_SNAP)), item.rotY, item.color);
+    const np = item.position.clone().add(new THREE.Vector3(GRID_SNAP, 0, GRID_SNAP)); np.y = 0;
+    if (def.stack) np.y = computeRestY(np.x, np.z, null);
+    const dup = placeFurniture(def, np, item.rotY, item.color); dup.position.y = np.y;
     toast(def.name + ' を複製しました');
   });
   document.getElementById('btn-delete').addEventListener('click', () => { if (!selectedGroup) return; removeFurniture(selectedGroup); deselect(); toast('削除しました'); });
 
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT') return;
-    if (e.key === 'Escape') { if (state==='PLACING') cancelPlacement(); else { deselect(); closePresetModal(); } }
+    if (e.key === 'Escape') { if (state==='PLACING') cancelPlacement(); else if (paintMode) exitPaintMode(); else { deselect(); closePresetModal(); } }
     if ((e.key==='Delete'||e.key==='Backspace') && selectedGroup && state!=='PLACING') { removeFurniture(selectedGroup); deselect(); }
     if (e.key==='r'||e.key==='R') {
       if (state==='PLACING') { ghostRotOffset = (ghostRotOffset+90)%360; if (ghostGroup) ghostGroup.rotation.y = (ghostRotOffset*Math.PI)/180; }
@@ -1712,8 +2018,17 @@ function initUI() {
 // ============================================================ POINTER INTERACTION
 let pointerDown = false, grabbed = false, dragStarted = false;
 let pointerStart = { x: 0, y: 0 }, dragOffset = new THREE.Vector3(), dragItemStart = null;
+let paintDragging = false, paintErasing = false;
 
 canvas.addEventListener('pointerdown', e => {
+  if (state === 'PAINTING' && (e.button === 0 || e.button === 2)) {
+    // Left = paint with current floor type, right = erase patches
+    e.stopImmediatePropagation();
+    paintDragging = true; paintErasing = (e.button === 2);
+    const pt = getFloorPoint(e);
+    if (pt) { if (paintErasing) eraseFloorAt(pt.x, pt.z); else paintFloorAt(pt.x, pt.z, floorType); }
+    return;
+  }
   if (e.button !== 0) return;
   pointerStart = { x: e.clientX, y: e.clientY }; pointerDown = true; dragStarted = false; grabbed = false;
   if (state === 'PLACING') return; // In placement mode, camera orbit is handled by OrbitControls
@@ -1727,9 +2042,17 @@ canvas.addEventListener('pointerdown', e => {
   }
 });
 canvas.addEventListener('pointermove', e => {
+  if (state === 'PAINTING') {
+    if (paintDragging) { const pt = getFloorPoint(e); if (pt) { if (paintErasing) eraseFloorAt(pt.x, pt.z); else paintFloorAt(pt.x, pt.z, floorType); } }
+    return;
+  }
   if (state === 'PLACING' && ghostGroup) {
     const pt = getFloorPoint(e);
-    if (pt) { const s = clampToRoom(snapToGrid(pt), currentDef); ghostGroup.position.copy(s); ghostGroup.rotation.y = (ghostRotOffset*Math.PI)/180; ghostGroup.visible = true; }
+    if (pt) {
+      const s = clampToRoom(snapToGrid(pt), currentDef);
+      if (currentDef.stack) s.y = computeRestY(s.x, s.z, null);
+      ghostGroup.position.copy(s); ghostGroup.rotation.y = (ghostRotOffset*Math.PI)/180; ghostGroup.visible = true;
+    }
   }
   if (pointerDown && grabbed && selectedGroup) {
     const dx = e.clientX - pointerStart.x, dy = e.clientY - pointerStart.y;
@@ -1740,6 +2063,7 @@ canvas.addEventListener('pointermove', e => {
         const item = placedItems.find(i => i.group === selectedGroup);
         const def = item ? FURNITURE_DEFS.find(d => d.id === item.defId) : null;
         let np = pt.clone().sub(dragOffset); np.y = 0; if (def) np = clampToRoom(snapToGrid(np), def);
+        if (def && def.stack) np.y = computeRestY(np.x, np.z, selectedGroup);
         selectedGroup.position.copy(np); if (item) item.position.copy(np);
         selectionRing.position.set(np.x, 0.03, np.z);
         document.getElementById('pos-x').textContent = np.x.toFixed(1) + 'm';
@@ -1749,6 +2073,7 @@ canvas.addEventListener('pointermove', e => {
   }
 });
 canvas.addEventListener('pointerup', e => {
+  if (state === 'PAINTING') { paintDragging = false; paintErasing = false; return; }
   if (e.button !== 0) { pointerDown = false; return; }
   const isClick = Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y) < 6;
   if (grabbed) {
@@ -1767,8 +2092,9 @@ canvas.addEventListener('pointerup', e => {
   pointerDown = false; grabbed = false; dragStarted = false; dragItemStart = null;
 });
 canvas.addEventListener('contextmenu', e => { e.preventDefault(); if (state === 'PLACING') cancelPlacement(); });
+canvas.addEventListener('pointerleave', () => { paintDragging = false; paintErasing = false; });
 canvas.addEventListener('dblclick', e => {
-  if (state === 'PLACING') return;
+  if (state === 'PLACING' || state === 'PAINTING') return;
   const hit = getHitFurniture(e);
   if (hit) {
     select(hit); state = 'SELECTED';
