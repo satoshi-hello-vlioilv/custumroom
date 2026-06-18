@@ -1755,6 +1755,9 @@ const FURNITURE_DEFS = [
   { id:'alumcoil',   cat:'factory', name:'アルミコイル',     icon:'fa-circle',            w:1.0,  d:0.8,  h:0.8,  colorIdx:10, build:buildAluminumCoil },
   { id:'scrpbucket', cat:'factory', name:'屑バケット',       icon:'fa-trash',             w:0.7,  d:0.7,  h:0.65, colorIdx:10, build:buildScrapBucket },
   { id:'tensile',    cat:'lab',     name:'引張試験機',       icon:'fa-arrows-up-down',    w:0.8,  d:0.7,  h:2.0,  colorIdx:10, build:buildTensileTestMachine },
+  { id:'steelpallet',cat:'factory', name:'鉄パレット',       icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:6,  build:buildSteelPallet },
+  { id:'resinpallet',cat:'factory', name:'樹脂パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:9,  build:buildResinPallet },
+  { id:'drum',       cat:'factory', name:'ドラム缶',         icon:'fa-circle',             w:0.58, d:0.58, h:0.88, colorIdx:9,  build:buildDrum },
 ];
 
 // ============================================================ FURNITURE BUILDERS
@@ -3657,6 +3660,55 @@ function buildScrapBucket({ color='#c0c0c8', w=0.7, d=0.7, h=0.65 } = {}) {
     g.add(scrap);
   }
 
+  return g;
+}
+
+function buildSteelPallet({ color='#8a8a92', w=1.1, d=1.1, h=0.15 } = {}) {
+  const g = new THREE.Group();
+  const m  = mat(color, 0.6, 0.5);
+  const m2 = mat(shade(color, 0.82), 0.6, 0.5);
+  // top deck
+  g.add(box(w, 0.02, d, m, 0, h - 0.01, 0));
+  // three cross-stringers under deck
+  [-0.44, 0, 0.44].forEach(z => g.add(box(w, 0.04, 0.07, m2, 0, h - 0.04, z)));
+  // three bottom skid runners
+  [-0.44, 0, 0.44].forEach(x => g.add(box(0.09, 0.06, d, m2, x, 0.03, 0)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+function buildResinPallet({ color='#1a3f7a', w=1.1, d=1.1, h=0.15 } = {}) {
+  const g = new THREE.Group();
+  const m  = mat(color, 0.85, 0.0);
+  const m2 = mat(shade(color, 0.88), 0.85, 0.0);
+  // top surface
+  g.add(box(w, 0.025, d, m, 0, h - 0.0125, 0));
+  // 3×3 block feet
+  for (let ix = -1; ix <= 1; ix++) {
+    for (let iz = -1; iz <= 1; iz++) {
+      g.add(box(0.13, h - 0.025, 0.13, m2, ix * 0.44, (h - 0.025) / 2, iz * 0.44));
+    }
+  }
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+function buildDrum({ color='#1a4a9a', w=0.58, d=0.58, h=0.88 } = {}) {
+  const g = new THREE.Group();
+  const r = Math.min(w, d) / 2;
+  const bodyM = mat(color, 0.45, 0.35);
+  const capM  = mat(shade(color, 1.15), 0.4, 0.55);
+  const ribM  = mat(shade(color, 0.75), 0.5, 0.6);
+  // body
+  g.add(cylAt(r, r, h - 0.04, 24, bodyM, 0, h / 2, 0));
+  // top/bottom caps
+  g.add(cylAt(r, r, 0.022, 24, capM, 0, h - 0.011, 0));
+  g.add(cylAt(r, r, 0.022, 24, capM, 0, 0.011, 0));
+  // rolling ribs
+  [0.22, 0.5, 0.76].forEach(t => g.add(cylAt(r + 0.016, r + 0.016, 0.032, 24, ribM, 0, h * t, 0)));
+  // bung plug on top
+  g.add(cylAt(0.028, 0.028, 0.03, 12, mat('#787878', 0.4, 0.7), r * 0.5, h - 0.005, 0));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 
