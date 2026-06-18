@@ -1687,6 +1687,151 @@ function buildWallSegment(wall) {
       const lfn = new THREE.Vector3(cx, 0, cz); if (lfn.length() < 0.35) lfn.set(0, 0, 0); else lfn.normalize();
       lslab.userData.fadeNormal = lfn;
       lwinglass.userData.fadeNormal = lfn; wallMeshes.push(lwinglass);
+    } else if (o.kind === 'fusuma') {
+      // 襖: two sliding panels with wooden frame and washi paper face
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const fwM = new THREE.MeshStandardMaterial({ color: 0x3a2a16, roughness: 0.72, metalness: 0.0, transparent: true, opacity: 1.0 });
+      const paM = new THREE.MeshStandardMaterial({ color: 0xf0e8d4, roughness: 0.92, metalness: 0.0, transparent: true, opacity: 1.0 });
+      // Track header
+      const trk = new THREE.Mesh(new THREE.BoxGeometry(ow + 0.04, 0.045, ft), fwM);
+      trk.position.set(cx, DOOR_H - 0.022, cz); trk.rotation.y = rotY; roomGroup.add(trk); registerWall(trk);
+      // Side posts
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.048, DOOR_H, ft), fwM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      // Two panels (each 40% of opening, slid open leaving 20% gap)
+      const fpW = ow * 0.40, fpH = DOOR_H - 0.07;
+      [[o.s0 + fpW / 2, -1], [o.s1 - fpW / 2, 1]].forEach(([sc, side]) => {
+        const [px, pz] = ptAt(sc);
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(fpW, fpH, 0.038), paM);
+        panel.position.set(px, fpH / 2 + 0.025, pz); panel.rotation.y = rotY;
+        panel.castShadow = true; roomGroup.add(panel); registerWall(panel);
+        // Wooden border frame on panel
+        const bM = new THREE.MeshStandardMaterial({ color: 0x3a2a16, roughness: 0.7, metalness: 0.0, transparent: true, opacity: 1.0 });
+        [[fpW, 0.03, 0], [0.03, fpH, 0]].forEach(([bw, bh, _]) => {
+          [fpH / 2 + 0.025, -(fpH / 2) + 0.025].forEach(by_offset => {
+            if (bh < 0.1) { // top/bottom rail
+              const rail = new THREE.Mesh(new THREE.BoxGeometry(fpW, 0.04, 0.042), bM);
+              rail.position.set(px, fpH / 2 + 0.025 + (bh < 0.1 ? by_offset - fpH / 2 - 0.025 : 0), pz); rail.rotation.y = rotY; roomGroup.add(rail);
+            }
+          });
+          if (bh > fpH - 0.1) { // side stiles
+            [-fpW / 2 + 0.015, fpW / 2 - 0.015].forEach(sOff => {
+              const [stx, stz] = ptAt(sc + sOff * (side > 0 ? -1 : 1) * 0.001);
+              const stile = new THREE.Mesh(new THREE.BoxGeometry(0.04, fpH, 0.042), bM);
+              stile.position.set(stx, fpH / 2 + 0.025, stz); stile.rotation.y = rotY; roomGroup.add(stile);
+            });
+          }
+        });
+        // Handle pull
+        const [hpx, hpz] = ptAt(sc + side * fpW * 0.28);
+        const hdl = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.15, 0.052), bM);
+        hdl.position.set(hpx, fpH * 0.48, hpz); hdl.rotation.y = rotY; roomGroup.add(hdl);
+      });
+    } else if (o.kind === 'shoji') {
+      // 障子: translucent grid screen panels
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const sfwM = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.7, metalness: 0.0, transparent: true, opacity: 1.0 });
+      const trk2 = new THREE.Mesh(new THREE.BoxGeometry(ow + 0.04, 0.04, ft), sfwM);
+      trk2.position.set(cx, DOOR_H - 0.02, cz); trk2.rotation.y = rotY; roomGroup.add(trk2); registerWall(trk2);
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.045, DOOR_H, ft), sfwM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; roomGroup.add(post); registerWall(post);
+      });
+      // Translucent washi paper
+      const waM = new THREE.MeshStandardMaterial({ color: 0xfdf5e6, roughness: 0.85, metalness: 0.0, transparent: true, opacity: 0.72, side: THREE.DoubleSide });
+      const spW = ow * 0.44, spH = DOOR_H - 0.06;
+      [[o.s0 + spW / 2, 1], [o.s1 - spW / 2, -1]].forEach(([sc, _]) => {
+        const [px, pz] = ptAt(sc);
+        const scrn = new THREE.Mesh(new THREE.BoxGeometry(spW - 0.04, spH - 0.04, 0.012), waM);
+        scrn.position.set(px, spH / 2 + 0.025, pz); scrn.rotation.y = rotY; roomGroup.add(scrn); registerWall(scrn);
+        // Grid lines (horizontal rails every ~200mm)
+        const rows = Math.round(spH / 0.22);
+        for (let r = 1; r < rows; r++) {
+          const ry = r * spH / rows;
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(spW - 0.05, 0.022, 0.014), sfwM);
+          rail.position.set(px, ry + 0.022, pz); rail.rotation.y = rotY; roomGroup.add(rail);
+        }
+        // Vertical mullion in center
+        const mull = new THREE.Mesh(new THREE.BoxGeometry(0.022, spH - 0.04, 0.014), sfwM);
+        mull.position.set(px, spH / 2 + 0.025, pz); mull.rotation.y = rotY; roomGroup.add(mull);
+        // Outer frame
+        const fr = new THREE.Mesh(new THREE.BoxGeometry(spW, spH, 0.02), sfwM);
+        fr.position.set(px, spH / 2 + 0.025, pz); fr.rotation.y = rotY; roomGroup.add(fr); registerWall(fr);
+      });
+    } else if (o.kind === 'bath_door') {
+      // 浴室ドア: frosted glass folding/sliding door with aluminum frame
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const batAlM = new THREE.MeshStandardMaterial({ color: 0xb0bcc4, roughness: 0.28, metalness: 0.72, transparent: true, opacity: 1.0 });
+      const frostM = new THREE.MeshStandardMaterial({ color: 0xe8f0f4, roughness: 0.08, metalness: 0.05, transparent: true, opacity: 0.52, side: THREE.DoubleSide });
+      // Side posts
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.042, DOOR_H, ft), batAlM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const bathTop = new THREE.Mesh(new THREE.BoxGeometry(ow, 0.042, ft), batAlM);
+      bathTop.position.set(cx, DOOR_H - 0.021, cz); bathTop.rotation.y = rotY; roomGroup.add(bathTop); registerWall(bathTop);
+      // Frosted glass panel (partially open - slid to one side)
+      const bgW = ow * 0.60, bgH = DOOR_H - 0.06;
+      const [bgx, bgz] = ptAt(o.s0 + bgW / 2 + 0.02);
+      const bglass = new THREE.Mesh(new THREE.BoxGeometry(bgW, bgH, 0.028), frostM);
+      bglass.position.set(bgx, bgH / 2 + 0.025, bgz); bglass.rotation.y = rotY; roomGroup.add(bglass); registerWall(bglass);
+      // Aluminum rail on glass top/bottom
+      [[bgH + 0.025, 0.03], [0.01, 0.025]].forEach(([yOff, rh]) => {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(bgW, rh, 0.035), batAlM);
+        rail.position.set(bgx, yOff, bgz); rail.rotation.y = rotY; roomGroup.add(rail);
+      });
+      // Handle
+      const [bhx, bhz] = ptAt(o.s0 + bgW + 0.015);
+      const bhdl = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.14, 0.042), batAlM);
+      bhdl.position.set(bhx, bgH * 0.5, bhz); bhdl.rotation.y = rotY; roomGroup.add(bhdl);
+    } else if (o.kind === 'toilet_door') {
+      // トイレドア: narrow solid door with occupied/vacant indicator
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; lintel.receiveShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const tfM = new THREE.MeshStandardMaterial({ color: 0x9c7b4f, roughness: 0.6, metalness: 0.0, transparent: true, opacity: 1.0 });
+      // Frame
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), tfM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const ttop = new THREE.Mesh(new THREE.BoxGeometry(ow + fw, fw, ft), tfM);
+      ttop.position.set(cx, DOOR_H - fw / 2, cz); ttop.rotation.y = rotY; ttop.castShadow = true; roomGroup.add(ttop); registerWall(ttop);
+      // Slab (solid, narrow)
+      const tslabW = ow - fw, tslabH = DOOR_H - fw;
+      const tdoorM = new THREE.MeshStandardMaterial({ color: 0xc8a878, roughness: 0.55, metalness: 0.05, transparent: true, opacity: 1.0 });
+      const tslab = new THREE.Mesh(new THREE.BoxGeometry(tslabW, tslabH, 0.04), tdoorM);
+      const tpivot = new THREE.Group();
+      const [thx, thz] = ptAt(o.s0 + fw / 2);
+      tpivot.position.set(thx, tslabH / 2, thz);
+      tslab.position.set(tslabW / 2, 0, 0.06); tslab.castShadow = true; tpivot.add(tslab);
+      // Occupied/vacant indicator strip
+      const indicM = new THREE.MeshStandardMaterial({ color: 0x22bb44, roughness: 0.4, metalness: 0.1, emissive: new THREE.Color(0x116622), emissiveIntensity: 0.5, transparent: true, opacity: 1.0 });
+      const indic = new THREE.Mesh(new THREE.BoxGeometry(tslabW * 0.55, 0.06, 0.045), indicM);
+      indic.position.set(tslabW * 0.5, tslabH * 0.88, 0.06); tpivot.add(indic);
+      tpivot.rotation.y = rotY - 0.30; roomGroup.add(tpivot); registerWall(tslab);
+      const tfn = new THREE.Vector3(cx, 0, cz); if (tfn.length() < 0.35) tfn.set(0, 0, 0); else tfn.normalize();
+      tslab.userData.fadeNormal = tfn;
     } else {
       // Standard door
       const lh = WALL_H - DOOR_H;
@@ -4320,16 +4465,16 @@ const PRESETS = [
     partitions: [
       // 左ゾーン縦仕切り (水回り/玄関 と 中央LDK を分ける)
       { x1: -2.5, z1: -5.0, x2: -2.5, z2: -1.0 },
-      { x1: -2.5, z1: -1.0, x2: -2.5, z2: 0.0, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
+      { x1: -2.5, z1: -1.0, x2: -2.5, z2: 0.0, openings: [{ t: 0.5, w: 0.9, kind: 'fusuma' }] },
       { x1: -2.5, z1: 0.0, x2: -2.5, z2: 5.0 },
       // 左ゾーン内の横仕切り (浴室 / 洗面所 / トイレ / 玄関)
-      { x1: -6.0, z1: -2.0, x2: -4.0, z2: -2.0, openings: [{ t: 0.5, w: 0.8, kind: 'door' }] },
-      { x1: -6.0, z1: 1.0, x2: -4.5, z2: 1.0, openings: [{ t: 0.5, w: 0.8, kind: 'door' }] },
+      { x1: -6.0, z1: -2.0, x2: -4.0, z2: -2.0, openings: [{ t: 0.5, w: 0.8, kind: 'bath_door' }] },
+      { x1: -6.0, z1: 1.0, x2: -4.5, z2: 1.0, openings: [{ t: 0.5, w: 0.8, kind: 'toilet_door' }] },
       { x1: -4.0, z1: 2.6, x2: -2.5, z2: 2.6, openings: [{ t: 0.5, w: 0.8, kind: 'door' }] },
       // 中央↔右 (LDK と 寝室/リビング) 縦仕切り
       { x1: 2.0, z1: -5.0, x2: 2.0, z2: -2.6 },
-      { x1: 2.0, z1: -2.6, x2: 2.0, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
-      { x1: 2.0, z1: -1.5, x2: 2.0, z2: 0.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
+      { x1: 2.0, z1: -2.6, x2: 2.0, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'fusuma' }] },
+      { x1: 2.0, z1: -1.5, x2: 2.0, z2: 0.5, openings: [{ t: 0.5, w: 0.9, kind: 'shoji' }] },
       // 寝室の横仕切り
       { x1: 2.0, z1: -2.6, x2: 4.5, z2: -2.6 },
     ],
@@ -4667,11 +4812,11 @@ function updateWalls() {
     const m = w.material; let target;
     if (wallMode === 'solid') target = 1;
     else if (wallMode === 'ghost') target = 0.24;
-    else if (wallMode === 'semifade') { const d = w.userData.fadeNormal.dot(camDirH); target = d > 0.15 ? (w.userData.isPartition ? 0.42 : 0.18) : 1.0; }
+    else if (wallMode === 'semifade') { const d = w.userData.fadeNormal.dot(camDirH); target = d > 0.15 ? (w.userData.isPartition ? 0.68 : 0.18) : 1.0; }
     else {
       // cutaway: outer walls → fully transparent, partition/inner walls → semi-transparent
       const d = w.userData.fadeNormal.dot(camDirH);
-      if (d > 0.15) target = w.userData.isPartition ? 0.22 : 0.0;
+      if (d > 0.15) target = w.userData.isPartition ? 0.45 : 0.0;
       else target = 1.0;
     }
     m.opacity += (target - m.opacity) * 0.18;
