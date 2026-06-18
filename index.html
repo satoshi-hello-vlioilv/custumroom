@@ -422,8 +422,8 @@ body {
 
       <div class="seg" id="wall-seg">
         <button data-mode="solid" data-tip="壁を全表示"><i class="fa-solid fa-square"></i></button>
-        <button data-mode="cutaway" class="active" data-tip="手前の壁をカット"><i class="fa-solid fa-scissors"></i></button>
-        <button data-mode="semifade" data-tip="手前の壁を半透明"><i class="fa-solid fa-eye-low-vision"></i></button>
+        <button data-mode="cutaway" data-tip="手前の壁をカット"><i class="fa-solid fa-scissors"></i></button>
+        <button data-mode="semifade" class="active" data-tip="手前の壁を半透明"><i class="fa-solid fa-eye-low-vision"></i></button>
         <button data-mode="ghost" data-tip="壁を全て半透明"><i class="fa-regular fa-square"></i></button>
       </div>
       <div class="toolbar-divider"></div>
@@ -653,7 +653,7 @@ let selectedGroup = null, selectedColor = '#c8a06a', selectedRot = 0;
 let placedItems = [], history = [], historyIndex = -1;
 let roomW = 6, roomD = 6, partitions = [];
 let showGrid = true, showShadows = true, isTopView = false;
-let wallMode = 'cutaway';
+let wallMode = 'semifade';
 let wallMeshes = [];
 let floorType = 'wood', wallType = 'cream';
 let paintMode = false;
@@ -1708,6 +1708,12 @@ const FURNITURE_DEFS = [
   // ---- table variants ----
   { id:'consoletab', cat:'table',   name:'コンソールテーブル',icon:'fa-table',             w:1.1, d:0.32, h:0.8,  colorIdx:8,  build:buildConsoleTable },
   { id:'roundctab',  cat:'table',   name:'丸コーヒーテーブル',icon:'fa-circle',            w:0.8, d:0.8,  h:0.42, colorIdx:0,  build:buildRoundCoffeeTable },
+  { id:'cafechr',       cat:'seating', name:'カフェチェア',          icon:'fa-chair',    w:0.46, d:0.48, h:0.87, colorIdx:8,  build:buildCafeChair },
+  { id:'windsorchair',  cat:'seating', name:'ウィンザーチェア',      icon:'fa-chair',    w:0.48, d:0.48, h:0.95, colorIdx:8,  build:buildWindsorChair },
+  { id:'stackchr',      cat:'seating', name:'スタッキングチェア',    icon:'fa-chair',    w:0.46, d:0.5,  h:0.82, colorIdx:10, build:buildStackingChair },
+  { id:'upholchr',      cat:'seating', name:'レストランチェア',      icon:'fa-chair',    w:0.52, d:0.54, h:0.92, colorIdx:0,  build:buildUpholsteredChair },
+  { id:'cafetable',     cat:'table',   name:'カフェテーブル',        icon:'fa-table',    w:0.65, d:0.65, h:0.74, colorIdx:8,  build:buildCafeTable },
+  { id:'roundtablesm',  cat:'table',   name:'丸テーブル小',          icon:'fa-circle',   w:0.7,  d:0.7,  h:0.74, colorIdx:8,  build:buildRoundTableSm },
   // ---- sleep variants ----
   { id:'bunkbed',    cat:'sleep',   name:'二段ベッド',         icon:'fa-bed',               w:1.05,d:2.05, h:1.65, colorIdx:1,  build:buildBunkBed },
   // ---- deco variants ----
@@ -1849,6 +1855,94 @@ function buildSideTable({ color='#f3ece0', w=0.5, d=0.5, h=0.55 } = {}) {
   const g = new THREE.Group(); const wood = mat(color, 0.6, 0.02, { env: 0.4 });
   const top = box(w, 0.05, d, wood, 0, h-0.025, 0); top.userData.colorable = true; g.add(top);
   const col = cyl(0.07, 0.1, h-0.05, 16, wood); col.position.y = (h-0.05)/2; col.userData.colorable = true; g.add(col);
+  return g;
+}
+function buildCafeChair({ color='#6a4830', w=0.46, d=0.48, h=0.87 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.65, 0.02);
+  const metal = mat('#383838', 0.45, 0.65);
+  const seat = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.05, d-0.04, 0.03, 2), wood);
+  seat.position.set(0, 0.46, 0.01); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const legH = 0.44, ins = 0.03;
+  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.016, 0.016, legH, 8, metal, lx, legH/2, lz)));
+  const bpH = h - 0.46;
+  [-w/2+ins, w/2-ins].forEach(x => g.add(cylAt(0.016, 0.016, bpH, 8, metal, x, 0.46+bpH/2, -(d/2-ins))));
+  g.add(box(w-0.04, 0.05, 0.04, wood, 0, h-0.03, -(d/2-ins)));
+  g.add(box(w-0.08, 0.03, 0.03, metal, 0, 0.68, -(d/2-ins)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildWindsorChair({ color='#5a3820', w=0.48, d=0.48, h=0.95 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.68, 0.02);
+  const seat = new THREE.Mesh(roundedBoxGeom(w, 0.07, d, 0.05, 2), wood);
+  seat.position.set(0, 0.45, 0.02); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const legH = 0.44;
+  [[-w/2+0.05, d/2-0.05],[w/2-0.05, d/2-0.05],[-w/2+0.04, -(d/2-0.04)],[w/2-0.04, -(d/2-0.04)]].forEach(([lx,lz]) => g.add(cylAt(0.022, 0.022, legH, 8, wood, lx, legH/2, lz)));
+  g.add(box(w-0.1, 0.03, 0.03, wood, 0, 0.24, 0));
+  g.add(box(0.03, 0.03, d-0.12, wood, 0, 0.24, 0));
+  const sH = h - 0.53, bZ = -(d/2 - 0.06);
+  for (let i = 0; i < 5; i++) { const x = -w/2 + 0.06 + (w-0.12)*i/4; g.add(cylAt(0.018, 0.018, sH, 8, wood, x, 0.5+sH/2, bZ)); }
+  g.add(box(w-0.02, 0.07, 0.06, wood, 0, h-0.04, bZ));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildStackingChair({ color='#222222', w=0.46, d=0.5, h=0.82 } = {}) {
+  const g = new THREE.Group();
+  const metal = mat(color, 0.55, 0.65);
+  const plastic = mat(shade(color, 1.5), 0.85, 0.0);
+  const seat = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.03, d-0.08, 0.02, 2), plastic);
+  seat.position.set(0, 0.45, 0.02); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const back = new THREE.Mesh(roundedBoxGeom(w-0.04, 0.26, 0.03, 0.02, 2), plastic);
+  back.position.set(0, 0.67, -(d/2-0.06)); back.castShadow = true; back.userData.colorable = true; g.add(back);
+  const legH = 0.44, ins = 0.04;
+  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.014, 0.014, legH, 8, metal, lx, legH/2, lz)));
+  const bpH = h - 0.45;
+  [-w/2+ins, w/2-ins].forEach(x => g.add(cylAt(0.014, 0.014, bpH, 8, metal, x, 0.45+bpH/2, -(d/2-ins))));
+  g.add(box(w-0.08, 0.028, 0.028, metal, 0, h-0.02, -(d/2-ins)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildUpholsteredChair({ color='#3a3a3a', w=0.52, d=0.54, h=0.92 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat('#6a4a2a', 0.65, 0.02);
+  const fabric = fabricMat(color);
+  const seat = new THREE.Mesh(roundedBoxGeom(w-0.04, 0.1, d-0.06, 0.04, 2), fabric);
+  seat.position.set(0, 0.47, 0.01); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const back = new THREE.Mesh(roundedBoxGeom(w-0.08, 0.42, 0.1, 0.05, 2), fabric);
+  back.position.set(0, 0.72, -(d/2-0.1)); back.castShadow = true; back.userData.colorable = true; g.add(back);
+  g.add(box(w, 0.06, 0.06, wood, 0, h-0.04, -(d/2-0.08)));
+  g.add(box(0.06, h-0.5, 0.06, wood, -w/2+0.04, 0.5+(h-0.5)/2, -(d/2-0.08)));
+  g.add(box(0.06, h-0.5, 0.06, wood,  w/2-0.04, 0.5+(h-0.5)/2, -(d/2-0.08)));
+  const legH = 0.44;
+  [[-w/2+0.05, d/2-0.05],[w/2-0.05, d/2-0.05],[-w/2+0.05, -(d/2-0.06)],[w/2-0.05, -(d/2-0.06)]].forEach(([lx,lz]) => g.add(cylAt(0.025, 0.025, legH, 8, wood, lx, legH/2, lz)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildCafeTable({ color='#8a6a3a', w=0.65, d=0.65, h=0.74 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.55, 0.02, { env: 0.4 });
+  const metal = mat('#4a4a50', 0.4, 0.7);
+  const top = new THREE.Mesh(roundedBoxGeom(w, 0.05, d, 0.03, 2), wood);
+  top.position.set(0, h-0.025, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  const legH = h - 0.06, ins = 0.05;
+  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.022, 0.022, legH, 8, metal, lx, legH/2, lz)));
+  g.add(box(w-0.14, 0.03, 0.03, metal, 0, 0.36,  d/2-ins));
+  g.add(box(w-0.14, 0.03, 0.03, metal, 0, 0.36, -(d/2-ins)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildRoundTableSm({ color='#8a6a3a', w=0.7, d=0.7, h=0.74 } = {}) {
+  const g = new THREE.Group();
+  const r = Math.min(w, d) / 2;
+  const wood = mat(color, 0.55, 0.02, { env: 0.4 });
+  const metal = mat('#4a4a50', 0.4, 0.7);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.05, 32), wood);
+  top.position.set(0, h-0.025, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  g.add(cylAt(0.04, 0.04, h-0.1, 12, metal, 0, (h-0.1)/2, 0));
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(r*0.55, r*0.6, 0.04, 20), metal);
+  base.position.set(0, 0.02, 0); base.castShadow = true; g.add(base);
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 function buildBed({ color='#f3ece0', w=1.0, d=2.1, h=0.55, double=false } = {}) {
@@ -3924,23 +4018,23 @@ const PRESETS = [
       P('barstool', -3.8, -1.5, 0, '#5b5048'),
       // ダイニングテーブル
       P('roundtable', -3.5, 0.5, 0, '#8a5a2b'),
-      P('dchr', -4.3, 0.5, 90, '#5b5048'), P('dchr', -2.7, 0.5, 270, '#5b5048'),
-      P('dchr', -3.5,-0.3,  0, '#5b5048'), P('dchr', -3.5, 1.3, 180, '#5b5048'),
+      P('windsorchair', -4.3, 0.5, 90, '#5b5048'), P('windsorchair', -2.7, 0.5, 270, '#5b5048'),
+      P('windsorchair', -3.5,-0.3,  0, '#5b5048'), P('windsorchair', -3.5, 1.3, 180, '#5b5048'),
       P('roundtable', -0.5, 0.5, 0, '#8a5a2b'),
-      P('dchr', -1.3, 0.5, 90, '#5b5048'), P('dchr',  0.3, 0.5, 270, '#5b5048'),
-      P('dchr', -0.5,-0.3,  0, '#5b5048'), P('dchr', -0.5, 1.3, 180, '#5b5048'),
+      P('windsorchair', -1.3, 0.5, 90, '#5b5048'), P('windsorchair',  0.3, 0.5, 270, '#5b5048'),
+      P('windsorchair', -0.5,-0.3,  0, '#5b5048'), P('windsorchair', -0.5, 1.3, 180, '#5b5048'),
       P('roundtable',  2.5, 0.5, 0, '#8a5a2b'),
-      P('dchr',  1.7, 0.5, 90, '#5b5048'), P('dchr',  3.3, 0.5, 270, '#5b5048'),
-      P('dchr',  2.5,-0.3,  0, '#5b5048'), P('dchr',  2.5, 1.3, 180, '#5b5048'),
+      P('windsorchair',  1.7, 0.5, 90, '#5b5048'), P('windsorchair',  3.3, 0.5, 270, '#5b5048'),
+      P('windsorchair',  2.5,-0.3,  0, '#5b5048'), P('windsorchair',  2.5, 1.3, 180, '#5b5048'),
       P('roundtable', -3.5, 3.0, 0, '#8a5a2b'),
-      P('dchr', -4.3, 3.0, 90, '#5b5048'), P('dchr', -2.7, 3.0, 270, '#5b5048'),
-      P('dchr', -3.5, 2.2,  0, '#5b5048'), P('dchr', -3.5, 3.8, 180, '#5b5048'),
+      P('windsorchair', -4.3, 3.0, 90, '#5b5048'), P('windsorchair', -2.7, 3.0, 270, '#5b5048'),
+      P('windsorchair', -3.5, 2.2,  0, '#5b5048'), P('windsorchair', -3.5, 3.8, 180, '#5b5048'),
       P('roundtable',  0.0, 3.0, 0, '#8a5a2b'),
-      P('dchr', -0.8, 3.0, 90, '#5b5048'), P('dchr',  0.8, 3.0, 270, '#5b5048'),
-      P('dchr',  0.0, 2.2,  0, '#5b5048'), P('dchr',  0.0, 3.8, 180, '#5b5048'),
+      P('windsorchair', -0.8, 3.0, 90, '#5b5048'), P('windsorchair',  0.8, 3.0, 270, '#5b5048'),
+      P('windsorchair',  0.0, 2.2,  0, '#5b5048'), P('windsorchair',  0.0, 3.8, 180, '#5b5048'),
       P('roundtable',  3.5, 3.0, 0, '#8a5a2b'),
-      P('dchr',  2.7, 3.0, 90, '#5b5048'), P('dchr',  4.3, 3.0, 270, '#5b5048'),
-      P('dchr',  3.5, 2.2,  0, '#5b5048'), P('dchr',  3.5, 3.8, 180, '#5b5048'),
+      P('windsorchair',  2.7, 3.0, 90, '#5b5048'), P('windsorchair',  4.3, 3.0, 270, '#5b5048'),
+      P('windsorchair',  3.5, 2.2,  0, '#5b5048'), P('windsorchair',  3.5, 3.8, 180, '#5b5048'),
       P('plant', -5.5,  4.5), P('plant', 5.5,  4.5),
       P('lamp',  -5.5, -1.0), P('lamp',  5.5, -1.0),
       P('rug',    0.0,  1.5, 0, '#5b5048'),
@@ -3970,11 +4064,11 @@ const PRESETS = [
       P('barstool',  0.0, -0.4, 0, '#5b5048'),
       P('barstool',  1.0, -0.4, 0, '#5b5048'),
       // 小テーブル (テラス席イメージ)
-      P('ctable', -3.0, 1.0, 0), P('dchr', -3.8, 1.0, 90, '#5b5048'), P('dchr', -2.2, 1.0, 270, '#5b5048'),
-      P('ctable', -0.5, 1.0, 0), P('dchr', -1.3, 1.0, 90, '#5b5048'), P('dchr',  0.3, 1.0, 270, '#5b5048'),
-      P('ctable',  2.0, 1.0, 0), P('dchr',  1.2, 1.0, 90, '#5b5048'), P('dchr',  2.8, 1.0, 270, '#5b5048'),
-      P('ctable', -3.0, 3.0, 0), P('dchr', -3.8, 3.0, 90, '#5b5048'), P('dchr', -2.2, 3.0, 270, '#5b5048'),
-      P('ctable',  0.0, 3.0, 0), P('dchr', -0.8, 3.0, 90, '#5b5048'), P('dchr',  0.8, 3.0, 270, '#5b5048'),
+      P('cafetable', -3.0, 1.0, 0), P('cafechr', -3.8, 1.0, 90, '#6a4830'), P('cafechr', -2.2, 1.0, 270, '#6a4830'),
+      P('cafetable', -0.5, 1.0, 0), P('cafechr', -1.3, 1.0, 90, '#6a4830'), P('cafechr',  0.3, 1.0, 270, '#6a4830'),
+      P('cafetable',  2.0, 1.0, 0), P('cafechr',  1.2, 1.0, 90, '#6a4830'), P('cafechr',  2.8, 1.0, 270, '#6a4830'),
+      P('cafetable', -3.0, 3.0, 0), P('cafechr', -3.8, 3.0, 90, '#6a4830'), P('cafechr', -2.2, 3.0, 270, '#6a4830'),
+      P('cafetable',  0.0, 3.0, 0), P('cafechr', -0.8, 3.0, 90, '#6a4830'), P('cafechr',  0.8, 3.0, 270, '#6a4830'),
       P('sofa3',   3.5, 2.5, 270, '#b9714a'),
       P('ctable',  4.3, 1.5, 0),
       P('rug',     3.8, 1.8, 0, '#5b5048'),
@@ -4473,7 +4567,7 @@ function updateWalls() {
     const m = w.material; let target;
     if (wallMode === 'solid') target = 1;
     else if (wallMode === 'ghost') target = 0.24;
-    else if (wallMode === 'semifade') { const d = w.userData.fadeNormal.dot(camDirH); target = d > 0.15 ? 0.18 : 1.0; }
+    else if (wallMode === 'semifade') { const d = w.userData.fadeNormal.dot(camDirH); target = d > 0.15 ? (w.userData.isPartition ? 0.42 : 0.18) : 1.0; }
     else {
       // cutaway: outer walls → fully transparent, partition/inner walls → semi-transparent
       const d = w.userData.fadeNormal.dot(camDirH);
