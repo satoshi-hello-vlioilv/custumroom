@@ -1305,7 +1305,7 @@ function rectToPlan(w, d, parts, ftype) {
     { x1: x0, z1: z0, x2: x0, z2: z1, type: 'wall', openings: [] },
     { x1: x1, z1: z0, x2: x1, z2: z1, type: 'wall', openings: [] },
   ];
-  (parts || []).forEach(p => walls.push({ x1: p.x1, z1: p.z1, x2: p.x2, z2: p.z2, type: 'wall', openings: [] }));
+  (parts || []).forEach(p => walls.push({ x1: p.x1, z1: p.z1, x2: p.x2, z2: p.z2, type: p.type || 'wall', openings: p.openings || [], isPartition: true }));
   return { cells, walls };
 }
 
@@ -1427,6 +1427,7 @@ function buildRoom() {
 
 // Build a wall (full height WALL_H) along the segment, with door gaps + frames + slabs.
 function buildWallSegment(wall) {
+  const prevWallCount = wallMeshes.length;
   const { x1, z1, x2, z2 } = wall;
   const dx = x2 - x1, dz = z2 - z1;
   const len = Math.hypot(dx, dz);
@@ -1602,6 +1603,90 @@ function buildWallSegment(wall) {
         const [px, pz] = ptAt(sp); const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), frameMat());
         post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
       });
+    } else if (o.kind === 'auto_door') {
+      // 自動ドア: two glass panels slid to edges, aluminum frame + sensor housing
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const alM = new THREE.MeshStandardMaterial({ color: 0xb8c0c8, roughness: 0.3, metalness: 0.7, transparent: true, opacity: 1.0 });
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.05, DOOR_H, ft), alM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const topRail = new THREE.Mesh(new THREE.BoxGeometry(ow, 0.08, ft), alM);
+      topRail.position.set(cx, DOOR_H - 0.04, cz); topRail.rotation.y = rotY; roomGroup.add(topRail); registerWall(topRail);
+      const panW = ow * 0.42;
+      const gMopen = glassMat();
+      const [lpx, lpz] = ptAt(o.s0 + panW / 2);
+      const lp = new THREE.Mesh(new THREE.BoxGeometry(panW, DOOR_H - 0.1, 0.04), gMopen);
+      lp.position.set(lpx, (DOOR_H - 0.1) / 2, lpz); lp.rotation.y = rotY; roomGroup.add(lp); registerWall(lp);
+      const [rpx, rpz] = ptAt(o.s1 - panW / 2);
+      const rp = new THREE.Mesh(new THREE.BoxGeometry(panW, DOOR_H - 0.1, 0.04), gMopen);
+      rp.position.set(rpx, (DOOR_H - 0.1) / 2, rpz); rp.rotation.y = rotY; roomGroup.add(rp); registerWall(rp);
+      const sens = new THREE.Mesh(new THREE.BoxGeometry(ow * 0.4, 0.07, 0.1), alM);
+      sens.position.set(cx, DOOR_H + 0.035, cz); sens.rotation.y = rotY; roomGroup.add(sens);
+    } else if (o.kind === 'double_door') {
+      // 両開きドア: two swing leaves hinged at each edge
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const fMd = frameMat();
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), fMd);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const dtop = new THREE.Mesh(new THREE.BoxGeometry(ow + fw, fw, ft), fMd);
+      dtop.position.set(cx, DOOR_H - fw / 2, cz); dtop.rotation.y = rotY; dtop.castShadow = true; roomGroup.add(dtop); registerWall(dtop);
+      const halfW = ow / 2 - fw * 0.55, dslabH = DOOR_H - fw;
+      const ddoorM = new THREE.MeshStandardMaterial({ color: 0xb9925e, roughness: 0.55, metalness: 0.05, transparent: true, opacity: 1.0 });
+      const dfn = new THREE.Vector3(cx, 0, cz); if (dfn.length() < 0.35) dfn.set(0, 0, 0); else dfn.normalize();
+      const pivL = new THREE.Group();
+      const [hlx, hlz] = ptAt(o.s0 + fw * 0.5);
+      pivL.position.set(hlx, dslabH / 2, hlz);
+      const slabL = new THREE.Mesh(new THREE.BoxGeometry(halfW, dslabH, 0.04), ddoorM);
+      slabL.position.set(halfW / 2, 0, 0.06); slabL.castShadow = true; pivL.add(slabL);
+      pivL.rotation.y = rotY - 0.32; roomGroup.add(pivL); registerWall(slabL); slabL.userData.fadeNormal = dfn;
+      const pivR = new THREE.Group();
+      const [hrx, hrz] = ptAt(o.s1 - fw * 0.5);
+      pivR.position.set(hrx, dslabH / 2, hrz);
+      const slabR = new THREE.Mesh(new THREE.BoxGeometry(halfW, dslabH, 0.04), ddoorM);
+      slabR.position.set(-halfW / 2, 0, 0.06); slabR.castShadow = true; pivR.add(slabR);
+      pivR.rotation.y = rotY + 0.32; roomGroup.add(pivR); registerWall(slabR); slabR.userData.fadeNormal = dfn;
+    } else if (o.kind === 'lab_door') {
+      // 安全ドア: steel door with upper observation window
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; lintel.receiveShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const fMl = frameMat();
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), fMl);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const ltop = new THREE.Mesh(new THREE.BoxGeometry(ow + fw, fw, ft), fMl);
+      ltop.position.set(cx, DOOR_H - fw / 2, cz); ltop.rotation.y = rotY; ltop.castShadow = true; roomGroup.add(ltop); registerWall(ltop);
+      const lslabW = ow - fw, lslabH = DOOR_H - fw;
+      const labM = new THREE.MeshStandardMaterial({ color: 0x4a5055, roughness: 0.45, metalness: 0.55, transparent: true, opacity: 1.0 });
+      const lslab = new THREE.Mesh(new THREE.BoxGeometry(lslabW, lslabH, 0.05), labM);
+      const lpivot = new THREE.Group();
+      const [lhx, lhz] = ptAt(o.s0 + fw / 2);
+      lpivot.position.set(lhx, lslabH / 2, lhz);
+      lslab.position.set(lslabW / 2, 0, 0.06); lslab.castShadow = true; lpivot.add(lslab);
+      const lwinW = Math.min(0.28, lslabW * 0.45), lwinH = 0.26;
+      const lwinglass = new THREE.Mesh(new THREE.BoxGeometry(lwinW, lwinH, 0.07), glassMat());
+      lwinglass.position.set(lslabW * 0.5, lslabH * 0.25, 0.06); lpivot.add(lwinglass);
+      lpivot.rotation.y = rotY - 0.35; roomGroup.add(lpivot); registerWall(lslab);
+      const lfn = new THREE.Vector3(cx, 0, cz); if (lfn.length() < 0.35) lfn.set(0, 0, 0); else lfn.normalize();
+      lslab.userData.fadeNormal = lfn;
+      lwinglass.userData.fadeNormal = lfn; wallMeshes.push(lwinglass);
     } else {
       // Standard door
       const lh = WALL_H - DOOR_H;
@@ -1630,6 +1715,11 @@ function buildWallSegment(wall) {
       slab.userData.fadeNormal = fn;
     }
   });
+  if (wall.isPartition) {
+    for (let i = prevWallCount; i < wallMeshes.length; i++) {
+      wallMeshes[i].userData.isPartition = true;
+    }
+  }
 }
 
 function applyShadowSetting() {
@@ -3816,6 +3906,7 @@ const PRESETS = [
     room: { w: 18, d: 14 }, floorType: 'concrete', wallType: 'concrete',
     partitions: [
       { x1: -9, z1: 2, x2: -6, z2: 2 },
+      { x1: -6, z1: 2, x2: -5, z2: 2, openings: [{ t: 0.5, w: 0.9, kind: 'glass_door' }] },
       { x1: -5, z1: 2, x2: -4, z2: 2 },
       { x1: -4, z1: 2, x2: -4, z2: 7 },
     ],
@@ -3868,6 +3959,7 @@ const PRESETS = [
     room: { w: 14, d: 10 }, floorType: 'carpet', wallType: 'white',
     partitions: [
       { x1: 2, z1: -5, x2: 2, z2: 1.0 },
+      { x1: 2, z1: 1.0, x2: 2, z2: 2.0, openings: [{ t: 0.5, w: 0.9, kind: 'glass_door' }] },
       { x1: 2, z1: 2.0, x2: 2, z2: 5 },
       { x1: 2, z1: 1.0, x2: 7, z2: 1.0 },
     ],
@@ -3928,6 +4020,7 @@ const PRESETS = [
     room: { w: 16, d: 12 }, floorType: 'marble', wallType: 'white',
     partitions: [
       { x1: -8, z1: 3.5, x2: -2, z2: 3.5 },
+      { x1: -0.6, z1: 3.5, x2: 0.6, z2: 3.5, openings: [{ t: 0.5, w: 1.0, kind: 'auto_door' }] },
       { x1:  1, z1: 3.5, x2:  8, z2: 3.5 },
     ],
     floors: [
@@ -3962,6 +4055,7 @@ const PRESETS = [
     room: { w: 12, d: 8 }, floorType: 'tile', wallType: 'white',
     partitions: [
       { x1: -6, z1: -1.5, x2:  3, z2: -1.5 },
+      { x1:  3, z1: -1.5, x2:  4, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
       { x1:  4, z1: -1.5, x2:  6, z2: -1.5 },
     ],
     floors: [
@@ -3999,6 +4093,7 @@ const PRESETS = [
     room: { w: 12, d: 10 }, floorType: 'wood', wallType: 'cream',
     partitions: [
       { x1: -6, z1: -2.5, x2: 0.5, z2: -2.5 },
+      { x1: 0.5, z1: -2.5, x2: 2, z2: -2.5, openings: [{ t: 0.5, w: 1.2, kind: 'double_door' }] },
       { x1:  2, z1: -2.5, x2:  6,  z2: -2.5 },
     ],
     floors: [
@@ -4046,6 +4141,7 @@ const PRESETS = [
     room: { w: 10, d: 8 }, floorType: 'wood', wallType: 'cream',
     partitions: [
       { x1: -5, z1: -1.5, x2:  1.5, z2: -1.5 },
+      { x1: 1.5, z1: -1.5, x2: 3, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
       { x1:  3, z1: -1.5, x2:  5,   z2: -1.5 },
     ],
     floors: [
@@ -4083,6 +4179,7 @@ const PRESETS = [
     room: { w: 12, d: 9 }, floorType: 'tile', wallType: 'white',
     partitions: [
       { x1: -6, z1: 1.5, x2: -1, z2: 1.5 },
+      { x1: -0.6, z1: 1.5, x2: 0.6, z2: 1.5, openings: [{ t: 0.5, w: 1.0, kind: 'lab_door' }] },
       { x1: 1, z1: 1.5, x2: 6, z2: 1.5 },
     ],
     floors: [
@@ -4125,6 +4222,7 @@ const PRESETS = [
     room: { w: 11, d: 8 }, floorType: 'tile', wallType: 'white',
     partitions: [
       { x1: 1.5, z1: -4, x2: 1.5, z2: -0.5 },
+      { x1: 1.5, z1: -0.5, x2: 1.5, z2: 0.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
       { x1: 1.5, z1: 0.5, x2: 1.5, z2: 4 },
     ],
     floors: [
@@ -4164,7 +4262,7 @@ const PRESETS = [
     desc: '14m×10mの機械加工室。旋盤・フライス盤・ボール盤・グラインダー・工具ラックを完備。',
     room: { w: 14, d: 10 }, floorType: 'concrete', wallType: 'concrete',
     partitions: [
-      { x1: -7, z1: 2.5, x2: -2.5, z2: 2.5 },
+      { x1: -7, z1: 2.5, x2: -2.5, z2: 2.5, openings: [{ t: 0.85, w: 0.9, kind: 'door' }] },
       { x1: -2.5, z1: 2.5, x2: -2.5, z2: 5 },
     ],
     floors: [
@@ -4220,16 +4318,18 @@ const PRESETS = [
     desc: '玄関〜水回り〜LDK〜寝室を備えた一戸建てプラン。家族向けのフル装備レイアウト。',
     room: { w: 12, d: 10 },
     partitions: [
-      // 左ゾーン縦仕切り (水回り/玄関 と 中央LDK を分ける) — ドア開口あり
+      // 左ゾーン縦仕切り (水回り/玄関 と 中央LDK を分ける)
       { x1: -2.5, z1: -5.0, x2: -2.5, z2: -1.0 },
+      { x1: -2.5, z1: -1.0, x2: -2.5, z2: 0.0, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
       { x1: -2.5, z1: 0.0, x2: -2.5, z2: 5.0 },
-      // 左ゾーン内の横仕切り (浴室 / 洗面所 / トイレ / 玄関 を区切る)
-      { x1: -6.0, z1: -2.0, x2: -4.0, z2: -2.0 },              // 浴室↔洗面所
-      { x1: -6.0, z1: 1.0, x2: -4.5, z2: 1.0 },                // 洗面所↔トイレ (開口あり)
-      { x1: -4.0, z1: 2.6, x2: -2.5, z2: 2.6 },                // トイレ↔玄関
+      // 左ゾーン内の横仕切り (浴室 / 洗面所 / トイレ / 玄関)
+      { x1: -6.0, z1: -2.0, x2: -4.0, z2: -2.0, openings: [{ t: 0.5, w: 0.8, kind: 'door' }] },
+      { x1: -6.0, z1: 1.0, x2: -4.5, z2: 1.0, openings: [{ t: 0.5, w: 0.8, kind: 'door' }] },
+      { x1: -4.0, z1: 2.6, x2: -2.5, z2: 2.6, openings: [{ t: 0.5, w: 0.8, kind: 'door' }] },
       // 中央↔右 (LDK と 寝室/リビング) 縦仕切り
-      { x1: 2.0, z1: -5.0, x2: 2.0, z2: -2.6 },                // 寝室の壁
-      { x1: 2.0, z1: -1.5, x2: 2.0, z2: 0.5 },                 // LDK↔リビング (開口あり)
+      { x1: 2.0, z1: -5.0, x2: 2.0, z2: -2.6 },
+      { x1: 2.0, z1: -2.6, x2: 2.0, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
+      { x1: 2.0, z1: -1.5, x2: 2.0, z2: 0.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
       // 寝室の横仕切り
       { x1: 2.0, z1: -2.6, x2: 4.5, z2: -2.6 },
     ],
