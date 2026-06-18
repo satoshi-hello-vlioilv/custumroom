@@ -1697,6 +1697,30 @@ const FURNITURE_DEFS = [
   { id:'barcounter', cat:'shop',    name:'バーカウンター',    icon:'fa-martini-glass',     w:2.4, d:0.5,  h:1.1,  colorIdx:8,  build:buildBarCounter },
   { id:'barstool',   cat:'shop',    name:'バースツール',      icon:'fa-chair',             w:0.4, d:0.4,  h:0.85, colorIdx:2,  build:buildBarStool },
   { id:'roundtable', cat:'shop',    name:'丸テーブル',        icon:'fa-circle',            w:0.9, d:0.9,  h:0.74, colorIdx:8,  build:buildRoundTable },
+  // ---- seating variants ----
+  { id:'sofa2',      cat:'seating', name:'2人掛けソファ',     icon:'fa-couch',             w:1.4, d:0.95, h:0.85, colorIdx:0,  build:(o)=>buildSofa3({...o,seats:2}) },
+  { id:'sofalow',    cat:'seating', name:'ローソファ',         icon:'fa-couch',             w:2.2, d:1.0,  h:0.72, colorIdx:0,  build:(o)=>buildSofa3({...o,low:true}) },
+  { id:'sofal',      cat:'seating', name:'Lソファ',            icon:'fa-couch',             w:2.4, d:1.6,  h:0.85, colorIdx:0,  build:buildSofaL },
+  { id:'stool',      cat:'seating', name:'スツール',           icon:'fa-chair',             w:0.4, d:0.4,  h:0.46, colorIdx:2,  build:buildStool },
+  { id:'bench',      cat:'seating', name:'ベンチ',             icon:'fa-minus',             w:1.4, d:0.4,  h:0.45, colorIdx:8,  build:buildBench },
+  { id:'loungechair',cat:'seating', name:'ラウンジチェア',    icon:'fa-chair',             w:0.8, d:0.85, h:0.78, colorIdx:0,  build:buildLoungeChair },
+  { id:'ottoman',    cat:'seating', name:'オットマン',         icon:'fa-cube',              w:0.6, d:0.6,  h:0.4,  colorIdx:5,  build:buildOttoman },
+  // ---- table variants ----
+  { id:'consoletab', cat:'table',   name:'コンソールテーブル',icon:'fa-table',             w:1.1, d:0.32, h:0.8,  colorIdx:8,  build:buildConsoleTable },
+  { id:'roundctab',  cat:'table',   name:'丸コーヒーテーブル',icon:'fa-circle',            w:0.8, d:0.8,  h:0.42, colorIdx:0,  build:buildRoundCoffeeTable },
+  // ---- sleep variants ----
+  { id:'bunkbed',    cat:'sleep',   name:'二段ベッド',         icon:'fa-bed',               w:1.05,d:2.05, h:1.65, colorIdx:1,  build:buildBunkBed },
+  // ---- deco variants ----
+  { id:'pendlamp',   cat:'deco',    name:'ペンダントライト',  icon:'fa-lightbulb',         w:0.4, d:0.4,  h:1.2,  colorIdx:0,  build:buildPendantLamp },
+  { id:'desklamp',   cat:'deco',    name:'デスクランプ',       icon:'fa-lightbulb',         w:0.3, d:0.3,  h:0.5,  colorIdx:2,  build:buildDeskLamp,   stack:true },
+  { id:'tablelamp',  cat:'deco',    name:'テーブルランプ',    icon:'fa-lightbulb',         w:0.3, d:0.3,  h:0.55, colorIdx:6,  build:buildTableLamp,  stack:true },
+  { id:'cactus',     cat:'deco',    name:'サボテン',           icon:'fa-leaf',              w:0.3, d:0.3,  h:0.55, colorIdx:5,  build:buildCactus,     stack:true },
+  { id:'succulent',  cat:'deco',    name:'多肉植物',           icon:'fa-leaf',              w:0.25,d:0.25, h:0.2,  colorIdx:5,  build:buildSucculent,  stack:true },
+  { id:'roundrug',   cat:'deco',    name:'丸ラグ',             icon:'fa-circle',            w:1.6, d:1.6,  h:0.02, colorIdx:3,  build:buildRoundRug },
+  { id:'wallart',    cat:'deco',    name:'ウォールアート',    icon:'fa-image',             w:0.8, d:0.04, h:0.6,  colorIdx:9,  build:buildWallArt,    wallMount:true },
+  { id:'wallclock',  cat:'deco',    name:'壁掛け時計',         icon:'fa-clock',             w:0.4, d:0.06, h:0.4,  colorIdx:2,  build:buildWallClock,  wallMount:true },
+  // ---- storage variant ----
+  { id:'glasscab',   cat:'storage', name:'ガラス棚',           icon:'fa-wine-glass',        w:0.9, d:0.4,  h:1.8,  colorIdx:1,  build:buildGlassCabinet },
   // ---- lab (実験 / 試験 / 加工) ----
   { id:'labbench',   cat:'lab',     name:'実験台',            icon:'fa-flask-vial',        w:2.0,  d:0.75, h:0.85, colorIdx:1,  build:buildLabBench },
   { id:'fumehood',   cat:'lab',     name:'ドラフトチャンバー',icon:'fa-wind',              w:1.4,  d:0.8,  h:2.3,  colorIdx:10, build:buildFumeHood },
@@ -1715,33 +1739,29 @@ const FURNITURE_DEFS = [
 ];
 
 // ============================================================ FURNITURE BUILDERS
-function buildSofa3({ color='#c8a06a', w=2.2, d=0.95, h=0.85 } = {}) {
+function buildSofa3({ color='#c8a06a', w=2.2, d=0.95, h=0.85, seats=3, low=false } = {}) {
   const g = new THREE.Group();
+  if (low) h = h - 0.1;
   const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.7), accent = fabricMat(shade(color, 0.82));
-  // soft base with apron
   const base = new THREE.Mesh(roundedBoxGeom(w, 0.26, d, 0.08, 4), fabric); base.position.set(0, 0.16, 0); base.castShadow = base.receiveShadow = true; base.userData.colorable = true; g.add(base);
-  // seat cushions (rounded)
-  const cushW = (w - 0.12) / 3;
-  for (let i = 0; i < 3; i++) {
+  const cushW = (w - 0.12) / seats;
+  for (let i = 0; i < seats; i++) {
     const cx = -w/2 + cushW/2 + 0.06 + i*cushW;
     const c = new THREE.Mesh(roundedBoxGeom(cushW - 0.04, 0.22, d - 0.18, 0.07, 4), fabric); c.position.set(cx, 0.36, 0.05); c.castShadow = true; c.userData.colorable = true; g.add(c);
   }
-  // back cushions (rounded, separate per seat)
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < seats; i++) {
     const cx = -w/2 + cushW/2 + 0.06 + i*cushW;
     const bc = new THREE.Mesh(roundedBoxGeom(cushW - 0.04, h - 0.34, 0.2, 0.07, 4), fabric); bc.position.set(cx, 0.28 + (h-0.34)/2, -d/2 + 0.16); bc.castShadow = true; bc.userData.colorable = true; g.add(bc);
   }
-  // back support panel behind cushions
   const back = box(w, h - 0.26, 0.16, accent, 0, 0.26 + (h-0.26)/2, -d/2 + 0.08); back.userData.colorable = true; g.add(back);
-  // rolled arms
   [-w/2 + 0.12, w/2 - 0.12].forEach(x => {
     const a = new THREE.Mesh(roundedBoxGeom(0.22, h - 0.12, d, 0.1, 4), fabric); a.position.set(x, (h-0.12)/2 + 0.08, 0); a.castShadow = true; a.userData.colorable = true; g.add(a);
   });
-  // throw pillows for a cozy look
   [[-w/2 + 0.42, 0.5, '#d96a5b'], [w/2 - 0.42, 0.52, '#5b86b8']].forEach(([px, py, pc]) => {
     const pil = new THREE.Mesh(roundedBoxGeom(0.34, 0.34, 0.12, 0.06, 4), fabricMat(pc)); pil.position.set(px, py, -d/2 + 0.3); pil.rotation.z = px < 0 ? 0.12 : -0.12; pil.castShadow = true; g.add(pil);
   });
-  [[-w/2+0.13,d/2-0.13],[-w/2+0.13,-(d/2-0.13)],[w/2-0.13,d/2-0.13],[w/2-0.13,-(d/2-0.13)]].forEach(([lx,lz]) => { const leg = cyl(0.04, 0.05, 0.1, 8, wood); leg.position.set(lx, 0.05, lz); g.add(leg); });
+  const legH = low ? 0.07 : 0.1;
+  [[-w/2+0.13,d/2-0.13],[-w/2+0.13,-(d/2-0.13)],[w/2-0.13,d/2-0.13],[w/2-0.13,-(d/2-0.13)]].forEach(([lx,lz]) => { const leg = cyl(0.04, 0.05, legH, 8, wood); leg.position.set(lx, legH/2, lz); g.add(leg); });
   return g;
 }
 function buildArmchair({ color='#c8a06a', w=0.9, d=0.85, h=0.9 } = {}) {
@@ -2727,6 +2747,242 @@ function buildRoundTable({ color='#8a5a2b', w=0.9, d=0.9, h=0.74 } = {}) {
   topMesh.position.y = h - 0.025; topMesh.castShadow = true; topMesh.receiveShadow = true; topMesh.userData.colorable = true; g.add(topMesh);
   const post = cyl(0.04, 0.04, h - 0.12, 10, mat('#2a2018', 0.5, 0.2)); post.position.y = (h - 0.12) / 2; g.add(post);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.05, 20), mat('#2a2018', 0.6, 0.2)); base.position.y = 0.025; base.castShadow = true; g.add(base);
+  return g;
+}
+
+// ============================================================ VARIANT BUILDERS
+function buildSofaL({ color='#c8a06a', w=2.4, d=1.6, h=0.85 } = {}) {
+  const g = new THREE.Group();
+  const mainSofa = buildSofa3({ color, w, d: 0.95, h, seats: 3 });
+  g.add(mainSofa);
+  const chW = 0.95, chD = d - 0.95;
+  const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.7), accent = fabricMat(shade(color, 0.82));
+  const chaise = new THREE.Group();
+  const chBase = new THREE.Mesh(roundedBoxGeom(chW, 0.26, chD, 0.08, 4), fabric); chBase.position.set(0, 0.16, 0); chBase.castShadow = true; chBase.userData.colorable = true; chaise.add(chBase);
+  const chSeat = new THREE.Mesh(roundedBoxGeom(chW - 0.04, 0.22, chD - 0.1, 0.07, 4), fabric); chSeat.position.set(0, 0.36, 0.05); chSeat.castShadow = true; chSeat.userData.colorable = true; chaise.add(chSeat);
+  const chArm = new THREE.Mesh(roundedBoxGeom(0.22, h - 0.12, chD, 0.1, 4), fabric); chArm.position.set(-chW/2 + 0.12, (h-0.12)/2 + 0.08, 0); chArm.castShadow = true; chArm.userData.colorable = true; chaise.add(chArm);
+  [[chW/2-0.1,chD/2-0.1],[chW/2-0.1,-(chD/2-0.1)],[-chW/2+0.1,chD/2-0.1],[-chW/2+0.1,-(chD/2-0.1)]].forEach(([lx,lz]) => { const leg = cyl(0.04, 0.05, 0.1, 8, wood); leg.position.set(lx, 0.05, lz); chaise.add(leg); });
+  chaise.position.set(w/2 - chW/2, 0, -(0.95/2 + chD/2));
+  g.add(chaise);
+  return g;
+}
+function buildStool({ color='#5b5048', w=0.4, d=0.4, h=0.46 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.6), pad = fabricMat(shade(color, 1.4));
+  const seat = new THREE.Mesh(new THREE.CylinderGeometry(w/2, w/2 - 0.02, 0.06, 16), pad); seat.position.set(0, h, 0); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const seatRim = cyl(w/2 + 0.01, w/2 + 0.01, 0.03, 16, wood); seatRim.position.set(0, h - 0.02, 0); g.add(seatRim);
+  const legR = 0.022, splay = 0.06;
+  [0,1,2,3].forEach(i => {
+    const ang = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(legR, legR * 0.8, h - 0.06, 8), wood);
+    leg.position.set(Math.cos(ang) * (w/2 - 0.04 + splay), (h - 0.06)/2, Math.sin(ang) * (w/2 - 0.04 + splay));
+    leg.rotation.x = Math.sin(ang) * 0.12; leg.rotation.z = -Math.cos(ang) * 0.12;
+    leg.castShadow = true; g.add(leg);
+  });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(w/2 - 0.06, 0.015, 8, 24), wood); ring.rotation.x = Math.PI / 2; ring.position.set(0, h * 0.38, 0); g.add(ring);
+  return g;
+}
+function buildBench({ color='#8a5a2b', w=1.4, d=0.4, h=0.45 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.6, 0.02, { env: 0.3 });
+  const numSlats = 4;
+  const slatW = (w - 0.05) / numSlats, slatGap = 0.05 / numSlats;
+  for (let i = 0; i < numSlats; i++) {
+    const sx = -w/2 + slatW/2 + 0.025 + i * (slatW + slatGap);
+    const sl = new THREE.Mesh(roundedBoxGeom(slatW - 0.01, 0.045, d - 0.05, 0.015, 4), wood); sl.position.set(sx, h, 0); sl.castShadow = true; sl.userData.colorable = true; g.add(sl);
+  }
+  [[-w/2 + 0.06, 0], [w/2 - 0.06, 0]].forEach(([lx, lz]) => {
+    const leg = new THREE.Mesh(roundedBoxGeom(0.06, h, d - 0.04, 0.02, 4), wood); leg.position.set(lx, h/2, lz); leg.castShadow = true; leg.userData.colorable = true; g.add(leg);
+  });
+  const apron = new THREE.Mesh(roundedBoxGeom(w, 0.06, 0.03, 0.01, 4), wood); apron.position.set(0, h * 0.55, d/2 - 0.025); apron.castShadow = true; g.add(apron);
+  const apronB = new THREE.Mesh(roundedBoxGeom(w, 0.06, 0.03, 0.01, 4), wood); apronB.position.set(0, h * 0.55, -d/2 + 0.025); apronB.castShadow = true; g.add(apronB);
+  return g;
+}
+function buildLoungeChair({ color='#6f9e74', w=0.8, d=0.85, h=0.78 } = {}) {
+  const g = new THREE.Group(); const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.65);
+  const seat = new THREE.Mesh(roundedBoxGeom(w - 0.1, 0.18, d - 0.2, 0.06, 4), fabric); seat.position.set(0, 0.32, 0.04); seat.rotation.x = -0.1; seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const back = new THREE.Mesh(roundedBoxGeom(w - 0.1, h - 0.36, 0.16, 0.06, 4), fabric); back.position.set(0, 0.44 + (h - 0.36)/2, -d/2 + 0.1); back.rotation.x = 0.18; back.castShadow = true; back.userData.colorable = true; g.add(back);
+  [-w/2 + 0.05, w/2 - 0.05].forEach(x => {
+    const shell = new THREE.Mesh(roundedBoxGeom(0.06, h - 0.06, d, 0.02, 4), wood); shell.position.set(x, (h - 0.06)/2 + 0.04, 0); shell.castShadow = true; g.add(shell);
+    const arm = new THREE.Mesh(roundedBoxGeom(0.06, 0.04, d * 0.5, 0.01, 4), wood); arm.position.set(x, h * 0.56, d * 0.1); g.add(arm);
+  });
+  [[-w/2+0.1,d/2-0.1],[-w/2+0.1,-(d/2-0.1)],[w/2-0.1,d/2-0.1],[w/2-0.1,-(d/2-0.1)]].forEach(([lx,lz]) => { const leg = cyl(0.025, 0.03, 0.08, 8, wood); leg.position.set(lx, 0.04, lz); g.add(leg); });
+  return g;
+}
+function buildConsoleTable({ color='#8a5a2b', w=1.1, d=0.32, h=0.8 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.6, 0.02, { env: 0.4 });
+  const top = new THREE.Mesh(roundedBoxGeom(w, 0.04, d, 0.015, 4), wood); top.position.set(0, h, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  const shelf = new THREE.Mesh(roundedBoxGeom(w - 0.06, 0.025, d - 0.04, 0.01, 4), wood); shelf.position.set(0, h * 0.38, 0); shelf.castShadow = true; g.add(shelf);
+  [[-w/2+0.04,d/2-0.04],[-w/2+0.04,-(d/2-0.04)],[w/2-0.04,d/2-0.04],[w/2-0.04,-(d/2-0.04)]].forEach(([lx,lz]) => {
+    const leg = new THREE.Mesh(roundedBoxGeom(0.04, h, 0.04, 0.01, 4), wood); leg.position.set(lx, h/2, lz); leg.castShadow = true; g.add(leg);
+  });
+  return g;
+}
+function buildRoundCoffeeTable({ color='#c8a06a', w=0.8, d=0.8, h=0.42 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.55, 0.03, { env: 0.4 }), metal = mat('#5a5a5a', 0.25, 0.8, { env: 0.7 });
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(w/2, w/2, 0.04, 32), wood); top.position.set(0, h, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  for (let i = 0; i < 3; i++) {
+    const ang = (i / 3) * Math.PI * 2;
+    const r = w/2 - 0.08;
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.009, h - 0.04, 8), metal);
+    leg.position.set(Math.cos(ang) * r, (h - 0.04)/2, Math.sin(ang) * r);
+    leg.castShadow = true; g.add(leg);
+  }
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.03, 16), metal); base.position.set(0, 0.015, 0); g.add(base);
+  return g;
+}
+function buildBunkBed({ color='#f3ece0', w=1.05, d=2.05, h=1.65 } = {}) {
+  const g = new THREE.Group();
+  const frame = mat('#8a6b48', 0.65), sheet = fabricMat('#fdfaf3'), duvet1 = fabricMat(color), duvet2 = fabricMat('#5b86b8'), pillow = fabricMat('#fbf7ef');
+  const postR = 0.045;
+  [[-w/2+postR, d/2-postR],[w/2-postR, d/2-postR],[-w/2+postR, -(d/2-postR)],[w/2-postR, -(d/2-postR)]].forEach(([px,pz]) => {
+    const post = cyl(postR, postR, h, 12, frame); post.position.set(px, h/2, pz); g.add(post);
+  });
+  const addRail = (y) => {
+    const fr = new THREE.Mesh(roundedBoxGeom(w, 0.06, 0.05, 0.02, 4), frame); fr.position.set(0, y, d/2 - 0.03); g.add(fr);
+    const bk = new THREE.Mesh(roundedBoxGeom(w, 0.06, 0.05, 0.02, 4), frame); bk.position.set(0, y, -(d/2 - 0.03)); g.add(bk);
+  };
+  addRail(0.32); addRail(h * 0.52); addRail(h - 0.08);
+  const addBunk = (baseY, dv) => {
+    const sl = new THREE.Mesh(roundedBoxGeom(w - 0.1, 0.08, d - 0.1, 0.02, 4), frame); sl.position.set(0, baseY, 0); sl.castShadow = true; g.add(sl);
+    const matt = new THREE.Mesh(roundedBoxGeom(w - 0.14, 0.1, d - 0.2, 0.03, 4), sheet); matt.position.set(0, baseY + 0.09, 0); matt.castShadow = true; g.add(matt);
+    const duvetM = new THREE.Mesh(roundedBoxGeom(w - 0.16, 0.08, d * 0.6, 0.03, 4), dv); duvetM.position.set(0, baseY + 0.15, d * 0.15); duvetM.castShadow = true; duvetM.userData.colorable = true; g.add(duvetM);
+    const pil = new THREE.Mesh(roundedBoxGeom(w * 0.6, 0.07, 0.32, 0.025, 4), pillow); pil.position.set(0, baseY + 0.14, -(d/2 - 0.25)); pil.castShadow = true; g.add(pil);
+  };
+  addBunk(0.28, duvet1); addBunk(h * 0.5 + 0.04, duvet2);
+  const guardL = new THREE.Mesh(roundedBoxGeom(0.04, 0.22, d * 0.6, 0.01, 4), frame); guardL.position.set(-w/2 + 0.05, h * 0.5 + 0.22, d * 0.1); g.add(guardL);
+  const rungH = 0.22, numRungs = 4;
+  for (let i = 0; i < numRungs; i++) {
+    const ry = 0.15 + i * rungH;
+    const rung = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.28, 8), frame); rung.rotation.z = Math.PI / 2; rung.position.set(w/2 - 0.08, ry, d/2 - 0.04); g.add(rung);
+  }
+  return g;
+}
+function buildPendantLamp({ color='#e0a23b', w=0.4, d=0.4, h=1.2 } = {}) {
+  const g = new THREE.Group();
+  const metal = mat('#3a332b', 0.3, 0.7, { env: 0.8 }), shade_m = mat(color, 0.5, 0.3);
+  const cord = cyl(0.008, 0.008, h - 0.22, 8, metal); cord.position.set(0, h - (h - 0.22)/2, 0); g.add(cord);
+  const rose = cyl(0.06, 0.06, 0.04, 16, metal); rose.position.set(0, h, 0); g.add(rose);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), shade_m); dome.position.set(0, 0.22, 0); dome.castShadow = true; dome.userData.colorable = true; g.add(dome);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), mat('#ffffee', 0.1, 0.0, { emissive: '#ffffcc', emissiveIntensity: 1.5 })); bulb.position.set(0, 0.22, 0); g.add(bulb);
+  const light = new THREE.PointLight(0xfff5cc, 1.2, 4); light.position.set(0, 0.22, 0); g.add(light);
+  return g;
+}
+function buildDeskLamp({ color='#3a4250', w=0.3, d=0.3, h=0.5 } = {}) {
+  const g = new THREE.Group(); const metal = mat(color, 0.35, 0.6, { env: 0.7 });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.03, 16), metal); base.position.set(0, 0.015, 0); g.add(base);
+  const arm1 = new THREE.Mesh(roundedBoxGeom(0.025, 0.22, 0.025, 0.008, 4), metal); arm1.position.set(0, 0.13, 0); arm1.rotation.z = 0.3; g.add(arm1);
+  const arm2 = new THREE.Mesh(roundedBoxGeom(0.025, 0.18, 0.025, 0.008, 4), metal); arm2.position.set(0.07, 0.32, 0); arm2.rotation.z = -0.2; g.add(arm2);
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.09, 12), metal); head.position.set(0.1, h, 0); head.rotation.z = Math.PI * 0.6; head.castShadow = true; head.userData.colorable = true; g.add(head);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), mat('#ffffee', 0.1, 0.0, { emissive: '#ffffcc', emissiveIntensity: 1.5 })); bulb.position.set(0.12, h - 0.02, 0); g.add(bulb);
+  const light = new THREE.PointLight(0xfff5cc, 0.8, 2); light.position.set(0.12, h - 0.05, 0); g.add(light);
+  return g;
+}
+function buildTableLamp({ color='#b25c78', w=0.3, d=0.3, h=0.55 } = {}) {
+  const g = new THREE.Group();
+  const base_m = mat('#caa46d', 0.3, 0.7, { env: 0.7 }), shade_m = mat(color, 0.6, 0.0);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.22, 16), base_m); base.position.set(0, 0.11, 0); base.castShadow = true; g.add(base);
+  const neck = cyl(0.02, 0.02, 0.06, 8, base_m); neck.position.set(0, 0.25, 0); g.add(neck);
+  const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.07, 0.18, 16, 1, true), shade_m); shade.position.set(0, 0.38, 0); shade.castShadow = true; shade.userData.colorable = true; g.add(shade);
+  const shadeTop = cyl(0.07, 0.07, 0.01, 16, shade_m); shadeTop.position.set(0, 0.47, 0); g.add(shadeTop);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), mat('#ffffee', 0.1, 0.0, { emissive: '#ffffcc', emissiveIntensity: 1.2 })); bulb.position.set(0, 0.34, 0); g.add(bulb);
+  const light = new THREE.PointLight(0xfff5cc, 0.9, 3); light.position.set(0, 0.3, 0); g.add(light);
+  return g;
+}
+function buildCactus({ color='#5f8a52', w=0.3, d=0.3, h=0.55 } = {}) {
+  const g = new THREE.Group();
+  const pot = mat('#c87f54', 0.8), earth = mat('#3d2b1f', 0.98), green = mat(color, 0.7);
+  const potM = new THREE.Mesh(new THREE.CylinderGeometry(w/2 - 0.01, w/2 * 0.85, 0.16, 6), pot); potM.position.set(0, 0.08, 0); potM.castShadow = true; g.add(potM);
+  const soilM = cyl(w/2 - 0.02, w/2 - 0.02, 0.02, 6, earth); soilM.position.set(0, 0.17, 0); g.add(soilM);
+  const bodyH = h - 0.18;
+  let bodyGeom;
+  try { bodyGeom = new THREE.CapsuleGeometry(0.045, bodyH, 6, 12); }
+  catch(_) { bodyGeom = new THREE.CylinderGeometry(0.045, 0.05, bodyH, 8); }
+  const body = new THREE.Mesh(bodyGeom, green); body.position.set(0, 0.18 + bodyH/2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  const armH = bodyH * 0.45;
+  [-1, 1].forEach((side, idx) => {
+    const ay = 0.18 + bodyH * (0.35 + idx * 0.15);
+    let armG;
+    try { armG = new THREE.CapsuleGeometry(0.028, armH, 5, 8); }
+    catch(_) { armG = new THREE.CylinderGeometry(0.028, 0.03, armH, 6); }
+    const arm = new THREE.Mesh(armG, green); arm.position.set(side * 0.08, ay, 0); arm.rotation.z = side * 0.9; arm.castShadow = true; g.add(arm);
+  });
+  return g;
+}
+function buildSucculent({ color='#6f9e74', w=0.25, d=0.25, h=0.2 } = {}) {
+  const g = new THREE.Group();
+  const pot = mat('#d8d0c4', 0.85), earth = mat('#3d2b1f', 0.98);
+  const potM = new THREE.Mesh(new THREE.CylinderGeometry(w/2, w/2 * 0.88, 0.1, 6), pot); potM.position.set(0, 0.05, 0); potM.castShadow = true; g.add(potM);
+  cyl(w/2 - 0.01, w/2 - 0.01, 0.01, 6, earth).position.set(0, 0.105, 0); g.add(g.children[g.children.length-1] = (() => { const m = cyl(w/2-0.01, w/2-0.01, 0.01, 6, earth); m.position.set(0, 0.105, 0); return m; })());
+  const leafMat = mat(color, 0.75); const numLeaves = 8;
+  for (let i = 0; i < numLeaves; i++) {
+    const ang = (i / numLeaves) * Math.PI * 2;
+    const r = (i % 2 === 0 ? 0.06 : 0.035);
+    const leafH = h * (i % 2 === 0 ? 0.62 : 0.45);
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), leafMat);
+    leaf.scale.set(0.5, leafH / 0.05, 0.5);
+    leaf.position.set(Math.cos(ang) * r, 0.12 + leafH * 0.4, Math.sin(ang) * r);
+    leaf.rotation.z = Math.cos(ang) * 0.5; leaf.rotation.x = Math.sin(ang) * 0.5;
+    leaf.castShadow = true; leaf.userData.colorable = true; g.add(leaf);
+  }
+  const center = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), leafMat); center.position.set(0, 0.18, 0); center.userData.colorable = true; g.add(center);
+  return g;
+}
+function buildRoundRug({ color='#b9714a', w=1.6, d=1.6 } = {}) {
+  const g = new THREE.Group();
+  const rugMat = mat(color, 0.92, 0.0); rugMat.side = THREE.DoubleSide;
+  const rug = new THREE.Mesh(new THREE.CircleGeometry(w/2, 32), rugMat); rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.005, 0); rug.receiveShadow = true; rug.userData.colorable = true; g.add(rug);
+  const border = new THREE.Mesh(new THREE.TorusGeometry(w/2 - 0.05, 0.04, 6, 32), mat(shade(color, 0.75), 0.92)); border.rotation.x = -Math.PI / 2; border.position.set(0, 0.006, 0); g.add(border);
+  return g;
+}
+function buildWallArt({ color='#3f5d7a', w=0.8, d=0.04, h=0.6 } = {}) {
+  const g = new THREE.Group(); const cy = 1.45;
+  const frame = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.015, 4), mat('#3a2a18', 0.5, 0.1)); frame.position.set(0, cy, 0); frame.castShadow = true; g.add(frame);
+  const canvas_m = plainBox(w - 0.04, h - 0.04, 0.01, mat('#f8f4ee', 0.9, 0.0), 0, cy, d * 0.3); g.add(canvas_m);
+  const colors = [color, shade(color, 1.4), '#e8b86d', shade(color, 0.7)];
+  const blocks = [[0,-0.1,0.35,0.35],[0.2,0.05,0.18,0.28],[-0.15,0.08,0.2,0.22],[0.05,-0.05,0.12,0.12]];
+  blocks.forEach(([bx,by,bw,bh],i) => {
+    const bl = plainBox(bw, bh, 0.012, mat(colors[i % colors.length], 0.7), bx, cy + by, d * 0.35); bl.userData.colorable = (i === 0); g.add(bl);
+  });
+  return g;
+}
+function buildWallClock({ color='#2a2520', w=0.4, d=0.06, h=0.4 } = {}) {
+  const g = new THREE.Group(); const cy = 1.6;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(w/2, 0.025, 8, 32), mat(color, 0.4, 0.3)); rim.rotation.x = Math.PI / 2; rim.position.set(0, cy, 0); rim.castShadow = true; rim.userData.colorable = true; g.add(rim);
+  const face = new THREE.Mesh(new THREE.CircleGeometry(w/2 - 0.025, 32), mat('#f8f6f0', 0.85)); face.rotation.x = -Math.PI / 2; face.position.set(0, cy, d / 2 + 0.001); face.rotation.y = Math.PI; g.add(face);
+  for (let i = 0; i < 12; i++) {
+    const ang = (i / 12) * Math.PI * 2; const tr = w/2 - 0.05;
+    const tick = new THREE.Mesh(new THREE.BoxGeometry(i % 3 === 0 ? 0.025 : 0.012, i % 3 === 0 ? 0.055 : 0.03, 0.005), mat('#333', 0.8));
+    tick.position.set(Math.sin(ang) * tr, cy + Math.cos(ang) * tr, d / 2 + 0.005); g.add(tick);
+  }
+  const hourHand = new THREE.Mesh(new THREE.BoxGeometry(0.012, w * 0.28, 0.006), mat('#222', 0.8)); hourHand.position.set(Math.sin(0.6) * w * 0.07, cy + Math.cos(0.6) * w * 0.07, d/2 + 0.008); hourHand.rotation.z = -0.6; g.add(hourHand);
+  const minHand = new THREE.Mesh(new THREE.BoxGeometry(0.008, w * 0.38, 0.006), mat('#222', 0.8)); minHand.position.set(Math.sin(2.1) * w * 0.1, cy + Math.cos(2.1) * w * 0.1, d/2 + 0.008); minHand.rotation.z = -2.1; g.add(minHand);
+  return g;
+}
+function buildGlassCabinet({ color='#f3ece0', w=0.9, d=0.4, h=1.8 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.6), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xd0eaf8, transparent: true, opacity: 0.25, roughness: 0.05, metalness: 0.1 });
+  const body = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.02, 4), wood); body.position.set(0, h/2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  const frontGlass = plainBox(w - 0.06, h - 0.06, 0.01, glassMat, 0, h/2, d/2 - 0.015); g.add(frontGlass);
+  const frameTop = new THREE.Mesh(roundedBoxGeom(w - 0.02, 0.03, 0.03, 0.008, 4), metal); frameTop.position.set(0, h - 0.015, d/2 - 0.02); g.add(frameTop);
+  const frameBot = new THREE.Mesh(roundedBoxGeom(w - 0.02, 0.03, 0.03, 0.008, 4), metal); frameBot.position.set(0, 0.015, d/2 - 0.02); g.add(frameBot);
+  [h * 0.38, h * 0.64].forEach(sy => {
+    const shelf = new THREE.Mesh(roundedBoxGeom(w - 0.08, 0.02, d - 0.08, 0.006, 4), wood); shelf.position.set(0, sy, 0); g.add(shelf);
+  });
+  const handle = cyl(0.008, 0.008, 0.12, 8, metal); handle.rotation.z = Math.PI/2; handle.position.set(0, h * 0.5, d/2 + 0.015); g.add(handle);
+  return g;
+}
+function buildOttoman({ color='#6f9e74', w=0.6, d=0.6, h=0.4 } = {}) {
+  const g = new THREE.Group(); const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.7);
+  const body = new THREE.Mesh(roundedBoxGeom(w, h - 0.06, d, 0.06, 4), fabric); body.position.set(0, (h-0.06)/2 + 0.06, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  const numTufts = 3;
+  for (let ix = 0; ix < numTufts; ix++) {
+    for (let iz = 0; iz < numTufts; iz++) {
+      const tx = -w/2 + (ix + 0.5) * (w / numTufts), tz = -d/2 + (iz + 0.5) * (d / numTufts);
+      const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), wood); tuft.position.set(tx, h - 0.02, tz); g.add(tuft);
+    }
+  }
+  const border = new THREE.Mesh(new THREE.TorusGeometry(Math.min(w,d) * 0.48, 0.015, 6, 32), wood); border.rotation.x = Math.PI/2; border.position.set(0, h - 0.03, 0); g.add(border);
+  [[-w/2+0.06,d/2-0.06],[-w/2+0.06,-(d/2-0.06)],[w/2-0.06,d/2-0.06],[w/2-0.06,-(d/2-0.06)]].forEach(([lx,lz]) => { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.02, 0.06, 8), wood); leg.position.set(lx, 0.03, lz); leg.castShadow = true; g.add(leg); });
   return g;
 }
 
