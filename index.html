@@ -4164,9 +4164,9 @@ const PRESETS = [
     desc: '16m×12mの展示ホール。展示ケース・台座・解説パネルを配置した開放的なギャラリー。',
     room: { w: 16, d: 12 }, floorType: 'marble', wallType: 'white',
     partitions: [
-      { x1: -8, z1: 3.5, x2: -2, z2: 3.5 },
+      { x1: -8, z1: 3.5, x2: -0.6, z2: 3.5 },
       { x1: -0.6, z1: 3.5, x2: 0.6, z2: 3.5, openings: [{ t: 0.5, w: 1.0, kind: 'auto_door' }] },
-      { x1:  1, z1: 3.5, x2:  8, z2: 3.5 },
+      { x1:  0.6, z1: 3.5, x2:  8, z2: 3.5 },
     ],
     floors: [
       { x1: -8, z1: 3.5, x2: 8, z2: 6, type: 'tile' },
@@ -4323,9 +4323,9 @@ const PRESETS = [
     desc: '12m×9mの化学実験室。実験台・ドラフトチャンバー・薬品棚・顕微鏡・遠心分離機を完備。',
     room: { w: 12, d: 9 }, floorType: 'tile', wallType: 'white',
     partitions: [
-      { x1: -6, z1: 1.5, x2: -1, z2: 1.5 },
+      { x1: -6, z1: 1.5, x2: -0.6, z2: 1.5 },
       { x1: -0.6, z1: 1.5, x2: 0.6, z2: 1.5, openings: [{ t: 0.5, w: 1.0, kind: 'lab_door' }] },
-      { x1: 1, z1: 1.5, x2: 6, z2: 1.5 },
+      { x1: 0.6, z1: 1.5, x2: 6, z2: 1.5 },
     ],
     floors: [
       { x1: -6, z1: 1.5, x2: 6, z2: 4.5, type: 'genkan' },
@@ -4468,9 +4468,9 @@ const PRESETS = [
       { x1: -2.5, z1: -1.0, x2: -2.5, z2: 0.0, openings: [{ t: 0.5, w: 0.9, kind: 'fusuma' }] },
       { x1: -2.5, z1: 0.0, x2: -2.5, z2: 5.0 },
       // 左ゾーン内の横仕切り (浴室 / 洗面所 / トイレ / 玄関)
-      { x1: -6.0, z1: -2.0, x2: -4.0, z2: -2.0, openings: [{ t: 0.5, w: 0.8, kind: 'bath_door' }] },
-      { x1: -6.0, z1: 1.0, x2: -4.5, z2: 1.0, openings: [{ t: 0.5, w: 0.8, kind: 'toilet_door' }] },
-      { x1: -4.0, z1: 2.6, x2: -2.5, z2: 2.6, openings: [{ t: 0.5, w: 0.8, kind: 'door' }] },
+      { x1: -6.0, z1: -2.0, x2: -2.5, z2: -2.0, openings: [{ t: 0.2, w: 0.8, kind: 'bath_door' }] },
+      { x1: -6.0, z1: 1.0, x2: -2.5, z2: 1.0, openings: [{ t: 0.2, w: 0.8, kind: 'toilet_door' }] },
+      { x1: -6.0, z1: 2.6, x2: -2.5, z2: 2.6, openings: [{ t: 0.75, w: 0.8, kind: 'door' }] },
       // 中央↔右 (LDK と 寝室/リビング) 縦仕切り
       { x1: 2.0, z1: -5.0, x2: 2.0, z2: -2.6 },
       { x1: 2.0, z1: -2.6, x2: 2.0, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'fusuma' }] },
