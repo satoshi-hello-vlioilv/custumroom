@@ -471,6 +471,7 @@ body {
         <button class="cat-tab" data-cat="office"><i class="fa-solid fa-briefcase"></i> オフィス</button>
         <button class="cat-tab" data-cat="museum"><i class="fa-solid fa-landmark"></i> 博物館</button>
         <button class="cat-tab" data-cat="shop"><i class="fa-solid fa-store"></i> 店舗</button>
+        <button class="cat-tab" data-cat="lab"><i class="fa-solid fa-flask"></i> 実験</button>
       </div>
       <div class="furniture-list" id="furniture-list"></div>
     </aside>
@@ -1626,6 +1627,21 @@ const FURNITURE_DEFS = [
   { id:'barcounter', cat:'shop',    name:'バーカウンター',    icon:'fa-martini-glass',     w:2.4, d:0.5,  h:1.1,  colorIdx:8,  build:buildBarCounter },
   { id:'barstool',   cat:'shop',    name:'バースツール',      icon:'fa-chair',             w:0.4, d:0.4,  h:0.85, colorIdx:2,  build:buildBarStool },
   { id:'roundtable', cat:'shop',    name:'丸テーブル',        icon:'fa-circle',            w:0.9, d:0.9,  h:0.74, colorIdx:8,  build:buildRoundTable },
+  // ---- lab (実験 / 試験 / 加工) ----
+  { id:'labbench',   cat:'lab',     name:'実験台',            icon:'fa-flask-vial',        w:2.0,  d:0.75, h:0.85, colorIdx:1,  build:buildLabBench },
+  { id:'fumehood',   cat:'lab',     name:'ドラフトチャンバー',icon:'fa-wind',              w:1.4,  d:0.8,  h:2.3,  colorIdx:10, build:buildFumeHood },
+  { id:'microscope', cat:'lab',     name:'顕微鏡',            icon:'fa-microscope',        w:0.3,  d:0.4,  h:0.45, colorIdx:2,  build:buildMicroscope, stack:true },
+  { id:'centrifuge', cat:'lab',     name:'遠心分離機',        icon:'fa-fan',               w:0.55, d:0.55, h:0.4,  colorIdx:10, build:buildCentrifuge, stack:true },
+  { id:'analbalance',cat:'lab',     name:'電子天秤',          icon:'fa-scale-balanced',    w:0.3,  d:0.4,  h:0.32, colorIdx:10, build:buildAnalyticalBalance, stack:true },
+  { id:'chemshelf',  cat:'lab',     name:'薬品棚',            icon:'fa-bottle-droplet',    w:1.0,  d:0.4,  h:1.9,  colorIdx:1,  build:buildChemShelf },
+  { id:'glassware',  cat:'lab',     name:'実験ガラス器具',    icon:'fa-vial',              w:0.4,  d:0.3,  h:0.32, colorIdx:5,  build:buildGlassware, stack:true },
+  { id:'oscilloscope',cat:'lab',    name:'オシロスコープ',    icon:'fa-wave-square',       w:0.42, d:0.4,  h:0.3,  colorIdx:2,  build:buildOscilloscope, stack:true },
+  { id:'testbench',  cat:'lab',     name:'測定試験機',        icon:'fa-gauge-high',        w:0.9,  d:0.7,  h:1.6,  colorIdx:2,  build:buildTestBench },
+  { id:'lathe',      cat:'lab',     name:'旋盤',              icon:'fa-gears',             w:1.8,  d:0.8,  h:1.35, colorIdx:6,  build:buildLathe },
+  { id:'milling',    cat:'lab',     name:'フライス盤',        icon:'fa-screwdriver-wrench',w:1.2,  d:1.1,  h:1.95, colorIdx:6,  build:buildMillingMachine },
+  { id:'drillpress', cat:'lab',     name:'ボール盤',          icon:'fa-arrow-down-long',   w:0.6,  d:0.7,  h:1.75, colorIdx:6,  build:buildDrillPress },
+  { id:'grinder',    cat:'lab',     name:'グラインダー',      icon:'fa-circle-notch',      w:0.7,  d:0.45, h:1.25, colorIdx:6,  build:buildBenchGrinder },
+  { id:'toolrack',   cat:'lab',     name:'工具ラック',        icon:'fa-toolbox',           w:1.0,  d:0.12, h:1.2,  colorIdx:2,  build:buildToolRack },
 ];
 
 // ============================================================ FURNITURE BUILDERS
@@ -2562,6 +2578,327 @@ function buildRoundTable({ color='#8a5a2b', w=0.9, d=0.9, h=0.74 } = {}) {
   return g;
 }
 
+// ============================================================ LAB / TEST / MACHINING BUILDERS
+function buildLabBench({ color='#f3ece0', w=2.0, d=0.75, h=0.85 } = {}) {
+  const g = new THREE.Group();
+  const cab = mat(shade(color, 0.92), 0.5), epoxy = mat('#2a2e2c', 0.4, 0.05), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
+  const body = box(w, h - 0.1, d, cab, 0, (h - 0.1) / 2, 0); body.userData.colorable = true; g.add(body);
+  g.add(box(w + 0.04, 0.04, d + 0.04, epoxy, 0, h - 0.02, 0)); // black epoxy worktop
+  // reagent shelf rack above the bench
+  [-w/2 + 0.05, w/2 - 0.05].forEach(x => g.add(box(0.04, 0.7, 0.04, metal, x, h + 0.35, -d/2 + 0.06)));
+  g.add(box(w, 0.03, 0.2, mat(shade(color,1.05), 0.5), 0, h + 0.4, -d/2 + 0.1));
+  g.add(box(w, 0.03, 0.2, mat(shade(color,1.05), 0.5), 0, h + 0.68, -d/2 + 0.1));
+  // gooseneck faucet + sink at right
+  g.add(box(0.34, 0.04, 0.3, mat('#0d1117', 0.3, 0.3), w/2 - 0.35, h, 0));
+  g.add(box(0.03, 0.18, 0.03, metal, w/2 - 0.35, h + 0.1, -d/2 + 0.1));
+  g.add(box(0.12, 0.03, 0.03, metal, w/2 - 0.30, h + 0.18, -d/2 + 0.14));
+  // gas tap
+  g.add(cylAt(0.02, 0.02, 0.1, 8, mat('#d9a23b', 0.5), -w/2 + 0.3, h + 0.07, -d/2 + 0.12));
+  // drawers + door fronts
+  const dn = 4;
+  for (let i = 0; i < dn; i++) {
+    const dx = -w/2 + w/dn * (i + 0.5);
+    const fr = box(w/dn - 0.05, h - 0.24, 0.02, mat(shade(color, 1.06), 0.55), dx, (h - 0.1)/2, d/2 + 0.005); fr.userData.colorable = true; g.add(fr);
+    g.add(box(0.16, 0.02, 0.02, metal, dx, h - 0.22, d/2 + 0.02));
+  }
+  [-w/2 + 0.04, w/2 - 0.04].forEach(x => g.add(box(0.05, 0.1, 0.05, mat('#555', 0.5), x, 0.05, d/2 - 0.06)));
+  return g;
+}
+function buildFumeHood({ color='#e8e2d6', w=1.4, d=0.8, h=2.3 } = {}) {
+  const g = new THREE.Group();
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xbcd8e4, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.26, side: THREE.DoubleSide });
+  const bodyMat = mat(color, 0.55, 0.05), metal = mat('#aab0b4', 0.3, 0.6, { env: 0.8 });
+  const counterH = 0.9;
+  // base cabinet
+  const base = box(w, counterH, d, mat(shade(color, 0.9), 0.5), 0, counterH/2, 0); base.userData.colorable = true; g.add(base);
+  g.add(box(w + 0.02, 0.04, d + 0.02, mat('#2a2e2c', 0.4), 0, counterH + 0.02, 0)); // worktop
+  // hood enclosure (back + sides + top)
+  const hoodY = counterH + 0.04;
+  g.add(box(w, h - hoodY, 0.05, bodyMat, 0, hoodY + (h - hoodY)/2, -d/2 + 0.025)); // back
+  [-w/2 + 0.025, w/2 - 0.025].forEach(x => g.add(box(0.05, h - hoodY, d, bodyMat, x, hoodY + (h - hoodY)/2, 0)));
+  g.add(box(w, 0.12, d, bodyMat, 0, h - 0.06, 0)); // top
+  // sliding glass sash (raised)
+  g.add(plainBox(w - 0.12, 0.85, 0.02, glassMat, 0, hoodY + 0.7, d/2 - 0.05));
+  g.add(box(w - 0.12, 0.04, 0.03, metal, 0, hoodY + 0.28, d/2 - 0.04)); // sash handle bar
+  // side glass windows
+  [-w/2 + 0.06, w/2 - 0.06].forEach(x => g.add(plainBox(0.015, h - hoodY - 0.2, d - 0.12, glassMat, x, hoodY + (h - hoodY)/2, 0.02)));
+  // interior fixtures
+  g.add(box(0.3, 0.04, 0.25, mat('#0d1117', 0.3), w/2 - 0.3, counterH + 0.06, -0.05)); // inner sink
+  g.add(cylAt(0.02, 0.02, 0.12, 8, metal, -w/2 + 0.25, counterH + 0.12, -d/2 + 0.1)); // gas valve
+  // exhaust duct on top
+  g.add(cylAt(0.1, 0.1, 0.25, 12, metal, 0, h + 0.12, -d/2 + 0.2));
+  // control panel
+  g.add(box(0.2, 0.14, 0.02, mat('#1c1f22', 0.4), w/2 - 0.2, hoodY + 0.1, d/2 - 0.03));
+  g.add(cylAt(0.015, 0.015, 0.01, 8, mat('#22c55e', 0.5), w/2 - 0.24, hoodY + 0.13, d/2 - 0.02));
+  return g;
+}
+function buildMicroscope({ color='#3a3f47', w=0.3, d=0.4, h=0.45 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.4, 0.4, { env: 0.6 }), metal = mat('#c0c4c8', 0.25, 0.85, { env: 1.0 }), glass = mat('#8fbfd8', 0.05, 0.3);
+  // foot base (horseshoe)
+  const base = box(0.22, 0.04, 0.3, mat('#2a2e34', 0.45, 0.4), 0, 0.02, 0.02); base.userData.colorable = true; g.add(base);
+  // arm rising and curving
+  const arm = box(0.06, 0.32, 0.07, body, 0, 0.2, -0.1); g.add(arm);
+  // stage
+  g.add(box(0.16, 0.02, 0.14, mat('#1c1f22', 0.4), 0, 0.18, 0.02));
+  g.add(cylAt(0.02, 0.02, 0.02, 12, glass, 0, 0.19, 0.02)); // slide hole / light
+  // head + eyepiece (angled)
+  const head = box(0.1, 0.08, 0.12, body, 0, 0.36, -0.04); g.add(head);
+  const eye = cyl(0.022, 0.022, 0.1, 10, body); eye.rotation.x = -0.5; eye.position.set(0, 0.42, 0.06); g.add(eye);
+  g.add(cylAt(0.018, 0.018, 0.015, 10, glass, 0, 0.465, 0.085)); // eyepiece lens
+  // objective turret + lenses
+  const turret = cyl(0.04, 0.04, 0.025, 12, mat('#222', 0.4, 0.3)); turret.position.set(0, 0.31, 0.02); g.add(turret);
+  [[-0.02,0.01],[0.02,0.01],[0,0.04]].forEach(([x,z]) => g.add(cylAt(0.01, 0.008, 0.05, 8, metal, x, 0.275, 0.02 + z)));
+  // focus knob
+  g.add(cylAt(0.03, 0.03, 0.02, 12, mat('#444', 0.4), 0.05, 0.24, -0.1));
+  return g;
+}
+function buildCentrifuge({ color='#e8e2d6', w=0.55, d=0.55, h=0.4 } = {}) {
+  const g = new THREE.Group();
+  const body = mat('#eef0f1', 0.4, 0.15, { env: 0.4 }), dark = mat('#2a2f33', 0.3, 0.2), metal = mat('#aab0b4', 0.3, 0.7);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(w/2, w/2 + 0.02, h - 0.08, 28), body);
+  base.position.y = (h - 0.08)/2; base.castShadow = true; base.userData.colorable = true; g.add(base);
+  // hinged lid (slightly domed)
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(w/2 - 0.01, w/2, 0.08, 28), mat(shade(color,0.95), 0.35, 0.2));
+  lid.position.y = h - 0.04; lid.castShadow = true; g.add(lid);
+  g.add(cylAt(0.05, 0.05, 0.02, 16, dark, 0, h, 0)); // lid knob
+  // rotor hint visible at seam
+  g.add(cylAt(w/2 - 0.06, w/2 - 0.06, 0.015, 24, metal, 0, h - 0.08, 0));
+  // control display on front
+  g.add(box(0.18, 0.1, 0.02, dark, 0, h - 0.18, w/2 - 0.01));
+  g.add(box(0.14, 0.06, 0.01, mat('#0a2a2a', 0.5, 0.1), 0, h - 0.18, w/2 + 0.002));
+  [[-0.08,0],[0.08,0]].forEach(([x]) => g.add(cylAt(0.018, 0.018, 0.015, 10, mat('#3b82f6', 0.5), x, h - 0.27, w/2 - 0.005)));
+  return g;
+}
+function buildAnalyticalBalance({ color='#e8e2d6', w=0.3, d=0.4, h=0.32 } = {}) {
+  const g = new THREE.Group();
+  const body = mat('#f0eee9', 0.4, 0.1, { env: 0.4 }), glass = new THREE.MeshStandardMaterial({ color: 0xcfe0e8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.22, side: THREE.DoubleSide }), metal = mat('#9aa0a4', 0.3, 0.8);
+  // base unit with display
+  const base = box(w, 0.1, d, body, 0, 0.05, 0.06); base.userData.colorable = true; g.add(base);
+  g.add(box(w - 0.06, 0.05, 0.1, mat('#1c1f22', 0.4), 0, 0.08, d/2 - 0.02)); // display
+  g.add(box(w - 0.1, 0.03, 0.01, mat('#0a2a2a', 0.5), 0, 0.085, d/2 + 0.04));
+  // draft shield (glass box)
+  const shY = 0.1, shH = h - 0.1, shW = w - 0.04, shD = d - 0.16;
+  [-shW/2, shW/2].forEach(x => g.add(plainBox(0.01, shH, shD, glass, x, shY + shH/2, -0.02)));
+  g.add(plainBox(shW, shH, 0.01, glass, 0, shY + shH/2, -shD/2 - 0.02));
+  g.add(plainBox(shW, 0.01, shD, glass, 0, shY + shH, -0.02));
+  // weighing pan
+  g.add(cylAt(0.06, 0.06, 0.008, 20, metal, 0, shY + 0.02, -0.02));
+  return g;
+}
+function buildChemShelf({ color='#f3ece0', w=1.0, d=0.4, h=1.9 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.65), metal = mat('#9aa0a4', 0.3, 0.6);
+  // frame
+  [-w/2 + 0.02, w/2 - 0.02].forEach(x => g.add(box(0.04, h, d, wood, x, h/2, 0)));
+  g.add(box(w, 0.04, d, wood, 0, h - 0.02, 0)); g.add(box(w, 0.04, d, wood, 0, 0.02, 0));
+  g.add(box(w, h, 0.03, mat(shade(color,0.92),0.7), 0, h/2, -d/2 + 0.015)); // back
+  const bottleCols = ['#5a8fc0','#c05a5a','#5ac07a','#c0a85a','#9a5ac0','#5ac0c0'];
+  [0.42, 0.86, 1.3, 1.7].forEach((y, si) => {
+    const shelf = box(w - 0.06, 0.025, d - 0.04, wood, 0, y, 0); shelf.userData.colorable = true; g.add(shelf);
+    // anti-spill lip
+    g.add(box(w - 0.06, 0.04, 0.015, metal, 0, y + 0.03, d/2 - 0.04));
+    // reagent bottles
+    for (let i = -0.36; i <= 0.36; i += 0.12) {
+      const c = bottleCols[(Math.floor(Math.abs(i*20 + si*3))) % bottleCols.length];
+      const bot = cylAt(0.035, 0.04, 0.13, 10, mat(c, 0.3, 0.1), i, y + 0.09, -0.02); g.add(bot);
+      g.add(cylAt(0.018, 0.018, 0.03, 8, mat('#ddd', 0.5), i, y + 0.17, -0.02)); // cap
+    }
+  });
+  return g;
+}
+function buildGlassware({ color='#cfe0e8', w=0.4, d=0.3, h=0.32 } = {}) {
+  const g = new THREE.Group();
+  const glass = new THREE.MeshStandardMaterial({ color: 0xdaf0f6, roughness: 0.05, metalness: 0.05, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+  const liquid = (c) => new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.7 });
+  // beaker
+  const beaker = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.13, 18, 1, true), glass);
+  beaker.position.set(-0.12, 0.065, 0); g.add(beaker);
+  g.add(cylAt(0.044, 0.044, 0.05, 18, liquid('#5ac0e0'), -0.12, 0.025, 0));
+  // erlenmeyer flask (cone)
+  const flask = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.07, 0.16, 18, 1, true), glass);
+  flask.position.set(0.04, 0.08, 0.02); g.add(flask);
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.07, 12, 1, true), glass).translateY(0.195).translateX(0.04).translateZ(0.02));
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.05, 18), liquid('#e05a8a')); cone.position.set(0.04, 0.045, 0.02); g.add(cone);
+  // graduated cylinder
+  const cyltube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.26, 16, 1, true), glass);
+  cyltube.position.set(0.16, 0.14, -0.04); g.add(cyltube);
+  g.add(cylAt(0.04, 0.045, 0.02, 16, glass, 0.16, 0.01, -0.04)); // base
+  g.add(cylAt(0.023, 0.023, 0.1, 16, liquid('#7ad05a'), 0.16, 0.06, -0.04));
+  // test tube rack
+  g.add(box(0.16, 0.03, 0.06, mat('#5a3d22', 0.6), -0.04, 0.015, -0.1));
+  [-0.05, 0, 0.05].forEach(dx => { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.09, 10, 1, true), glass); t.position.set(-0.04 + dx, 0.06, -0.1); g.add(t); g.add(cylAt(0.011, 0.011, 0.04, 8, liquid(dx<0?'#e0c05a':dx>0?'#c05ae0':'#5ae0a0'), -0.04 + dx, 0.04, -0.1)); });
+  return g;
+}
+function buildOscilloscope({ color='#3a3f47', w=0.42, d=0.4, h=0.3 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.45, 0.3, { env: 0.5 }), metal = mat('#888f98', 0.3, 0.6);
+  const b = box(w, h, d, body, 0, h/2, 0); b.userData.colorable = true; g.add(b);
+  // screen with grid glow
+  g.add(box(w*0.55, h*0.7, 0.02, mat('#0a1a14', 0.3, 0.2), -w*0.12, h*0.55, d/2 + 0.002));
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(w*0.5, h*0.6), new THREE.MeshBasicMaterial({ color: 0x1faa5a, transparent: true, opacity: 0.55 })); glow.position.set(-w*0.12, h*0.55, d/2 + 0.014); g.add(glow);
+  // waveform line
+  const wave = new THREE.Mesh(new THREE.PlaneGeometry(w*0.46, 0.012), new THREE.MeshBasicMaterial({ color: 0x6fffa0 })); wave.position.set(-w*0.12, h*0.55, d/2 + 0.016); g.add(wave);
+  // control knobs
+  for (let i = 0; i < 4; i++) g.add(cylAt(0.025, 0.025, 0.02, 12, metal, w*0.28, h*0.78 - i*0.06, d/2 + 0.005));
+  for (let i = 0; i < 6; i++) g.add(box(0.03, 0.02, 0.01, mat('#222', 0.5), w*0.18 + (i%3)*0.05, h*0.2 + Math.floor(i/3)*0.05, d/2 + 0.005));
+  // bnc connectors
+  [-0.05, 0.05].forEach(x => g.add(cylAt(0.012, 0.012, 0.02, 10, metal, w*0.2 + x, h*0.12, d/2 + 0.005)));
+  return g;
+}
+function buildTestBench({ color='#3a4250', w=0.9, d=0.7, h=1.6 } = {}) {
+  const g = new THREE.Group();
+  const rack = mat(color, 0.4, 0.45, { env: 0.6 }), dark = mat('#1c1f22', 0.4), metal = mat('#888f98', 0.3, 0.6);
+  // 19-inch instrument rack frame
+  const frame = box(w, h, d, mat(shade(color,0.85), 0.45, 0.4), 0, h/2, 0); frame.userData.colorable = true; g.add(frame);
+  g.add(box(w + 0.02, 0.04, d + 0.02, mat('#222', 0.5), 0, h - 0.02, 0));
+  // stacked instruments
+  const units = [
+    { y: 1.42, c: '#0a2a2a', kind: 'scope' },
+    { y: 1.18, c: '#1c1f22', kind: 'meter' },
+    { y: 0.94, c: '#1c1f22', kind: 'meter' },
+    { y: 0.70, c: '#16202a', kind: 'gen' },
+    { y: 0.42, c: '#222', kind: 'psu' },
+  ];
+  units.forEach(u => {
+    g.add(box(w - 0.06, 0.2, 0.04, mat(u.c, 0.4, 0.2), 0, u.y, d/2 - 0.01));
+    if (u.kind === 'scope') {
+      const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.14), new THREE.MeshBasicMaterial({ color: 0x1faa5a, transparent: true, opacity: 0.6 })); sc.position.set(-0.18, u.y, d/2 + 0.01); g.add(sc);
+    } else {
+      const disp = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.08), new THREE.MeshBasicMaterial({ color: u.kind==='psu'?0xff5544:0x44aaff, transparent: true, opacity: 0.7 })); disp.position.set(-0.2, u.y, d/2 + 0.01); g.add(disp);
+    }
+    for (let i = 0; i < 3; i++) g.add(cylAt(0.018, 0.018, 0.015, 10, metal, 0.12 + i*0.07, u.y, d/2 + 0.005));
+  });
+  // base feet
+  [[-w/2+0.05,d/2-0.05],[w/2-0.05,d/2-0.05],[-w/2+0.05,-d/2+0.05],[w/2-0.05,-d/2+0.05]].forEach(([x,z]) => g.add(box(0.05,0.04,0.05,dark,x,0.02,z)));
+  return g;
+}
+function buildLathe({ color='#4f7a52', w=1.8, d=0.8, h=1.35 } = {}) {
+  const g = new THREE.Group();
+  const machine = mat(color, 0.45, 0.35, { env: 0.5 }), steel = mat('#9aa4ac', 0.3, 0.7, { env: 0.9 }), dark = mat('#2a2f33', 0.5, 0.3);
+  // cabinet legs / base
+  [-w/2 + 0.3, w/2 - 0.3].forEach(x => { const leg = box(0.4, 0.85, d, machine, x, 0.425, 0); leg.userData.colorable = true; g.add(leg); });
+  // bed (ways)
+  g.add(box(w, 0.16, 0.4, dark, 0, 0.93, 0));
+  g.add(box(w - 0.05, 0.04, 0.36, steel, 0, 1.02, 0)); // polished ways
+  // headstock (left)
+  const head = box(0.42, 0.42, d - 0.06, machine, -w/2 + 0.25, 1.22, 0); head.userData.colorable = true; g.add(head);
+  // chuck
+  const chuck = cyl(0.16, 0.16, 0.12, 20, steel); chuck.rotation.z = Math.PI/2; chuck.position.set(-w/2 + 0.5, 1.16, 0); g.add(chuck);
+  [0,1,2].forEach(i => { const a = i * Math.PI*2/3; g.add(box(0.04, 0.06, 0.05, dark, -w/2 + 0.51, 1.16 + Math.cos(a)*0.1, Math.sin(a)*0.1)); });
+  // workpiece + tailstock
+  g.add(cylAt(0.04, 0.04, 0.6, 16, steel, -0.05, 1.16, 0).rotateZ(Math.PI/2));
+  const tail = box(0.3, 0.3, 0.25, machine, w/2 - 0.3, 1.13, 0); tail.userData.colorable = true; g.add(tail);
+  // tool post / carriage
+  g.add(box(0.2, 0.18, 0.3, dark, 0, 1.12, 0.18));
+  g.add(box(0.08, 0.1, 0.08, steel, 0, 1.22, 0.1));
+  // handwheels
+  g.add(cylAt(0.1, 0.1, 0.03, 16, dark, w/2 - 0.15, 1.13, d/2 - 0.02).rotateX(Math.PI/2));
+  g.add(cylAt(0.09, 0.09, 0.03, 16, dark, 0.25, 1.0, d/2 + 0.02).rotateX(Math.PI/2));
+  // control panel
+  g.add(box(0.18, 0.3, 0.06, dark, -w/2 + 0.05, 1.1, d/2 - 0.1));
+  ['#22c55e','#ef4444'].forEach((c,i) => g.add(cylAt(0.025,0.025,0.02,12,mat(c,0.4),-w/2+0.05,1.18-i*0.08,d/2-0.06).rotateX(Math.PI/2)));
+  // chip tray base
+  g.add(box(w + 0.1, 0.06, d + 0.05, dark, 0, 0.03, 0));
+  return g;
+}
+function buildMillingMachine({ color='#4f7a52', w=1.2, d=1.1, h=1.95 } = {}) {
+  const g = new THREE.Group();
+  const machine = mat(color, 0.45, 0.35, { env: 0.5 }), steel = mat('#9aa4ac', 0.3, 0.7, { env: 0.9 }), dark = mat('#2a2f33', 0.5, 0.3);
+  // base + column
+  g.add(box(w, 0.12, d, dark, 0, 0.06, 0));
+  const col = box(0.5, h - 0.12, 0.5, machine, 0, (h)/2, -d/2 + 0.3); col.userData.colorable = true; g.add(col);
+  // knee + saddle + table
+  const knee = box(0.6, 0.5, 0.55, machine, 0, 0.55, 0.05); knee.userData.colorable = true; g.add(knee);
+  g.add(box(0.9, 0.1, 0.3, steel, 0, 0.86, 0.1)); // table (long X axis)
+  // T-slots hint
+  for (let i = -0.35; i <= 0.35; i += 0.18) g.add(box(0.02, 0.02, 0.3, dark, i, 0.92, 0.1));
+  // vise on table
+  g.add(box(0.22, 0.1, 0.16, dark, 0.1, 0.96, 0.1));
+  // workpiece
+  g.add(box(0.12, 0.08, 0.1, steel, 0.1, 1.05, 0.1));
+  // spindle head / ram
+  const ram = box(0.4, 0.3, 0.6, machine, 0, h - 0.35, -d/2 + 0.45); ram.userData.colorable = true; g.add(ram);
+  const quill = cyl(0.07, 0.07, 0.3, 16, steel); quill.position.set(0, h - 0.62, 0.05); g.add(quill);
+  g.add(cylAt(0.03, 0.03, 0.12, 12, mat('#d4af37', 0.4, 0.5), 0, h - 0.83, 0.05)); // end mill
+  // handwheels
+  g.add(cylAt(0.1, 0.1, 0.03, 16, dark, w/2 - 0.05, 0.55, 0.15).rotateY(Math.PI/2));
+  g.add(cylAt(0.1, 0.1, 0.03, 16, dark, 0.5, 0.4, 0.2).rotateX(Math.PI/2));
+  // control box
+  g.add(box(0.16, 0.4, 0.06, dark, w/2 - 0.02, 1.2, -d/2 + 0.4));
+  return g;
+}
+function buildDrillPress({ color='#4f7a52', w=0.6, d=0.7, h=1.75 } = {}) {
+  const g = new THREE.Group();
+  const machine = mat(color, 0.45, 0.35, { env: 0.5 }), steel = mat('#9aa4ac', 0.3, 0.7, { env: 0.9 }), dark = mat('#2a2f33', 0.5, 0.3);
+  // base
+  g.add(box(0.5, 0.08, d, dark, 0, 0.04, 0.05));
+  // column
+  const col = cyl(0.05, 0.05, h - 0.1, 16, steel); col.position.set(0, h/2, -d/2 + 0.15); g.add(col);
+  // worktable
+  const table = box(0.34, 0.05, 0.34, dark, 0, 0.7, 0.05); g.add(table);
+  g.add(box(0.1, 0.1, 0.05, machine, 0, 0.7, -d/2 + 0.22)); // table bracket
+  // head / motor
+  const head = box(0.3, 0.35, 0.6, machine, 0, h - 0.3, 0); head.userData.colorable = true; g.add(head);
+  const motor = cyl(0.12, 0.12, 0.3, 18, machine); motor.rotation.z = Math.PI/2; motor.position.set(0, h - 0.22, -d/2 + 0.3); motor.userData.colorable = true; g.add(motor);
+  // quill + chuck + bit
+  const quill = cyl(0.04, 0.04, 0.25, 12, steel); quill.position.set(0, h - 0.6, 0.08); g.add(quill);
+  const chuck = cyl(0.05, 0.04, 0.1, 12, dark); chuck.position.set(0, h - 0.75, 0.08); g.add(chuck);
+  g.add(cylAt(0.012, 0.012, 0.12, 8, mat('#ccc', 0.3, 0.6), 0, h - 0.86, 0.08));
+  // feed handle (3 spokes)
+  [0, 2.1, 4.2].forEach(a => g.add(box(0.02, 0.02, 0.18, dark, Math.cos(a)*0.1, h - 0.55, 0.12 + Math.sin(a)*0.1)));
+  g.add(cylAt(0.025, 0.025, 0.04, 10, dark, 0, h - 0.55, 0.12));
+  // power switch
+  g.add(box(0.1, 0.08, 0.03, dark, 0.14, 0.95, -d/2 + 0.2));
+  return g;
+}
+function buildBenchGrinder({ color='#4f7a52', w=0.7, d=0.45, h=1.25 } = {}) {
+  const g = new THREE.Group();
+  const machine = mat(color, 0.45, 0.35, { env: 0.5 }), steel = mat('#9aa4ac', 0.3, 0.7, { env: 0.9 }), dark = mat('#2a2f33', 0.5, 0.3), wheel = mat('#9a8a78', 0.85, 0.05);
+  // pedestal stand
+  g.add(box(0.4, 0.04, d, dark, 0, 0.02, 0)); // foot
+  const stand = box(0.12, 0.85, 0.12, mat(shade(color,0.9),0.5), 0, 0.45, 0); stand.userData.colorable = true; g.add(stand);
+  // motor body
+  const motor = cyl(0.13, 0.13, 0.4, 20, machine); motor.rotation.z = Math.PI/2; motor.position.set(0, 0.95, 0); motor.userData.colorable = true; g.add(motor);
+  // grinding wheels + guards at both ends
+  [-0.28, 0.28].forEach(x => {
+    const wh = cyl(0.13, 0.13, 0.04, 24, wheel); wh.rotation.z = Math.PI/2; wh.position.set(x, 0.95, 0); g.add(wh);
+    const guard = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.07, 20, 1, false, 0, Math.PI*1.3), dark);
+    guard.rotation.z = Math.PI/2; guard.position.set(x, 0.95, 0); g.add(guard);
+    g.add(box(0.08, 0.05, 0.1, steel, x, 0.78, 0.1)); // tool rest
+  });
+  // spark deflector / eye shields
+  [-0.28, 0.28].forEach(x => g.add(plainBox(0.12, 0.1, 0.005, new THREE.MeshStandardMaterial({ color: 0xbcd8e4, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.3 }), x, 1.12, 0.12)));
+  // switch box
+  g.add(box(0.1, 0.12, 0.04, dark, 0, 0.75, -d/2 + 0.04));
+  return g;
+}
+function buildToolRack({ color='#3a3f47', w=1.0, d=0.12, h=1.2 } = {}) {
+  const g = new THREE.Group();
+  const board = mat(color, 0.6, 0.1), metal = mat('#aab0b4', 0.3, 0.7, { env: 0.9 });
+  // pegboard
+  const pb = box(w, h, 0.03, mat(shade(color,1.1), 0.7), 0, h/2 + 0.2, 0); pb.userData.colorable = true; g.add(pb);
+  // peg holes pattern (subtle)
+  for (let yy = 0.4; yy < h + 0.05; yy += 0.12) for (let xx = -w/2 + 0.1; xx < w/2; xx += 0.12) g.add(cylAt(0.008, 0.008, 0.005, 6, mat('#222', 0.6), xx, yy, 0.016));
+  // hanging tools: wrenches (vertical bars), hammer, screwdrivers, pliers
+  const hangTool = (x, len, wdt, c) => g.add(box(wdt, len, 0.02, mat(c, 0.4, 0.5), x, h*0.78 - len/2 + 0.2, 0.03));
+  hangTool(-0.42, 0.34, 0.05, '#b8bcc0'); // wrench
+  hangTool(-0.34, 0.3, 0.045, '#b8bcc0');
+  hangTool(-0.26, 0.26, 0.04, '#b8bcc0');
+  // hammer (head + handle)
+  g.add(box(0.12, 0.05, 0.04, metal, -0.05, h*0.9 + 0.2, 0.03));
+  g.add(box(0.03, 0.26, 0.03, mat('#8a5a2b', 0.6), -0.05, h*0.75 + 0.2, 0.03));
+  // screwdrivers (handle + shaft)
+  [0.12, 0.2, 0.28].forEach((x,i) => { g.add(box(0.03, 0.1, 0.03, mat(['#e05a2b','#2b7ae0','#e0c42b'][i], 0.4), x, h*0.85 + 0.2, 0.03)); g.add(box(0.012, 0.16, 0.012, metal, x, h*0.7 + 0.2, 0.03)); });
+  // pliers
+  g.add(box(0.06, 0.2, 0.03, mat('#c05a3b', 0.4), 0.4, h*0.78 + 0.2, 0.03));
+  // shelf with tool boxes at bottom
+  g.add(box(w, 0.03, 0.16, board, 0, 0.34, 0.07));
+  g.add(box(0.3, 0.14, 0.12, mat('#c0392b', 0.5, 0.2), -0.25, 0.42, 0.07));
+  g.add(box(0.26, 0.12, 0.12, mat('#2980b9', 0.5, 0.2), 0.15, 0.41, 0.07));
+  return g;
+}
+
 // ============================================================ PRESETS
 function P(defId, x, z, rot = 0, color) { const def = FURNITURE_DEFS.find(d => d.id === defId); return { defId, x, z, rotY: rot, color: color ?? COLORS[def.colorIdx] }; }
 const PRESETS = [
@@ -2831,6 +3168,130 @@ const PRESETS = [
       P('plant', -4.5, 3.8), P('plant', 4.5, 3.8),
       P('lamp',  -4.5, -0.5), P('lamp', 4.5, -0.5),
       P('shelf',  4.6, 0.5, 270, '#8a5a2b'),
+    ],
+  },
+  {
+    id: 'laboratory', name: '実験室', icon: 'fa-flask',
+    desc: '12m×9mの化学実験室。実験台・ドラフトチャンバー・薬品棚・顕微鏡・遠心分離機を完備。',
+    room: { w: 12, d: 9 }, floorType: 'tile', wallType: 'white',
+    partitions: [
+      { x1: -6, z1: 1.5, x2: -1, z2: 1.5 },
+      { x1: 1, z1: 1.5, x2: 6, z2: 1.5 },
+    ],
+    floors: [
+      { x1: -6, z1: 1.5, x2: 6, z2: 4.5, type: 'genkan' },
+    ],
+    items: [
+      // ドラフトチャンバー (奥の壁沿い)
+      P('fumehood', -4.5, -3.6, 0, '#e8e2d6'),
+      P('fumehood', -2.9, -3.6, 0, '#e8e2d6'),
+      P('chemshelf', 5.4, -3.0, 270, '#f3ece0'),
+      P('chemshelf', 5.4, -1.8, 270, '#f3ece0'),
+      // 中央の島型実験台 (両面)
+      P('labbench', -1.5, -1.5, 0, '#f3ece0'),
+      P('labbench', -1.5,  0.2, 180, '#f3ece0'),
+      P('labbench',  2.5, -1.5, 0, '#f3ece0'),
+      P('labbench',  2.5,  0.2, 180, '#f3ece0'),
+      // 実験台上の機器
+      P('microscope', -2.2, -1.6, 0, '#2a2e34'),
+      P('microscope', -0.8, -1.6, 0, '#2a2e34'),
+      P('centrifuge',  1.8, -1.6, 0, '#e8e2d6'),
+      P('analbalance', 3.2, -1.6, 0, '#e8e2d6'),
+      P('glassware',  -2.2,  0.2, 180),
+      P('glassware',   1.8,  0.2, 180),
+      P('oscilloscope', 3.0, 0.2, 180, '#2a2e34'),
+      // 左壁の作業エリア
+      P('labbench', -5.0, -1.0, 90, '#f3ece0'),
+      P('microscope', -5.2, -1.6, 90, '#2a2e34'),
+      P('centrifuge', -5.2, -0.4, 90, '#e8e2d6'),
+      // 入口側の打合せ＆収納
+      P('whiteboard', -5.7, 3.0, 90),
+      P('filingcab', 4.8, 2.4, 0, '#7a8fa0'),
+      P('filingcab', 5.3, 2.4, 0, '#7a8fa0'),
+      P('handbasin', -5.6, 0.6, 90, '#e8e2d6'),
+      P('plant', -5.4, 4.0), P('plant', 5.4, 4.0),
+    ],
+  },
+  {
+    id: 'testroom', name: '試験室', icon: 'fa-gauge-high',
+    desc: '11m×8mの計測・試験室。測定試験機・オシロスコープ・電子天秤・恒温槽で精密測定。',
+    room: { w: 11, d: 8 }, floorType: 'tile', wallType: 'white',
+    partitions: [
+      { x1: 1.5, z1: -4, x2: 1.5, z2: -0.5 },
+      { x1: 1.5, z1: 0.5, x2: 1.5, z2: 4 },
+    ],
+    floors: [
+      { x1: 1.5, z1: -4, x2: 5.5, z2: 4, type: 'concrete' },
+    ],
+    items: [
+      // 計測ラック列 (奥の壁)
+      P('testbench', -4.5, -3.4, 0, '#3a4250'),
+      P('testbench', -3.5, -3.4, 0, '#3a4250'),
+      P('testbench', -2.5, -3.4, 0, '#3a4250'),
+      P('testbench', -1.5, -3.4, 0, '#3a4250'),
+      P('ctrlpanel',  -0.3, -3.3, 0, '#3a4250'),
+      // 計測作業台
+      P('labbench', -3.5, -0.8, 0, '#f3ece0'),
+      P('oscilloscope', -4.2, -0.9, 0, '#2a2e34'),
+      P('oscilloscope', -3.0, -0.9, 0, '#2a2e34'),
+      P('analbalance', -2.2, -0.9, 0, '#e8e2d6'),
+      P('labbench', -3.5,  1.2, 180, '#f3ece0'),
+      P('microscope', -4.0, 1.2, 180, '#2a2e34'),
+      P('glassware',  -2.5, 1.2, 180),
+      // デスク作業
+      P('desk', -5.2, 2.6, 90, '#f3ece0'), P('ochr', -4.4, 2.6, 270),
+      P('whiteboard', -5.7, 0.0, 90),
+      // 防振定盤エリア (右区画)
+      P('conftable', 3.5, -1.5, 0, '#3a4250'),
+      P('microscope', 2.8, -1.6, 0, '#2a2e34'),
+      P('centrifuge', 4.2, -1.6, 0, '#e8e2d6'),
+      P('testbench', 5.0, 2.5, 270, '#3a4250'),
+      P('testbench', 5.0, 1.5, 270, '#3a4250'),
+      P('filingcab', 2.2, 3.4, 0, '#7a8fa0'),
+      P('filingcab', 2.7, 3.4, 0, '#7a8fa0'),
+      P('plant', 4.8, 3.4), P('plant', -5.2, -3.2),
+    ],
+  },
+  {
+    id: 'machineshop', name: '加工室', icon: 'fa-gears',
+    desc: '14m×10mの機械加工室。旋盤・フライス盤・ボール盤・グラインダー・工具ラックを完備。',
+    room: { w: 14, d: 10 }, floorType: 'concrete', wallType: 'concrete',
+    partitions: [
+      { x1: -7, z1: 2.5, x2: -2.5, z2: 2.5 },
+      { x1: -2.5, z1: 2.5, x2: -2.5, z2: 5 },
+    ],
+    floors: [
+      { x1: -7, z1: 2.5, x2: -2.5, z2: 5, type: 'tile' },
+    ],
+    items: [
+      // 旋盤列 (奥)
+      P('lathe', -4.5, -3.8, 0, '#4f7a52'),
+      P('lathe', -1.5, -3.8, 0, '#4f7a52'),
+      P('lathe',  1.5, -3.8, 0, '#4f7a52'),
+      P('lathe',  4.5, -3.8, 0, '#4f7a52'),
+      // フライス盤列 (中央)
+      P('milling', -4.0, -1.0, 0, '#4f7a52'),
+      P('milling', -1.5, -1.0, 0, '#4f7a52'),
+      P('milling',  1.0, -1.0, 0, '#4f7a52'),
+      P('milling',  3.5, -1.0, 0, '#4f7a52'),
+      // ボール盤＆グラインダー (右壁)
+      P('drillpress', 6.0, -2.5, 270, '#4f7a52'),
+      P('drillpress', 6.0, -1.2, 270, '#4f7a52'),
+      P('grinder',    6.2,  0.2, 270, '#4f7a52'),
+      P('grinder',    6.2,  1.4, 270, '#4f7a52'),
+      // 作業台＆工具エリア (手前)
+      P('workbench', -4.5, 1.5, 0, '#5a6370'),
+      P('workbench', -2.0, 1.5, 0, '#5a6370'),
+      P('toolrack',  -4.5, 0.3, 0, '#3a3f47'),
+      P('toolrack',  -2.0, 0.3, 0, '#3a3f47'),
+      P('toolcab',   -0.5, 1.6, 0, '#c0392b'),
+      P('toolcab',    0.5, 1.6, 0, '#c0392b'),
+      P('palletrack', 2.5, 3.5, 90),
+      P('palletrack', 5.0, 3.5, 90),
+      // 管理コーナー (左仕切り内)
+      P('desk',  -5.8, 3.6, 0, '#f3ece0'), P('ochr', -5.8, 2.9, 0),
+      P('ctrlpanel', -3.2, 3.4, 180, '#e8e2d6'),
+      P('plant', -6.2, 4.4),
     ],
   },
   // ===== 住宅 =====
