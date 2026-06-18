@@ -354,7 +354,126 @@ body {
 .modal-close:hover { background: var(--bg-panel-alt); color: var(--text-primary); }
 .modal-body { padding: var(--sp-6); overflow-y: auto; }
 
-/* Preset cards */
+/* ============================================================ PRESET MODAL REDESIGN */
+.modal.preset { width: min(900px, 96vw); }
+.preset-modal-header {
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: var(--sp-3); flex-shrink: 0;
+}
+.preset-search-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; background: var(--bg-panel-alt);
+}
+.preset-search {
+  flex: 1; display: flex; align-items: center; gap: var(--sp-2);
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 0 var(--sp-3); height: 34px;
+}
+.preset-search i { color: var(--text-muted); font-size: 11px; }
+.preset-search input { flex: 1; border: none; background: none; outline: none; font: inherit; font-size: 12px; color: var(--text-primary); }
+.preset-search input::placeholder { color: var(--text-muted); }
+.preset-new-btn {
+  height: 34px; padding: 0 var(--sp-3); border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--bg-panel); color: var(--text-secondary);
+  font: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
+  display: flex; align-items: center; gap: var(--sp-2); white-space: nowrap;
+  transition: all 0.15s;
+}
+.preset-new-btn:hover { background: var(--bg-panel-alt); color: var(--text-primary); border-color: var(--border-strong); }
+.preset-cat-bar {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+}
+.preset-cat-bar::-webkit-scrollbar { display: none; }
+.pc-cat-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 var(--sp-3);
+  border: 1px solid var(--border); border-radius: 100px;
+  background: transparent; color: var(--text-secondary);
+  font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+  white-space: nowrap; transition: all 0.15s;
+}
+.pc-cat-btn:hover { border-color: var(--border-strong); color: var(--text-primary); background: var(--bg-panel-alt); }
+.pc-cat-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.pc-cat-btn .pc-cat-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.preset-body {
+  padding: var(--sp-4) var(--sp-5); overflow-y: auto; flex: 1;
+}
+.preset-section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin: var(--sp-4) 0 var(--sp-3); display: flex; align-items: center; gap: var(--sp-2);
+}
+.preset-section-label:first-child { margin-top: 0; }
+.preset-section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+.preset-grid-new {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3);
+}
+@media (max-width: 700px) { .preset-grid-new { grid-template-columns: repeat(2,1fr); } }
+.pc-card {
+  border: 1.5px solid var(--border); border-radius: var(--r-md);
+  background: var(--bg-panel-alt); cursor: pointer;
+  transition: all 0.18s; text-align: left; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.pc-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); background: var(--bg-panel); }
+.pc-card:hover .pc-plan-area { background: #eee8db; }
+.pc-card.last-used { border-color: var(--accent); background: var(--accent-light); }
+.pc-card.last-used .pc-tag { background: var(--accent); color: white; }
+.pc-plan-area {
+  background: #f4efe4; height: 100px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid var(--border); overflow: hidden; transition: background 0.18s;
+}
+.pc-plan-area svg { display: block; }
+.pc-tag {
+  position: absolute; top: 6px; left: 6px;
+  background: var(--bg-overlay); border: 1px solid var(--border);
+  border-radius: 100px; padding: 2px 8px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+  color: var(--text-secondary); text-transform: uppercase;
+}
+.pc-info { padding: var(--sp-3); flex: 1; }
+.pc-name { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; }
+.pc-desc { font-size: 10px; color: var(--text-secondary); line-height: 1.5; margin-bottom: var(--sp-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pc-badges { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.pc-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--bg-panel-alt); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 6px; font-size: 9px; color: var(--text-muted); font-weight: 600;
+}
+.pc-badge i { font-size: 8px; }
+.preset-empty {
+  grid-column: 1/-1; text-align: center; padding: 48px 16px;
+  color: var(--text-muted); font-size: 12px;
+}
+.preset-empty i { font-size: 28px; opacity: 0.3; display: block; margin-bottom: 12px; }
+.preset-footer {
+  padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--border);
+  flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--bg-panel-alt); font-size: 11px; color: var(--text-muted);
+}
+.preset-footer i { font-size: 10px; }
+
+/* Preset category color dots */
+.cat-color-住宅  { background: #62a86d; }
+.cat-color-オフィス { background: #4a7ab5; }
+.cat-color-店舗  { background: #e0823a; }
+.cat-color-工場  { background: #7a7a7a; }
+.cat-color-特殊  { background: #9a62b5; }
+
+/* Preset category pill colors on card */
+.pc-tag-住宅  { color: #2d6635; background: #e3f1de; border-color: #b8ddc0; }
+.pc-tag-オフィス { color: #1a4a80; background: #dce8f5; border-color: #aac8e8; }
+.pc-tag-店舗  { color: #803018; background: #fae8d8; border-color: #e8c0a0; }
+.pc-tag-工場  { color: #444444; background: #e8e8e8; border-color: #c8c8c8; }
+.pc-tag-特殊  { color: #5a1a80; background: #f0e0f8; border-color: #d0a8e8; }
+
 .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 .preset-card { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4); cursor: pointer; transition: all 0.18s; background: var(--bg-panel-alt); text-align: left; }
 .preset-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); background: var(--bg-panel); }
@@ -370,6 +489,48 @@ body {
 #no-webgl .nwg-icon { width: 72px; height: 72px; background: #fdeeea; border-radius: var(--r-xl); display: flex; align-items: center; justify-content: center; color: var(--danger); font-size: 32px; }
 #no-webgl h1 { font-size: 20px; font-weight: 700; }
 #no-webgl p { color: var(--text-secondary); max-width: 420px; font-size: 14px; line-height: 1.7; }
+
+/* Save status indicator */
+.save-status {
+  display: flex; align-items: center; gap: 5px; font-size: 11px;
+  color: var(--text-inv-muted); padding: 0 var(--sp-2); height: 26px;
+  border-radius: var(--r-sm); transition: all 0.3s;
+}
+.save-status.saving { color: var(--warning); }
+.save-status.saved { color: var(--accent); }
+.save-status i { font-size: 10px; }
+.save-status.saving i { animation: spin 1s linear infinite; }
+
+/* Category tab count badges */
+.cat-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: var(--sidebar-border); color: var(--text-inv-muted);
+  border-radius: 8px; font-size: 9px; font-weight: 700;
+  margin-left: 3px; transition: all 0.15s;
+}
+.cat-tab.active .cat-count { background: var(--accent-dark); color: white; }
+
+/* Improved empty state */
+.props-shortcuts { padding: var(--sp-4); border-top: 1px solid var(--border); }
+.props-shortcuts h3 { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--sp-3); }
+.shortcut-row { display: flex; align-items: center; gap: var(--sp-3); padding: 4px 0; }
+.shortcut-row kbd { background: var(--bg-panel-alt); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-family: monospace; color: var(--text-secondary); white-space: nowrap; }
+.shortcut-row span { font-size: 11px; color: var(--text-muted); }
+
+/* IDB restore banner */
+.restore-banner {
+  position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+  display: flex; align-items: center; gap: var(--sp-3);
+  box-shadow: var(--shadow-lg); z-index: 500; font-size: 12px;
+  animation: modal-in 0.25s ease;
+}
+.restore-banner .rb-text { flex: 1; }
+.restore-banner .rb-btns { display: flex; gap: var(--sp-2); }
+.restore-banner button { height: 28px; padding: 0 var(--sp-3); border-radius: var(--r-sm); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-alt); color: var(--text-secondary); }
+.restore-banner button.rb-restore { background: var(--accent); border-color: var(--accent); color: white; }
 
 .hidden { display: none !important; }
 [data-tip] { position: relative; }
@@ -422,8 +583,8 @@ body {
 
       <div class="seg" id="wall-seg">
         <button data-mode="solid" data-tip="壁を全表示"><i class="fa-solid fa-square"></i></button>
-        <button data-mode="cutaway" class="active" data-tip="手前の壁をカット"><i class="fa-solid fa-scissors"></i></button>
-        <button data-mode="semifade" data-tip="手前の壁を半透明"><i class="fa-solid fa-eye-low-vision"></i></button>
+        <button data-mode="cutaway" data-tip="手前の壁をカット"><i class="fa-solid fa-scissors"></i></button>
+        <button data-mode="semifade" class="active" data-tip="手前の壁を半透明"><i class="fa-solid fa-eye-low-vision"></i></button>
         <button data-mode="ghost" data-tip="壁を全て半透明"><i class="fa-regular fa-square"></i></button>
       </div>
       <div class="toolbar-divider"></div>
@@ -444,6 +605,7 @@ body {
       <button class="tb-btn" id="btn-load" data-tip="読み込む"><i class="fa-solid fa-folder-open"></i></button>
       <button class="tb-btn" id="btn-save" data-tip="保存"><i class="fa-solid fa-floppy-disk"></i></button>
       <button class="tb-btn" id="btn-screenshot" data-tip="スクリーンショット"><i class="fa-solid fa-camera"></i></button>
+      <div id="save-status" class="save-status saved" data-tip="自動保存状態"><i class="fa-solid fa-cloud-arrow-up"></i> <span id="save-status-text">保存済み</span></div>
       <input type="file" id="file-input" accept=".json" style="display:none">
     </div>
   </header>
@@ -503,6 +665,14 @@ body {
         <p>家具を選択するとプロパティが表示されます</p>
         <p style="font-size:11px;color:var(--text-muted)">カタログから家具を選んで配置、<br>または「プリセット」で間取りを呼び出せます</p>
       </div>
+      <div class="props-shortcuts" id="props-shortcuts">
+        <h3><i class="fa-solid fa-keyboard"></i> キーボードショートカット</h3>
+        <div class="shortcut-row"><kbd>R</kbd><span>選択アイテムを回転</span></div>
+        <div class="shortcut-row"><kbd>Del</kbd><span>選択アイテムを削除</span></div>
+        <div class="shortcut-row"><kbd>Ctrl+Z</kbd><span>元に戻す</span></div>
+        <div class="shortcut-row"><kbd>Ctrl+Y</kbd><span>やり直し</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd><span>配置キャンセル / 選択解除</span></div>
+      </div>
       <div class="props-panel" id="props-panel">
         <div class="props-header">
           <div class="props-icon" id="props-icon"><i class="fa-solid fa-couch"></i></div>
@@ -550,17 +720,55 @@ body {
 
 <!-- PRESET MODAL -->
 <div class="modal-backdrop" id="preset-modal">
-  <div class="modal wide">
-    <div class="modal-header">
+  <div class="modal preset" style="display:flex;flex-direction:column;max-height:92vh;">
+    <!-- Header -->
+    <div class="preset-modal-header">
       <div class="modal-icon"><i class="fa-solid fa-house-chimney"></i></div>
       <div>
         <div class="modal-title">間取りプリセット</div>
-        <div class="modal-subtitle">家具配置済みのレイアウトを呼び出します</div>
+        <div class="modal-subtitle">カテゴリーを選んで呼び出す</div>
       </div>
-      <button class="modal-close" id="preset-close"><i class="fa-solid fa-xmark"></i></button>
+      <button class="modal-close" id="preset-close" style="margin-left:auto"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="modal-body">
-      <div class="preset-grid" id="preset-grid"></div>
+    <!-- Search + New room -->
+    <div class="preset-search-row">
+      <div class="preset-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="preset-search-input" placeholder="プリセットを検索…">
+      </div>
+      <button class="preset-new-btn" id="btn-preset-new">
+        <i class="fa-solid fa-file-circle-plus"></i> 新しい空のルーム
+      </button>
+    </div>
+    <!-- Category filter -->
+    <div class="preset-cat-bar" id="preset-cat-bar">
+      <button class="pc-cat-btn active" data-pcat="all">
+        <i class="fa-solid fa-border-all"></i> すべて
+      </button>
+      <button class="pc-cat-btn" data-pcat="住宅">
+        <span class="pc-cat-dot cat-color-住宅"></span> 住宅
+      </button>
+      <button class="pc-cat-btn" data-pcat="オフィス">
+        <span class="pc-cat-dot cat-color-オフィス"></span> オフィス
+      </button>
+      <button class="pc-cat-btn" data-pcat="店舗">
+        <span class="pc-cat-dot cat-color-店舗"></span> 店舗
+      </button>
+      <button class="pc-cat-btn" data-pcat="工場">
+        <span class="pc-cat-dot cat-color-工場"></span> 工場・製造
+      </button>
+      <button class="pc-cat-btn" data-pcat="特殊">
+        <span class="pc-cat-dot cat-color-特殊"></span> 特殊・文化
+      </button>
+    </div>
+    <!-- Cards -->
+    <div class="preset-body">
+      <div class="preset-grid-new" id="preset-grid"></div>
+    </div>
+    <!-- Footer -->
+    <div class="preset-footer">
+      <i class="fa-solid fa-circle-info"></i>
+      読み込むと現在のレイアウトは置き換えられます &nbsp;·&nbsp; Ctrl+Z で元に戻せます
     </div>
   </div>
 </div>
@@ -653,7 +861,7 @@ let selectedGroup = null, selectedColor = '#c8a06a', selectedRot = 0;
 let placedItems = [], history = [], historyIndex = -1;
 let roomW = 6, roomD = 6, partitions = [];
 let showGrid = true, showShadows = true, isTopView = false;
-let wallMode = 'cutaway';
+let wallMode = 'semifade';
 let wallMeshes = [];
 let floorType = 'wood', wallType = 'cream';
 let paintMode = false;
@@ -1094,6 +1302,218 @@ function makeLawnTexture() {
   return t;
 }
 
+// ヘリンボーンパーケット (herringbone parquet)
+function makeParquetTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(0, 0, s, s);
+  const pw = 80, ph = 24; // plank cell
+  const colors = ['#b07840','#8c5e2a','#c49050','#9a6835','#d4a868'];
+  for (let row = -2; row < s/ph + 2; row++) {
+    for (let col = -2; col < s/pw + 2; col++) {
+      const even = (row + col) % 2 === 0;
+      ctx.save();
+      const cx = col * pw + (even ? 0 : ph), cy = row * ph;
+      ctx.translate(cx + pw/2, cy + ph/2);
+      ctx.rotate(even ? 0 : Math.PI/2);
+      const cl = colors[Math.abs(row * 7 + col * 3) % colors.length];
+      const f = 0.92 + Math.random()*0.14;
+      ctx.fillStyle = shade(cl, f);
+      ctx.fillRect(-pw/2 + 1, -ph/2 + 1, pw - 2, ph - 2);
+      // grain lines
+      for (let g = 0; g < 5; g++) {
+        ctx.strokeStyle = `rgba(60,30,10,${0.04+Math.random()*0.05})`;
+        ctx.lineWidth = 0.5; ctx.beginPath();
+        const gy = -ph/2 + 3 + g * (ph - 4)/4;
+        ctx.moveTo(-pw/2 + 1, gy); ctx.lineTo(pw/2 - 1, gy + (Math.random()-0.5)*2); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,220,160,0.08)'; ctx.fillRect(-pw/2+1, -ph/2+1, pw-2, 2);
+      ctx.restore();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// ダーク木目フローリング
+function makeDarkWoodTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  const base = '#3a2414';
+  ctx.fillStyle = base; ctx.fillRect(0, 0, s, s);
+  const planks = 6, ph = s / planks;
+  for (let i = 0; i < planks; i++) {
+    const y = i * ph;
+    const f = 0.88 + Math.random()*0.24;
+    ctx.fillStyle = shade(base, f); ctx.fillRect(0, y, s, ph - 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, y + ph - 2, s, 2);
+    ctx.fillStyle = 'rgba(200,160,100,0.10)'; ctx.fillRect(0, y, s, 1);
+    for (let g = 0; g < 20; g++) {
+      ctx.strokeStyle = `rgba(${100+Math.random()*40|0},${60+Math.random()*30|0},${20+Math.random()*20|0},${0.04+Math.random()*0.07})`;
+      ctx.lineWidth = 1; ctx.beginPath();
+      const gy = y + Math.random()*ph;
+      ctx.moveTo(0, gy);
+      for (let x = 0; x <= s; x += 20) ctx.lineTo(x, gy + Math.sin(x*0.04+g)*2 + (Math.random()-0.5)*1.5);
+      ctx.stroke();
+    }
+    if (Math.random() < 0.4) {
+      const kx = Math.random()*s, ky = y + ph*0.5, r = 5+Math.random()*8;
+      const gr = ctx.createRadialGradient(kx,ky,1,kx,ky,r);
+      gr.addColorStop(0,'rgba(30,15,5,0.6)'); gr.addColorStop(1,'rgba(30,15,5,0)');
+      ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(kx,ky,r,0,7); ctx.fill();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// ゴム床 (工場用クッション床)
+function makeRubberTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#252525'; ctx.fillRect(0, 0, s, s);
+  // raised dot pattern
+  const sp = 24;
+  for (let x = sp/2; x < s; x += sp) for (let y = sp/2; y < s; y += sp) {
+    const gr = ctx.createRadialGradient(x,y,1,x,y,sp/2-2);
+    gr.addColorStop(0,'rgba(80,80,80,0.7)'); gr.addColorStop(0.5,'rgba(50,50,50,0.4)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x,y,sp/2-2,0,7); ctx.fill();
+  }
+  for (let i=0; i<200; i++) {
+    const v = 35+Math.random()*20;
+    ctx.fillStyle = `rgba(${v},${v},${v},0.3)`;
+    ctx.fillRect(Math.random()*s, Math.random()*s, 1+Math.random()*2, 1+Math.random()*2);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// 縞鋼板 (チェッカープレート)
+function makeCheckerPlateTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#707880'; ctx.fillRect(0, 0, s, s);
+  // diagonal raised ribs
+  const sp = 28;
+  for (let d = -s; d < s*2; d += sp) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(180,190,200,0.7)'; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d + s, s); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(d+2, 0); ctx.lineTo(d + s+2, s); ctx.stroke();
+    ctx.strokeStyle = 'rgba(40,45,50,0.35)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(d+9, 0); ctx.lineTo(d + s+9, s); ctx.stroke();
+    ctx.restore();
+  }
+  for (let d = s*2; d > -s; d -= sp) {
+    ctx.strokeStyle = 'rgba(160,170,180,0.3)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d - s, s); ctx.stroke();
+  }
+  // base metal noise
+  for (let i=0; i<3000; i++) {
+    const v=160+Math.random()*60;
+    ctx.fillStyle = `rgba(${v},${v+5},${v+8},0.04)`;
+    ctx.fillRect(Math.random()*s, Math.random()*s, 1, 1);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// エポキシ塗床 (工場グリーン)
+function makeEpoxyTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#3a7040'; ctx.fillRect(0, 0, s, s);
+  // very subtle aggregate sparkle
+  for (let i=0; i<4000; i++) {
+    const v = Math.random();
+    ctx.fillStyle = `rgba(${v<0.3?200:60},${v<0.3?230:100},${v<0.3?210:50},${0.04+Math.random()*0.06})`;
+    ctx.fillRect(Math.random()*s, Math.random()*s, 1, 1);
+  }
+  // expansion joints
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 3;
+  for (let i=128; i<s; i+=128) {
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(s,i); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+  for (let i=128; i<s; i+=128) {
+    ctx.beginPath(); ctx.moveTo(i+2,0); ctx.lineTo(i+2,s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i+2); ctx.lineTo(s,i+2); ctx.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// テラコッタ六角タイル
+function makeTerracottaTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#8a5a3a'; ctx.fillRect(0, 0, s, s);
+  const r = 36, h = r * Math.sqrt(3);
+  for (let row = -1; row < s/h + 1; row++) {
+    for (let col = -1; col < s/(r*1.5) + 1; col++) {
+      const cx = col * r * 3 + (row % 2) * r * 1.5;
+      const cy = row * h;
+      const f = 0.88 + Math.random()*0.22;
+      const colors = ['#c8724a','#d4845a','#b8623c','#e09068','#aa5230'];
+      ctx.fillStyle = shade(colors[Math.abs(row*5+col*3)%colors.length], f);
+      ctx.beginPath();
+      for (let i=0; i<6; i++) {
+        const a = Math.PI/6 + i*Math.PI/3;
+        i===0 ? ctx.moveTo(cx+Math.cos(a)*(r-2), cy+Math.sin(a)*(r-2)) : ctx.lineTo(cx+Math.cos(a)*(r-2), cy+Math.sin(a)*(r-2));
+      }
+      ctx.closePath(); ctx.fill();
+      // highlight
+      ctx.fillStyle = 'rgba(255,200,150,0.07)';
+      ctx.beginPath();
+      for (let i=0; i<6; i++) { const a=Math.PI/6+i*Math.PI/3; i===0?ctx.moveTo(cx+Math.cos(a)*(r-2),cy+Math.sin(a)*(r-2)-1):ctx.lineTo(cx+Math.cos(a)*(r-2),cy+Math.sin(a)*(r-2)-1); }
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// 石畳
+function makeStoneTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#7a7270'; ctx.fillRect(0, 0, s, s);
+  const stones = [];
+  for (let i=0; i<80; i++) {
+    stones.push({ x: Math.random()*s, y: Math.random()*s, rx: 22+Math.random()*28, ry: 16+Math.random()*22, a: Math.random()*Math.PI });
+  }
+  stones.forEach(st => {
+    const f = 0.82+Math.random()*0.28;
+    const base = 165+Math.random()*40;
+    ctx.save();
+    ctx.translate(st.x,st.y); ctx.rotate(st.a);
+    ctx.fillStyle = `rgb(${base*f|0},${(base-8)*f|0},${(base-15)*f|0})`;
+    ctx.beginPath(); ctx.ellipse(0,0,st.rx-2,st.ry-2,0,0,Math.PI*2); ctx.fill();
+    // texture speckles
+    for (let k=0; k<30; k++) {
+      const v=Math.random()<0.5?0.7:1.3;
+      ctx.fillStyle=`rgba(${base*v|0},${base*v|0},${base*v|0},0.08)`;
+      ctx.fillRect((Math.random()-0.5)*st.rx*1.5,(Math.random()-0.5)*st.ry*1.5,1.5,1.5);
+    }
+    // top highlight
+    ctx.fillStyle='rgba(255,255,255,0.12)';
+    ctx.beginPath(); ctx.ellipse(0,-st.ry*0.25,st.rx*0.6,st.ry*0.25,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
 const woodTex = makeWoodTexture();
 const concreteTex = makeConcreteTexture();
 const wallTexSrc = makeWallTexture();
@@ -1108,19 +1528,33 @@ const genkanTex = makeGenkanTexture();
 const dirtTex = makeDirtTexture();
 const grassTex = makeGrassTexture();
 const lawnTex = makeLawnTexture();
+const parquetTex = makeParquetTexture();
+const darkWoodTex = makeDarkWoodTexture();
+const rubberTex = makeRubberTexture();
+const checkerTex = makeCheckerPlateTexture();
+const epoxyTex = makeEpoxyTexture();
+const terracottaTex = makeTerracottaTexture();
+const stoneTex = makeStoneTexture();
 
 // Floor & wall material registries — single source of truth for the selectors
 const FLOOR_TYPES = {
-  wood:     { name: '木目フローリング', tex: woodTex,     color: 0xffffff, rough: 0.72, metal: 0.02, per: 2.2 },
-  concrete: { name: 'コンクリート',     tex: concreteTex, color: 0xb0b8bc, rough: 0.92, metal: 0.04, per: 2.2 },
-  tile:     { name: 'タイル',           tex: tileTex,     color: 0xffffff, rough: 0.35, metal: 0.05, per: 1.5 },
-  marble:   { name: '大理石',           tex: marbleTex,   color: 0xffffff, rough: 0.18, metal: 0.06, per: 3.0 },
-  carpet:   { name: 'カーペット',       tex: carpetTex,   color: 0xc9c2b4, rough: 0.98, metal: 0.0,  per: 1.2 },
-  tatami:   { name: '畳',               tex: tatamiTex,   color: 0xffffff, rough: 0.85, metal: 0.0,  per: 0.9 },
-  genkan:   { name: '玄関タイル',       tex: genkanTex,   color: 0xffffff, rough: 0.55, metal: 0.03, per: 1.0 },
-  dirt:     { name: '土',               tex: dirtTex,     color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 2.0 },
-  grass:    { name: '草',               tex: grassTex,    color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 1.5 },
-  lawn:     { name: '芝生',             tex: lawnTex,     color: 0xffffff, rough: 0.98, metal: 0.0,  per: 1.8 },
+  wood:          { name: '木目フローリング',  tex: woodTex,      color: 0xffffff, rough: 0.72, metal: 0.02, per: 2.2 },
+  parquet:       { name: 'ヘリンボーン',      tex: parquetTex,   color: 0xffffff, rough: 0.65, metal: 0.02, per: 1.8 },
+  dark_wood:     { name: 'ダーク木目',        tex: darkWoodTex,  color: 0xffffff, rough: 0.68, metal: 0.02, per: 2.2 },
+  concrete:      { name: 'コンクリート',      tex: concreteTex,  color: 0xb0b8bc, rough: 0.92, metal: 0.04, per: 2.2 },
+  tile:          { name: 'タイル',            tex: tileTex,      color: 0xffffff, rough: 0.35, metal: 0.05, per: 1.5 },
+  marble:        { name: '大理石',            tex: marbleTex,    color: 0xffffff, rough: 0.18, metal: 0.06, per: 3.0 },
+  carpet:        { name: 'カーペット',        tex: carpetTex,    color: 0xc9c2b4, rough: 0.98, metal: 0.0,  per: 1.2 },
+  tatami:        { name: '畳',                tex: tatamiTex,    color: 0xffffff, rough: 0.85, metal: 0.0,  per: 0.9 },
+  genkan:        { name: '玄関タイル',        tex: genkanTex,    color: 0xffffff, rough: 0.55, metal: 0.03, per: 1.0 },
+  terracotta:    { name: 'テラコッタタイル',  tex: terracottaTex,color: 0xffffff, rough: 0.75, metal: 0.0,  per: 1.2 },
+  stone:         { name: '石畳',              tex: stoneTex,     color: 0xffffff, rough: 0.88, metal: 0.0,  per: 2.0 },
+  rubber:        { name: 'ゴム床',            tex: rubberTex,    color: 0x808080, rough: 0.95, metal: 0.0,  per: 1.0 },
+  checker_plate: { name: '縞鋼板',            tex: checkerTex,   color: 0xaaaaaa, rough: 0.55, metal: 0.5,  per: 1.5 },
+  epoxy:         { name: 'エポキシ塗床',      tex: epoxyTex,     color: 0xffffff, rough: 0.25, metal: 0.08, per: 3.0 },
+  dirt:          { name: '土',                tex: dirtTex,      color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 2.0 },
+  grass:         { name: '草',                tex: grassTex,     color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 1.5 },
+  lawn:          { name: '芝生',              tex: lawnTex,      color: 0xffffff, rough: 0.98, metal: 0.0,  per: 1.8 },
 };
 const WALL_TYPES = {
   cream:    { name: 'クリーム壁紙',  tex: wallTexSrc, color: 0xfbf6ec, rough: 0.95, metal: 0.0 },
@@ -1247,6 +1681,7 @@ function applyFloorSpec(material, type, w, d) {
 function updateFloorTexture() {
   roomPlan.cells.forEach((_, key) => roomPlan.cells.set(key, floorType));
   buildFloorMeshes();
+  scheduleAutoSave();
 }
 
 function applyWallType() {
@@ -1305,7 +1740,7 @@ function rectToPlan(w, d, parts, ftype) {
     { x1: x0, z1: z0, x2: x0, z2: z1, type: 'wall', openings: [] },
     { x1: x1, z1: z0, x2: x1, z2: z1, type: 'wall', openings: [] },
   ];
-  (parts || []).forEach(p => walls.push({ x1: p.x1, z1: p.z1, x2: p.x2, z2: p.z2, type: 'wall', openings: [] }));
+  (parts || []).forEach(p => walls.push({ x1: p.x1, z1: p.z1, x2: p.x2, z2: p.z2, type: p.type || 'wall', openings: p.openings || [], isPartition: true }));
   return { cells, walls };
 }
 
@@ -1331,9 +1766,12 @@ function eraseFloorAt(worldX, worldZ) {
 
 // Representative swatch colors for the 2D editor (when FLOOR_TYPES.color is white).
 const FLOOR_SWATCH = {
-  wood:'#caa46d', concrete:'#9ca3a8', tile:'#e7eaee', marble:'#f0eee9',
-  carpet:'#c9c2b4', tatami:'#cdbf86', genkan:'#ddd6c8', dirt:'#8a6a47',
-  grass:'#5f8a44', lawn:'#6fa050'
+  wood:'#caa46d', parquet:'#9a7040', dark_wood:'#3a2414',
+  concrete:'#9ca3a8', tile:'#e7eaee', marble:'#f0eee9',
+  carpet:'#c9c2b4', tatami:'#cdbf86', genkan:'#ddd6c8',
+  terracotta:'#c8724a', stone:'#8a8480',
+  rubber:'#303030', checker_plate:'#7a8090', epoxy:'#3a7040',
+  dirt:'#8a6a47', grass:'#5f8a44', lawn:'#6fa050'
 };
 function floorSwatch(type) { return FLOOR_SWATCH[type] || '#caa46d'; }
 
@@ -1427,6 +1865,7 @@ function buildRoom() {
 
 // Build a wall (full height WALL_H) along the segment, with door gaps + frames + slabs.
 function buildWallSegment(wall) {
+  const prevWallCount = wallMeshes.length;
   const { x1, z1, x2, z2 } = wall;
   const dx = x2 - x1, dz = z2 - z1;
   const len = Math.hypot(dx, dz);
@@ -1602,6 +2041,235 @@ function buildWallSegment(wall) {
         const [px, pz] = ptAt(sp); const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), frameMat());
         post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
       });
+    } else if (o.kind === 'auto_door') {
+      // 自動ドア: two glass panels slid to edges, aluminum frame + sensor housing
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const alM = new THREE.MeshStandardMaterial({ color: 0xb8c0c8, roughness: 0.3, metalness: 0.7, transparent: true, opacity: 1.0 });
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.05, DOOR_H, ft), alM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const topRail = new THREE.Mesh(new THREE.BoxGeometry(ow, 0.08, ft), alM);
+      topRail.position.set(cx, DOOR_H - 0.04, cz); topRail.rotation.y = rotY; roomGroup.add(topRail); registerWall(topRail);
+      const panW = ow * 0.42;
+      const gMopen = glassMat();
+      const [lpx, lpz] = ptAt(o.s0 + panW / 2);
+      const lp = new THREE.Mesh(new THREE.BoxGeometry(panW, DOOR_H - 0.1, 0.04), gMopen);
+      lp.position.set(lpx, (DOOR_H - 0.1) / 2, lpz); lp.rotation.y = rotY; roomGroup.add(lp); registerWall(lp);
+      const [rpx, rpz] = ptAt(o.s1 - panW / 2);
+      const rp = new THREE.Mesh(new THREE.BoxGeometry(panW, DOOR_H - 0.1, 0.04), gMopen);
+      rp.position.set(rpx, (DOOR_H - 0.1) / 2, rpz); rp.rotation.y = rotY; roomGroup.add(rp); registerWall(rp);
+      const sens = new THREE.Mesh(new THREE.BoxGeometry(ow * 0.4, 0.07, 0.1), alM);
+      sens.position.set(cx, DOOR_H + 0.035, cz); sens.rotation.y = rotY; roomGroup.add(sens);
+    } else if (o.kind === 'double_door') {
+      // 両開きドア: two swing leaves hinged at each edge
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const fMd = frameMat();
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), fMd);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const dtop = new THREE.Mesh(new THREE.BoxGeometry(ow + fw, fw, ft), fMd);
+      dtop.position.set(cx, DOOR_H - fw / 2, cz); dtop.rotation.y = rotY; dtop.castShadow = true; roomGroup.add(dtop); registerWall(dtop);
+      const halfW = ow / 2 - fw * 0.55, dslabH = DOOR_H - fw;
+      const ddoorM = new THREE.MeshStandardMaterial({ color: 0xb9925e, roughness: 0.55, metalness: 0.05, transparent: true, opacity: 1.0 });
+      const dfn = new THREE.Vector3(cx, 0, cz); if (dfn.length() < 0.35) dfn.set(0, 0, 0); else dfn.normalize();
+      const pivL = new THREE.Group();
+      const [hlx, hlz] = ptAt(o.s0 + fw * 0.5);
+      pivL.position.set(hlx, dslabH / 2, hlz);
+      const slabL = new THREE.Mesh(new THREE.BoxGeometry(halfW, dslabH, 0.04), ddoorM);
+      slabL.position.set(halfW / 2, 0, 0.06); slabL.castShadow = true; pivL.add(slabL);
+      pivL.rotation.y = rotY - 0.32; roomGroup.add(pivL); registerWall(slabL); slabL.userData.fadeNormal = dfn;
+      const pivR = new THREE.Group();
+      const [hrx, hrz] = ptAt(o.s1 - fw * 0.5);
+      pivR.position.set(hrx, dslabH / 2, hrz);
+      const slabR = new THREE.Mesh(new THREE.BoxGeometry(halfW, dslabH, 0.04), ddoorM);
+      slabR.position.set(-halfW / 2, 0, 0.06); slabR.castShadow = true; pivR.add(slabR);
+      pivR.rotation.y = rotY + 0.32; roomGroup.add(pivR); registerWall(slabR); slabR.userData.fadeNormal = dfn;
+    } else if (o.kind === 'lab_door') {
+      // 安全ドア: steel door with upper observation window
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; lintel.receiveShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const fMl = frameMat();
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), fMl);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const ltop = new THREE.Mesh(new THREE.BoxGeometry(ow + fw, fw, ft), fMl);
+      ltop.position.set(cx, DOOR_H - fw / 2, cz); ltop.rotation.y = rotY; ltop.castShadow = true; roomGroup.add(ltop); registerWall(ltop);
+      const lslabW = ow - fw, lslabH = DOOR_H - fw;
+      const labM = new THREE.MeshStandardMaterial({ color: 0x4a5055, roughness: 0.45, metalness: 0.55, transparent: true, opacity: 1.0 });
+      const lslab = new THREE.Mesh(new THREE.BoxGeometry(lslabW, lslabH, 0.05), labM);
+      const lpivot = new THREE.Group();
+      const [lhx, lhz] = ptAt(o.s0 + fw / 2);
+      lpivot.position.set(lhx, lslabH / 2, lhz);
+      lslab.position.set(lslabW / 2, 0, 0.06); lslab.castShadow = true; lpivot.add(lslab);
+      const lwinW = Math.min(0.28, lslabW * 0.45), lwinH = 0.26;
+      const lwinglass = new THREE.Mesh(new THREE.BoxGeometry(lwinW, lwinH, 0.07), glassMat());
+      lwinglass.position.set(lslabW * 0.5, lslabH * 0.25, 0.06); lpivot.add(lwinglass);
+      lpivot.rotation.y = rotY - 0.35; roomGroup.add(lpivot); registerWall(lslab);
+      const lfn = new THREE.Vector3(cx, 0, cz); if (lfn.length() < 0.35) lfn.set(0, 0, 0); else lfn.normalize();
+      lslab.userData.fadeNormal = lfn;
+      lwinglass.userData.fadeNormal = lfn; wallMeshes.push(lwinglass);
+    } else if (o.kind === 'fusuma') {
+      // 襖: two sliding panels with wooden frame and washi paper face
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const fwM = new THREE.MeshStandardMaterial({ color: 0x3a2a16, roughness: 0.72, metalness: 0.0, transparent: true, opacity: 1.0 });
+      const paM = new THREE.MeshStandardMaterial({ color: 0xf0e8d4, roughness: 0.92, metalness: 0.0, transparent: true, opacity: 1.0 });
+      // Track header
+      const trk = new THREE.Mesh(new THREE.BoxGeometry(ow + 0.04, 0.045, ft), fwM);
+      trk.position.set(cx, DOOR_H - 0.022, cz); trk.rotation.y = rotY; roomGroup.add(trk); registerWall(trk);
+      // Side posts
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.048, DOOR_H, ft), fwM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      // Two panels (each 40% of opening, slid open leaving 20% gap)
+      const fpW = ow * 0.40, fpH = DOOR_H - 0.07;
+      [[o.s0 + fpW / 2, -1], [o.s1 - fpW / 2, 1]].forEach(([sc, side]) => {
+        const [px, pz] = ptAt(sc);
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(fpW, fpH, 0.038), paM);
+        panel.position.set(px, fpH / 2 + 0.025, pz); panel.rotation.y = rotY;
+        panel.castShadow = true; roomGroup.add(panel); registerWall(panel);
+        // Wooden border frame on panel
+        const bM = new THREE.MeshStandardMaterial({ color: 0x3a2a16, roughness: 0.7, metalness: 0.0, transparent: true, opacity: 1.0 });
+        [[fpW, 0.03, 0], [0.03, fpH, 0]].forEach(([bw, bh, _]) => {
+          [fpH / 2 + 0.025, -(fpH / 2) + 0.025].forEach(by_offset => {
+            if (bh < 0.1) { // top/bottom rail
+              const rail = new THREE.Mesh(new THREE.BoxGeometry(fpW, 0.04, 0.042), bM);
+              rail.position.set(px, fpH / 2 + 0.025 + (bh < 0.1 ? by_offset - fpH / 2 - 0.025 : 0), pz); rail.rotation.y = rotY; roomGroup.add(rail);
+            }
+          });
+          if (bh > fpH - 0.1) { // side stiles
+            [-fpW / 2 + 0.015, fpW / 2 - 0.015].forEach(sOff => {
+              const [stx, stz] = ptAt(sc + sOff * (side > 0 ? -1 : 1) * 0.001);
+              const stile = new THREE.Mesh(new THREE.BoxGeometry(0.04, fpH, 0.042), bM);
+              stile.position.set(stx, fpH / 2 + 0.025, stz); stile.rotation.y = rotY; roomGroup.add(stile);
+            });
+          }
+        });
+        // Handle pull
+        const [hpx, hpz] = ptAt(sc + side * fpW * 0.28);
+        const hdl = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.15, 0.052), bM);
+        hdl.position.set(hpx, fpH * 0.48, hpz); hdl.rotation.y = rotY; roomGroup.add(hdl);
+      });
+    } else if (o.kind === 'shoji') {
+      // 障子: translucent grid screen panels
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const sfwM = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.7, metalness: 0.0, transparent: true, opacity: 1.0 });
+      const trk2 = new THREE.Mesh(new THREE.BoxGeometry(ow + 0.04, 0.04, ft), sfwM);
+      trk2.position.set(cx, DOOR_H - 0.02, cz); trk2.rotation.y = rotY; roomGroup.add(trk2); registerWall(trk2);
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.045, DOOR_H, ft), sfwM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; roomGroup.add(post); registerWall(post);
+      });
+      // Translucent washi paper
+      const waM = new THREE.MeshStandardMaterial({ color: 0xfdf5e6, roughness: 0.85, metalness: 0.0, transparent: true, opacity: 0.72, side: THREE.DoubleSide });
+      const spW = ow * 0.44, spH = DOOR_H - 0.06;
+      [[o.s0 + spW / 2, 1], [o.s1 - spW / 2, -1]].forEach(([sc, _]) => {
+        const [px, pz] = ptAt(sc);
+        const scrn = new THREE.Mesh(new THREE.BoxGeometry(spW - 0.04, spH - 0.04, 0.012), waM);
+        scrn.position.set(px, spH / 2 + 0.025, pz); scrn.rotation.y = rotY; roomGroup.add(scrn); registerWall(scrn);
+        // Grid lines (horizontal rails every ~200mm)
+        const rows = Math.round(spH / 0.22);
+        for (let r = 1; r < rows; r++) {
+          const ry = r * spH / rows;
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(spW - 0.05, 0.022, 0.014), sfwM);
+          rail.position.set(px, ry + 0.022, pz); rail.rotation.y = rotY; roomGroup.add(rail);
+        }
+        // Vertical mullion in center
+        const mull = new THREE.Mesh(new THREE.BoxGeometry(0.022, spH - 0.04, 0.014), sfwM);
+        mull.position.set(px, spH / 2 + 0.025, pz); mull.rotation.y = rotY; roomGroup.add(mull);
+        // Outer frame
+        const fr = new THREE.Mesh(new THREE.BoxGeometry(spW, spH, 0.02), sfwM);
+        fr.position.set(px, spH / 2 + 0.025, pz); fr.rotation.y = rotY; roomGroup.add(fr); registerWall(fr);
+      });
+    } else if (o.kind === 'bath_door') {
+      // 浴室ドア: frosted glass folding/sliding door with aluminum frame
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const batAlM = new THREE.MeshStandardMaterial({ color: 0xb0bcc4, roughness: 0.28, metalness: 0.72, transparent: true, opacity: 1.0 });
+      const frostM = new THREE.MeshStandardMaterial({ color: 0xe8f0f4, roughness: 0.08, metalness: 0.05, transparent: true, opacity: 0.52, side: THREE.DoubleSide });
+      // Side posts
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.042, DOOR_H, ft), batAlM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const bathTop = new THREE.Mesh(new THREE.BoxGeometry(ow, 0.042, ft), batAlM);
+      bathTop.position.set(cx, DOOR_H - 0.021, cz); bathTop.rotation.y = rotY; roomGroup.add(bathTop); registerWall(bathTop);
+      // Frosted glass panel (partially open - slid to one side)
+      const bgW = ow * 0.60, bgH = DOOR_H - 0.06;
+      const [bgx, bgz] = ptAt(o.s0 + bgW / 2 + 0.02);
+      const bglass = new THREE.Mesh(new THREE.BoxGeometry(bgW, bgH, 0.028), frostM);
+      bglass.position.set(bgx, bgH / 2 + 0.025, bgz); bglass.rotation.y = rotY; roomGroup.add(bglass); registerWall(bglass);
+      // Aluminum rail on glass top/bottom
+      [[bgH + 0.025, 0.03], [0.01, 0.025]].forEach(([yOff, rh]) => {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(bgW, rh, 0.035), batAlM);
+        rail.position.set(bgx, yOff, bgz); rail.rotation.y = rotY; roomGroup.add(rail);
+      });
+      // Handle
+      const [bhx, bhz] = ptAt(o.s0 + bgW + 0.015);
+      const bhdl = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.14, 0.042), batAlM);
+      bhdl.position.set(bhx, bgH * 0.5, bhz); bhdl.rotation.y = rotY; roomGroup.add(bhdl);
+    } else if (o.kind === 'toilet_door') {
+      // トイレドア: narrow solid door with occupied/vacant indicator
+      const lh = WALL_H - DOOR_H;
+      const { m: lmat } = wallMat(ow);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
+      lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
+      lintel.castShadow = true; lintel.receiveShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+      const tfM = new THREE.MeshStandardMaterial({ color: 0x9c7b4f, roughness: 0.6, metalness: 0.0, transparent: true, opacity: 1.0 });
+      // Frame
+      [o.s0, o.s1].forEach(sp => {
+        const [px, pz] = ptAt(sp);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), tfM);
+        post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+      });
+      const ttop = new THREE.Mesh(new THREE.BoxGeometry(ow + fw, fw, ft), tfM);
+      ttop.position.set(cx, DOOR_H - fw / 2, cz); ttop.rotation.y = rotY; ttop.castShadow = true; roomGroup.add(ttop); registerWall(ttop);
+      // Slab (solid, narrow)
+      const tslabW = ow - fw, tslabH = DOOR_H - fw;
+      const tdoorM = new THREE.MeshStandardMaterial({ color: 0xc8a878, roughness: 0.55, metalness: 0.05, transparent: true, opacity: 1.0 });
+      const tslab = new THREE.Mesh(new THREE.BoxGeometry(tslabW, tslabH, 0.04), tdoorM);
+      const tpivot = new THREE.Group();
+      const [thx, thz] = ptAt(o.s0 + fw / 2);
+      tpivot.position.set(thx, tslabH / 2, thz);
+      tslab.position.set(tslabW / 2, 0, 0.06); tslab.castShadow = true; tpivot.add(tslab);
+      // Occupied/vacant indicator strip
+      const indicM = new THREE.MeshStandardMaterial({ color: 0x22bb44, roughness: 0.4, metalness: 0.1, emissive: new THREE.Color(0x116622), emissiveIntensity: 0.5, transparent: true, opacity: 1.0 });
+      const indic = new THREE.Mesh(new THREE.BoxGeometry(tslabW * 0.55, 0.06, 0.045), indicM);
+      indic.position.set(tslabW * 0.5, tslabH * 0.88, 0.06); tpivot.add(indic);
+      tpivot.rotation.y = rotY - 0.30; roomGroup.add(tpivot); registerWall(tslab);
+      const tfn = new THREE.Vector3(cx, 0, cz); if (tfn.length() < 0.35) tfn.set(0, 0, 0); else tfn.normalize();
+      tslab.userData.fadeNormal = tfn;
     } else {
       // Standard door
       const lh = WALL_H - DOOR_H;
@@ -1630,6 +2298,11 @@ function buildWallSegment(wall) {
       slab.userData.fadeNormal = fn;
     }
   });
+  if (wall.isPartition) {
+    for (let i = prevWallCount; i < wallMeshes.length; i++) {
+      wallMeshes[i].userData.isPartition = true;
+    }
+  }
 }
 
 function applyShadowSetting() {
@@ -1708,14 +2381,32 @@ const FURNITURE_DEFS = [
   // ---- table variants ----
   { id:'consoletab', cat:'table',   name:'コンソールテーブル',icon:'fa-table',             w:1.1, d:0.32, h:0.8,  colorIdx:8,  build:buildConsoleTable },
   { id:'roundctab',  cat:'table',   name:'丸コーヒーテーブル',icon:'fa-circle',            w:0.8, d:0.8,  h:0.42, colorIdx:0,  build:buildRoundCoffeeTable },
+  { id:'cafechr',       cat:'seating', name:'カフェチェア',          icon:'fa-chair',    w:0.46, d:0.48, h:0.87, colorIdx:8,  build:buildCafeChair },
+  { id:'windsorchair',  cat:'seating', name:'ウィンザーチェア',      icon:'fa-chair',    w:0.48, d:0.48, h:0.95, colorIdx:8,  build:buildWindsorChair },
+  { id:'stackchr',      cat:'seating', name:'スタッキングチェア',    icon:'fa-chair',    w:0.46, d:0.5,  h:0.82, colorIdx:10, build:buildStackingChair },
+  { id:'upholchr',      cat:'seating', name:'レストランチェア',      icon:'fa-chair',    w:0.52, d:0.54, h:0.92, colorIdx:0,  build:buildUpholsteredChair },
+  { id:'cafetable',     cat:'table',   name:'カフェテーブル',        icon:'fa-table',    w:0.65, d:0.65, h:0.74, colorIdx:8,  build:buildCafeTable },
+  { id:'roundtablesm',  cat:'table',   name:'丸テーブル小',          icon:'fa-circle',   w:0.7,  d:0.7,  h:0.74, colorIdx:8,  build:buildRoundTableSm },
   // ---- sleep variants ----
   { id:'bunkbed',    cat:'sleep',   name:'二段ベッド',         icon:'fa-bed',               w:1.05,d:2.05, h:1.65, colorIdx:1,  build:buildBunkBed },
   // ---- deco variants ----
   { id:'pendlamp',   cat:'deco',    name:'ペンダントライト',  icon:'fa-lightbulb',         w:0.4, d:0.4,  h:1.2,  colorIdx:0,  build:buildPendantLamp },
   { id:'desklamp',   cat:'deco',    name:'デスクランプ',       icon:'fa-lightbulb',         w:0.3, d:0.3,  h:0.5,  colorIdx:2,  build:buildDeskLamp,   stack:true },
   { id:'tablelamp',  cat:'deco',    name:'テーブルランプ',    icon:'fa-lightbulb',         w:0.3, d:0.3,  h:0.55, colorIdx:6,  build:buildTableLamp,  stack:true },
-  { id:'cactus',     cat:'deco',    name:'サボテン',           icon:'fa-leaf',              w:0.3, d:0.3,  h:0.55, colorIdx:5,  build:buildCactus,     stack:true },
-  { id:'succulent',  cat:'deco',    name:'多肉植物',           icon:'fa-leaf',              w:0.25,d:0.25, h:0.2,  colorIdx:5,  build:buildSucculent,  stack:true },
+  { id:'cactus',      cat:'deco',    name:'サボテン',           icon:'fa-leaf',     w:0.30, d:0.30, h:0.55,  colorIdx:5,  build:buildCactus,        stack:true },
+  { id:'succulent',   cat:'deco',    name:'多肉植物',           icon:'fa-leaf',     w:0.25, d:0.25, h:0.20,  colorIdx:5,  build:buildSucculent,     stack:true },
+  // 観葉植物シリーズ
+  { id:'monstera',    cat:'deco',    name:'モンステラ',         icon:'fa-leaf',     w:0.80, d:0.80, h:1.65,  colorIdx:5,  build:buildMonstera },
+  { id:'dracaena',    cat:'deco',    name:'ドラセナ',           icon:'fa-leaf',     w:0.50, d:0.50, h:1.30,  colorIdx:5,  build:buildDracaena },
+  { id:'sansevieria', cat:'deco',    name:'サンスベリア',       icon:'fa-leaf',     w:0.45, d:0.45, h:0.85,  colorIdx:5,  build:buildSansevieria },
+  { id:'ficus_umb',   cat:'deco',    name:'フィカス・ウンベラータ',icon:'fa-leaf',  w:0.80, d:0.80, h:1.80,  colorIdx:5,  build:buildFicusUmbellata },
+  { id:'rhapis',      cat:'deco',    name:'シュロチク',         icon:'fa-leaf',     w:0.70, d:0.70, h:1.40,  colorIdx:5,  build:buildRhapis },
+  { id:'pothos',      cat:'deco',    name:'ポトス',             icon:'fa-leaf',     w:0.40, d:0.40, h:0.35,  colorIdx:5,  build:buildPothos,        stack:true },
+  { id:'bamboo',      cat:'deco',    name:'バンブー',           icon:'fa-leaf',     w:0.35, d:0.35, h:0.85,  colorIdx:5,  build:buildBamboo,        stack:true },
+  { id:'strelitzia',  cat:'deco',    name:'ストレリチア',       icon:'fa-leaf',     w:0.75, d:0.75, h:1.60,  colorIdx:5,  build:buildStrelitzia },
+  { id:'benjamin',    cat:'deco',    name:'ベンジャミン',       icon:'fa-leaf',     w:0.70, d:0.70, h:1.55,  colorIdx:5,  build:buildBenjamin },
+  { id:'olive',       cat:'deco',    name:'オリーブ',           icon:'fa-leaf',     w:0.60, d:0.60, h:1.10,  colorIdx:5,  build:buildOlive },
+  { id:'zzplant',     cat:'deco',    name:'ZZプラント',         icon:'fa-leaf',     w:0.55, d:0.55, h:1.05,  colorIdx:5,  build:buildZZPlant },
   { id:'roundrug',   cat:'deco',    name:'丸ラグ',             icon:'fa-circle',            w:1.6, d:1.6,  h:0.02, colorIdx:3,  build:buildRoundRug },
   { id:'wallart',    cat:'deco',    name:'ウォールアート',    icon:'fa-image',             w:0.8, d:0.04, h:0.6,  colorIdx:9,  build:buildWallArt,    wallMount:true },
   { id:'wallclock',  cat:'deco',    name:'壁掛け時計',         icon:'fa-clock',             w:0.4, d:0.06, h:0.4,  colorIdx:2,  build:buildWallClock,  wallMount:true },
@@ -1736,6 +2427,34 @@ const FURNITURE_DEFS = [
   { id:'drillpress', cat:'lab',     name:'ボール盤',          icon:'fa-arrow-down-long',   w:0.6,  d:0.7,  h:1.75, colorIdx:6,  build:buildDrillPress },
   { id:'grinder',    cat:'lab',     name:'グラインダー',      icon:'fa-circle-notch',      w:0.7,  d:0.45, h:1.25, colorIdx:6,  build:buildBenchGrinder },
   { id:'toolrack',   cat:'lab',     name:'工具ラック',        icon:'fa-toolbox',           w:1.0,  d:0.12, h:1.2,  colorIdx:2,  build:buildToolRack, wallMount:true },
+  // ---- machining equipment ----
+  { id:'bandsaw',    cat:'lab',     name:'帯鋸盤',            icon:'fa-saw',               w:0.6,  d:0.55, h:1.55, colorIdx:6,  build:buildBandSaw },
+  { id:'welder',     cat:'lab',     name:'溶接機',            icon:'fa-bolt',              w:0.55, d:0.45, h:0.9,  colorIdx:6,  build:buildWelderStation },
+  { id:'hydpress',   cat:'lab',     name:'プレス機',          icon:'fa-arrow-down',        w:0.7,  d:0.65, h:1.8,  colorIdx:6,  build:buildHydraulicPress },
+  { id:'printer3d',  cat:'lab',     name:'3Dプリンター',      icon:'fa-cube',              w:0.5,  d:0.5,  h:0.6,  colorIdx:10, build:build3DPrinter,   stack:true },
+  { id:'lasercutter',cat:'lab',     name:'レーザーカッター',  icon:'fa-laser-pointer',     w:1.0,  d:0.7,  h:0.35, colorIdx:2,  build:buildLaserCutter },
+  { id:'scrollsaw',  cat:'lab',     name:'糸鋸盤',            icon:'fa-scissors',          w:0.55, d:0.45, h:0.95, colorIdx:6,  build:buildScrollSaw },
+  // ---- analytical instruments ----
+  { id:'hplc',       cat:'lab',     name:'HPLCクロマトグラフ',icon:'fa-chart-line',        w:0.5,  d:0.55, h:1.6,  colorIdx:10, build:buildHPLC },
+  { id:'spectropho', cat:'lab',     name:'分光光度計',        icon:'fa-radiation',         w:0.55, d:0.4,  h:0.35, colorIdx:10, build:buildSpectrophotometer, stack:true },
+  { id:'laboven',    cat:'lab',     name:'乾燥オーブン',      icon:'fa-fire',              w:0.6,  d:0.5,  h:0.6,  colorIdx:2,  build:buildLabOven },
+  { id:'incubator',  cat:'lab',     name:'インキュベーター',  icon:'fa-temperature-half',  w:0.7,  d:0.65, h:0.85, colorIdx:10, build:buildIncubator },
+  { id:'ultrasonic', cat:'lab',     name:'超音波洗浄機',      icon:'fa-water',             w:0.35, d:0.28, h:0.28, colorIdx:10, build:buildUltrasonicCleaner, stack:true },
+  { id:'vacpump',    cat:'lab',     name:'真空ポンプ',        icon:'fa-pump-soap',         w:0.4,  d:0.3,  h:0.4,  colorIdx:6,  build:buildVacuumPump,  stack:true },
+  // ---- factory heavy equipment ----
+  { id:'forklift',   cat:'factory', name:'フォークリフト',   icon:'fa-truck-moving',      w:1.1,  d:2.0,  h:2.0,  colorIdx:7,  build:buildForklift },
+  { id:'alumcoil',   cat:'factory', name:'アルミコイル',     icon:'fa-circle',            w:1.0,  d:0.8,  h:0.8,  colorIdx:10, build:buildAluminumCoil },
+  { id:'scrpbucket', cat:'factory', name:'屑バケット',       icon:'fa-trash',             w:0.7,  d:0.7,  h:0.65, colorIdx:10, build:buildScrapBucket },
+  { id:'tensile',    cat:'lab',     name:'引張試験機',       icon:'fa-arrows-up-down',    w:0.8,  d:0.7,  h:2.0,  colorIdx:10, build:buildTensileTestMachine },
+  { id:'steelpallet',cat:'factory', name:'鉄パレット',       icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:6,  build:buildSteelPallet },
+  { id:'resinpallet',cat:'factory', name:'樹脂パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:9,  build:buildResinPallet },
+  { id:'drum',           cat:'factory', name:'ドラム缶',           icon:'fa-circle',              w:0.58, d:0.58, h:0.88,  colorIdx:9,  build:buildDrum },
+  // ---- 大型工業機械 ----
+  { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:3.0,  d:2.2,  h:2.8,   colorIdx:8,  build:buildCNCMachiningCenter },
+  { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:7,  build:buildIndustrialRobotLg },
+  { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:1.8,  d:1.4,  h:3.5,   colorIdx:6,  build:buildLargeHydraulicPress },
+  { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
+  { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:3.5,  d:1.5,  h:2.2,   colorIdx:8,  build:buildInjectionMolder },
 ];
 
 // ============================================================ FURNITURE BUILDERS
@@ -1827,6 +2546,94 @@ function buildSideTable({ color='#f3ece0', w=0.5, d=0.5, h=0.55 } = {}) {
   const g = new THREE.Group(); const wood = mat(color, 0.6, 0.02, { env: 0.4 });
   const top = box(w, 0.05, d, wood, 0, h-0.025, 0); top.userData.colorable = true; g.add(top);
   const col = cyl(0.07, 0.1, h-0.05, 16, wood); col.position.y = (h-0.05)/2; col.userData.colorable = true; g.add(col);
+  return g;
+}
+function buildCafeChair({ color='#6a4830', w=0.46, d=0.48, h=0.87 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.65, 0.02);
+  const metal = mat('#383838', 0.45, 0.65);
+  const seat = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.05, d-0.04, 0.03, 2), wood);
+  seat.position.set(0, 0.46, 0.01); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const legH = 0.44, ins = 0.03;
+  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.016, 0.016, legH, 8, metal, lx, legH/2, lz)));
+  const bpH = h - 0.46;
+  [-w/2+ins, w/2-ins].forEach(x => g.add(cylAt(0.016, 0.016, bpH, 8, metal, x, 0.46+bpH/2, -(d/2-ins))));
+  g.add(box(w-0.04, 0.05, 0.04, wood, 0, h-0.03, -(d/2-ins)));
+  g.add(box(w-0.08, 0.03, 0.03, metal, 0, 0.68, -(d/2-ins)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildWindsorChair({ color='#5a3820', w=0.48, d=0.48, h=0.95 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.68, 0.02);
+  const seat = new THREE.Mesh(roundedBoxGeom(w, 0.07, d, 0.05, 2), wood);
+  seat.position.set(0, 0.45, 0.02); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const legH = 0.44;
+  [[-w/2+0.05, d/2-0.05],[w/2-0.05, d/2-0.05],[-w/2+0.04, -(d/2-0.04)],[w/2-0.04, -(d/2-0.04)]].forEach(([lx,lz]) => g.add(cylAt(0.022, 0.022, legH, 8, wood, lx, legH/2, lz)));
+  g.add(box(w-0.1, 0.03, 0.03, wood, 0, 0.24, 0));
+  g.add(box(0.03, 0.03, d-0.12, wood, 0, 0.24, 0));
+  const sH = h - 0.53, bZ = -(d/2 - 0.06);
+  for (let i = 0; i < 5; i++) { const x = -w/2 + 0.06 + (w-0.12)*i/4; g.add(cylAt(0.018, 0.018, sH, 8, wood, x, 0.5+sH/2, bZ)); }
+  g.add(box(w-0.02, 0.07, 0.06, wood, 0, h-0.04, bZ));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildStackingChair({ color='#222222', w=0.46, d=0.5, h=0.82 } = {}) {
+  const g = new THREE.Group();
+  const metal = mat(color, 0.55, 0.65);
+  const plastic = mat(shade(color, 1.5), 0.85, 0.0);
+  const seat = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.03, d-0.08, 0.02, 2), plastic);
+  seat.position.set(0, 0.45, 0.02); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const back = new THREE.Mesh(roundedBoxGeom(w-0.04, 0.26, 0.03, 0.02, 2), plastic);
+  back.position.set(0, 0.67, -(d/2-0.06)); back.castShadow = true; back.userData.colorable = true; g.add(back);
+  const legH = 0.44, ins = 0.04;
+  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.014, 0.014, legH, 8, metal, lx, legH/2, lz)));
+  const bpH = h - 0.45;
+  [-w/2+ins, w/2-ins].forEach(x => g.add(cylAt(0.014, 0.014, bpH, 8, metal, x, 0.45+bpH/2, -(d/2-ins))));
+  g.add(box(w-0.08, 0.028, 0.028, metal, 0, h-0.02, -(d/2-ins)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildUpholsteredChair({ color='#3a3a3a', w=0.52, d=0.54, h=0.92 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat('#6a4a2a', 0.65, 0.02);
+  const fabric = fabricMat(color);
+  const seat = new THREE.Mesh(roundedBoxGeom(w-0.04, 0.1, d-0.06, 0.04, 2), fabric);
+  seat.position.set(0, 0.47, 0.01); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const back = new THREE.Mesh(roundedBoxGeom(w-0.08, 0.42, 0.1, 0.05, 2), fabric);
+  back.position.set(0, 0.72, -(d/2-0.1)); back.castShadow = true; back.userData.colorable = true; g.add(back);
+  g.add(box(w, 0.06, 0.06, wood, 0, h-0.04, -(d/2-0.08)));
+  g.add(box(0.06, h-0.5, 0.06, wood, -w/2+0.04, 0.5+(h-0.5)/2, -(d/2-0.08)));
+  g.add(box(0.06, h-0.5, 0.06, wood,  w/2-0.04, 0.5+(h-0.5)/2, -(d/2-0.08)));
+  const legH = 0.44;
+  [[-w/2+0.05, d/2-0.05],[w/2-0.05, d/2-0.05],[-w/2+0.05, -(d/2-0.06)],[w/2-0.05, -(d/2-0.06)]].forEach(([lx,lz]) => g.add(cylAt(0.025, 0.025, legH, 8, wood, lx, legH/2, lz)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildCafeTable({ color='#8a6a3a', w=0.65, d=0.65, h=0.74 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.55, 0.02, { env: 0.4 });
+  const metal = mat('#4a4a50', 0.4, 0.7);
+  const top = new THREE.Mesh(roundedBoxGeom(w, 0.05, d, 0.03, 2), wood);
+  top.position.set(0, h-0.025, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  const legH = h - 0.06, ins = 0.05;
+  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.022, 0.022, legH, 8, metal, lx, legH/2, lz)));
+  g.add(box(w-0.14, 0.03, 0.03, metal, 0, 0.36,  d/2-ins));
+  g.add(box(w-0.14, 0.03, 0.03, metal, 0, 0.36, -(d/2-ins)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+function buildRoundTableSm({ color='#8a6a3a', w=0.7, d=0.7, h=0.74 } = {}) {
+  const g = new THREE.Group();
+  const r = Math.min(w, d) / 2;
+  const wood = mat(color, 0.55, 0.02, { env: 0.4 });
+  const metal = mat('#4a4a50', 0.4, 0.7);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.05, 32), wood);
+  top.position.set(0, h-0.025, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  g.add(cylAt(0.04, 0.04, h-0.1, 12, metal, 0, (h-0.1)/2, 0));
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(r*0.55, r*0.6, 0.04, 20), metal);
+  base.position.set(0, 0.02, 0); base.castShadow = true; g.add(base);
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 function buildBed({ color='#f3ece0', w=1.0, d=2.1, h=0.55, double=false } = {}) {
@@ -2390,7 +3197,7 @@ function removeFurniture(group, record = true) {
 }
 
 // ============================================================ HISTORY
-function pushHistory(a) { history = history.slice(0, historyIndex+1); history.push(a); historyIndex++; updateHistoryButtons(); }
+function pushHistory(a) { history = history.slice(0, historyIndex+1); history.push(a); historyIndex++; updateHistoryButtons(); scheduleAutoSave(); }
 function undo() {
   if (historyIndex < 0) return; const a = history[historyIndex--];
   if (a.type === 'place') { deselect(); removeFurniture(a.item.group, false); }
@@ -2428,6 +3235,7 @@ function deselect() {
   selectedGroup = null; selectionRing.visible = false;
   document.getElementById('props-empty').style.display = 'flex';
   document.getElementById('props-panel').classList.remove('visible');
+  const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = '';
 }
 function refreshSelection() { if (selectedGroup) updateSelectionRing(selectedGroup); }
 function updateSelectionRing(group) {
@@ -2440,6 +3248,7 @@ function showProperties(group, item) {
   const def = FURNITURE_DEFS.find(d => d.id === item.defId);
   document.getElementById('props-empty').style.display = 'none';
   document.getElementById('props-panel').classList.add('visible');
+  const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = 'none';
   document.getElementById('props-name').textContent = def.name;
   document.getElementById('props-dims').textContent = `${def.w}m × ${def.d}m`;
   document.getElementById('props-icon').innerHTML = `<i class="fa-solid ${def.icon}"></i>`;
@@ -2450,7 +3259,7 @@ function showProperties(group, item) {
     const b = document.createElement('button'); b.className = 'color-swatch' + (c === item.color ? ' active' : '');
     b.style.background = c; b.title = c;
     b.addEventListener('click', () => {
-      selectedColor = c; applyColor(selectedGroup, c);
+      selectedColor = c; applyColor(selectedGroup, c); scheduleAutoSave();
       document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active')); b.classList.add('active');
       const pi = placedItems.find(i => i.group === selectedGroup); if (pi) pi.color = c;
     });
@@ -2573,6 +3382,7 @@ function applyLayout(layout) {
       for (let cz = z1 + CELL/2; cz < z2; cz += CELL)
         paintFloorAt(cx, cz, f.type);
   });
+  scheduleAutoSave();
 }
 function loadLayout(json) { try { applyLayout(JSON.parse(json)); toast('レイアウトを読み込みました'); } catch (e) { toast('読み込みに失敗しました'); } }
 function takeScreenshot() { renderer.render(scene, camera); const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'room-planner.png'; a.click(); toast('スクリーンショットを保存しました'); }
@@ -2926,6 +3736,389 @@ function buildSucculent({ color='#6f9e74', w=0.25, d=0.25, h=0.2 } = {}) {
   const center = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), leafMat); center.position.set(0, 0.18, 0); center.userData.colorable = true; g.add(center);
   return g;
 }
+// ===== 観葉植物シリーズ =====
+// 共通の鉢ヘルパー
+function _pot(g, top=0.15, bot=0.10, h=0.26, col='#d8c5a8', segs=20) {
+  const pm = new THREE.Mesh(new THREE.CylinderGeometry(top, bot, h, segs), mat(col, 0.85));
+  pm.position.y = h/2; pm.castShadow = pm.receiveShadow = true; g.add(pm);
+  g.add(cylAt(top+0.01, top, 0.04, segs, mat(shade(col,0.88),0.85), 0, h, 0));
+  g.add(cylAt(top-0.01, top-0.01, 0.02, segs, mat('#3d2b1f',0.98), 0, h+0.01, 0));
+  return h + 0.01; // soil top Y
+}
+
+// モンステラ (Monstera deliciosa) — ヒレのある大型葉
+function buildMonstera({ color='#2d6a34' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.20, 0.13, 0.32, '#b8956a');
+  // 太い茎
+  g.add(cylAt(0.045, 0.055, 0.65, 8, mat('#4a2f12', 0.8), 0, soilY + 0.32, 0));
+  const lm = mat(color, 0.72);
+  const darkLm = mat(shade(color, 0.62), 0.85);
+  // 大きな丸葉をフラットなスケールで表現
+  const leafDefs = [
+    { x: 0.30, y: soilY+0.72, z: 0.05, rx:-0.35, ry: 0.3,  sx:2.0, sy:0.28, sz:1.7, r:0.28 },
+    { x:-0.32, y: soilY+0.90, z:-0.05,rx: 0.28, ry:-0.4,  sx:2.2, sy:0.25, sz:1.8, r:0.27 },
+    { x: 0.10, y: soilY+1.12, z: 0.22, rx:-0.4,  ry: 0.1,  sx:1.9, sy:0.22, sz:1.6, r:0.26 },
+    { x:-0.08, y: soilY+0.56, z:-0.24, rx: 0.2,  ry: 0.7,  sx:1.5, sy:0.20, sz:1.3, r:0.22 },
+    { x: 0.22, y: soilY+1.02, z:-0.18, rx: 0.15, ry:-0.6,  sx:1.7, sy:0.21, sz:1.5, r:0.24 },
+  ];
+  leafDefs.forEach(({ x,y,z,rx,ry,sx,sy,sz,r }, i) => {
+    const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 2), lm.clone());
+    lf.position.set(x,y,z); lf.scale.set(sx,sy,sz); lf.rotation.set(rx,ry,0);
+    lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+    // 葉脈スリット (暗い細線)
+    const slit = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.008, r*sz*1.6), darkLm);
+    slit.position.set(x, y, z); slit.rotation.set(rx,ry,0); g.add(slit);
+    // 葉柄
+    const petiole = cylAt(0.01,0.012, 0.18+i*0.02, 6, mat('#3a5a28',0.8), x*0.4, y-0.12, z*0.4);
+    petiole.rotation.set(rx*0.5,ry,0); g.add(petiole);
+  });
+  return g;
+}
+
+// ドラセナ・マルギナータ — 細い幹+先端から放射状の細長い葉
+function buildDracaena({ color='#3a6635' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.16, 0.10, 0.28, '#c4a87a');
+  // 細い幹 (わずかに湾曲)
+  const trunkMat = mat('#6b4a28', 0.75);
+  g.add(cylAt(0.028, 0.038, 0.95, 8, trunkMat, 0, soilY+0.475, 0));
+  // 幹の上部に環状節跡
+  [0.3, 0.6, 0.85].forEach(frac => g.add(cylAt(0.032, 0.032, 0.015, 8, mat('#4a3018',0.9), 0, soilY + frac, 0)));
+  // 先端から長い細葉を放射状に
+  const leafH = soilY + 0.95;
+  const lm = mat(color, 0.68);
+  const numLeaves = 18;
+  for (let i = 0; i < numLeaves; i++) {
+    const ang = (i / numLeaves) * Math.PI * 2;
+    const tilt = 0.28 + Math.random()*0.25;
+    const len = 0.38 + Math.random()*0.18;
+    const lf = new THREE.Mesh(new THREE.BoxGeometry(0.018, len, 0.006), mat(shade(color, 0.88+i*0.01), 0.7));
+    lf.position.set(Math.cos(ang)*0.04, leafH + len*0.4, Math.sin(ang)*0.04);
+    lf.rotation.set(Math.cos(ang)*tilt, ang, Math.sin(ang)*tilt*0.3);
+    lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+    // 葉の先端の赤縁 (marginata特徴)
+    if (i % 3 === 0) {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.002, len*0.9, 0.007), mat('#c04040',0.7));
+      edge.position.copy(lf.position); edge.rotation.copy(lf.rotation); g.add(edge);
+    }
+  }
+  return g;
+}
+
+// サンスベリア (虎の尾 / スネークプラント) — 直立した剣状の葉
+function buildSansevieria({ color='#3a6030' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.18, 0.12, 0.24, '#c8b48a');
+  const numLeaves = 7;
+  for (let i = 0; i < numLeaves; i++) {
+    const ang = (i / numLeaves) * Math.PI * 2 + i*0.15;
+    const r = 0.04 + (i%3)*0.025;
+    const h = 0.4 + (i%4)*0.12;
+    const lean = 0.08 + (i%2)*0.06;
+    const leafMat = mat(shade(color, 0.85+i*0.04), 0.65);
+    // 葉本体 (細長い直方体、先端へ細くなる)
+    const lf = new THREE.Mesh(new THREE.BoxGeometry(0.05, h, 0.018), leafMat);
+    lf.position.set(Math.cos(ang)*r, soilY + h*0.5, Math.sin(ang)*r);
+    lf.rotation.set(Math.cos(ang)*lean*0.4, ang, Math.sin(ang)*lean*0.4);
+    lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+    // 葉の縁取り (明るい色)
+    const edgeMat = mat(shade(color, 1.35), 0.7);
+    [-0.027, 0.027].forEach(dx => {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.006, h*0.9, 0.02), edgeMat);
+      edge.position.set(Math.cos(ang)*r + dx*Math.cos(ang+Math.PI/2),
+                        soilY + h*0.5, Math.sin(ang)*r + dx*Math.sin(ang+Math.PI/2));
+      edge.rotation.copy(lf.rotation); g.add(edge);
+    });
+    // 横縞模様 (水平の暗い帯)
+    for (let s = 0; s < 4; s++) {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.012, 0.02),
+        mat(shade(color, 0.65), 0.8));
+      stripe.position.set(lf.position.x, soilY + h*(0.2 + s*0.2), lf.position.z);
+      stripe.rotation.copy(lf.rotation); g.add(stripe);
+    }
+  }
+  return g;
+}
+
+// フィカス・ウンベラータ — 大きなハート形の葉、枝分かれした樹形
+function buildFicusUmbellata({ color='#4a8040' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.22, 0.14, 0.34, '#b08060');
+  const trunkMat = mat('#5c3c1a', 0.75);
+  // メイン幹
+  g.add(cylAt(0.045, 0.06, 0.85, 10, trunkMat, 0, soilY+0.425, 0));
+  // 二股に分岐
+  const branches = [
+    { ox: 0.12, oy: soilY+0.9, oz: 0,    rx:-0.3, rz: 0.35,  len:0.45, r:0.028 },
+    { ox:-0.10, oy: soilY+0.92, oz:0.08, rx:-0.2, rz:-0.3,  len:0.40, r:0.025 },
+  ];
+  branches.forEach(b => {
+    const br = cylAt(b.r, b.r+0.005, b.len, 8, trunkMat, b.ox, b.oy+b.len*0.4, b.oz);
+    br.rotation.set(b.rx, 0, b.rz); g.add(br);
+  });
+  // ハート形の大きな葉 (横に広い楕円で近似)
+  const lm = mat(color, 0.70);
+  const leafDefs = [
+    { x: 0.28, y: soilY+1.20, z: 0.08,  ry: 0.5, sz: 1.4 },
+    { x:-0.25, y: soilY+1.28, z:-0.05,  ry:-0.6, sz: 1.5 },
+    { x: 0.08, y: soilY+1.45, z: 0.22,  ry: 0.2, sz: 1.3 },
+    { x:-0.12, y: soilY+1.10, z:-0.25,  ry:-0.3, sz: 1.4 },
+    { x: 0.32, y: soilY+1.05, z:-0.15,  ry: 0.8, sz: 1.3 },
+    { x:-0.30, y: soilY+0.82, z: 0.18,  ry:-0.7, sz: 1.2 },
+    { x: 0.04, y: soilY+0.90, z: 0.32,  ry: 0.0, sz: 1.4 },
+  ];
+  leafDefs.forEach(({ x,y,z,ry,sz }) => {
+    const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 2), lm.clone());
+    lf.position.set(x,y,z); lf.scale.set(1.0, 0.18, sz); lf.rotation.y = ry;
+    lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+    // 中央葉脈
+    const vein = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.005, 0.22*sz*1.8), mat(shade(color,0.6), 0.8));
+    vein.position.set(x,y,z); vein.rotation.y = ry; g.add(vein);
+  });
+  return g;
+}
+
+// シュロチク (観音竹) — 細い複数の幹+扇状の葉
+function buildRhapis({ color='#356e3a' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.24, 0.15, 0.36, '#c0a07a');
+  const caneH = [0.85, 0.72, 0.92, 0.68, 0.80];
+  const canePos = [[-0.06,-0.04],[0.08,0.06],[-0.04,0.10],[0.02,-0.10],[0.10,-0.02]];
+  canePos.forEach(([cx,cz], ci) => {
+    const h = caneH[ci];
+    // 竹のような細い幹 (節あり)
+    g.add(cylAt(0.018, 0.018, h, 8, mat('#4a3820', 0.7), cx, soilY+h/2, cz));
+    for (let ni = 0; ni < 4; ni++) g.add(cylAt(0.020, 0.020, 0.018, 8, mat('#3a2810',0.8), cx, soilY+h*(0.2+ni*0.2), cz));
+    // 先端から扇状の複葉
+    const topY = soilY + h;
+    const numFan = 5 + ci;
+    for (let fi = 0; fi < numFan; fi++) {
+      const fa = (fi/(numFan-1)-0.5)*Math.PI*1.1;
+      const fl = 0.22 + Math.random()*0.08;
+      const leaflet = new THREE.Mesh(new THREE.BoxGeometry(0.014, fl, 0.008),
+        mat(shade(color, 0.88+fi*0.02), 0.70));
+      leaflet.position.set(cx + Math.sin(fa)*fl*0.4, topY + fl*0.4*Math.cos(fa*0.3),
+                           cz + Math.cos(fa)*fl*0.05);
+      leaflet.rotation.set(-fl*0.2, fa*0.1, fa + Math.PI*0.1);
+      leaflet.castShadow = true; leaflet.userData.colorable = true; g.add(leaflet);
+    }
+  });
+  return g;
+}
+
+// ポトス — 小さな鉢から垂れ下がるハート葉のツル
+function buildPothos({ color='#4a8040' } = {}) {
+  const g = new THREE.Group();
+  // 小鉢
+  const potM = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.085, 0.20, 18), mat('#d0b890',0.85));
+  potM.position.y = 0.10; potM.castShadow = potM.receiveShadow = true; g.add(potM);
+  g.add(cylAt(0.125, 0.12, 0.03, 18, mat('#b8a070',0.85), 0, 0.20, 0));
+  g.add(cylAt(0.115, 0.115, 0.015, 16, mat('#3d2b1f',0.98), 0, 0.21, 0));
+  const lm = mat(color, 0.72);
+  // 垂れ下がるツル + 葉
+  const vines = [
+    { ang: 0.2,    drops: [0.05, 0.18, 0.32, 0.44] },
+    { ang: 1.8,    drops: [0.08, 0.22, 0.38] },
+    { ang: 3.4,    drops: [0.04, 0.20, 0.35, 0.50] },
+    { ang: 5.0,    drops: [0.10, 0.26, 0.40] },
+  ];
+  vines.forEach(({ ang, drops }) => {
+    drops.forEach((drop, di) => {
+      const r = 0.08 + drop * 0.5;
+      const x = Math.cos(ang) * r;
+      const z = Math.sin(ang) * r;
+      const y = 0.22 - drop * 0.35;
+      // 小葉 (ハート形 = 横長楕円)
+      const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.06, 1), lm.clone());
+      lf.position.set(x, y, z); lf.scale.set(1.0, 0.4, 0.85);
+      lf.rotation.y = ang + di * 0.4;
+      lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+      // ツル線
+      if (di > 0) {
+        const pr = 0.08 + drops[di-1]*0.5, py = 0.22 - drops[di-1]*0.35;
+        const px = Math.cos(ang)*pr, pz = Math.sin(ang)*pr;
+        const mid = new THREE.Vector3((x+px)/2, (y+py)/2, (z+pz)/2);
+        const len = Math.hypot(x-px, y-py, z-pz);
+        const vine = cylAt(0.005, 0.005, len, 4, mat('#2a5020',0.9), mid.x, mid.y, mid.z);
+        const dir = new THREE.Vector3(x-px, y-py, z-pz).normalize();
+        vine.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+        g.add(vine);
+      }
+    });
+  });
+  return g;
+}
+
+// バンブー (幸運の竹 / Lucky Bamboo)
+function buildBamboo({ color='#5a9450' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.14, 0.09, 0.22, '#c0d0b8');
+  // 水の演出 (透明な水面)
+  const water = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.02, 18),
+    new THREE.MeshStandardMaterial({ color: 0xb8e0f0, roughness: 0.05, metalness: 0.1, transparent:true, opacity:0.55 }));
+  water.position.y = soilY - 0.04; g.add(water);
+  // 3本の竹の茎
+  const stems = [[-0.05, -0.04, 0.58+Math.random()*0.2], [0, 0.06, 0.75+Math.random()*0.25], [0.07, -0.02, 0.62+Math.random()*0.2]];
+  stems.forEach(([cx, cz, sh]) => {
+    const caneSegH = sh / 4;
+    for (let s = 0; s < 4; s++) {
+      g.add(cylAt(0.016, 0.016, caneSegH - 0.02, 10, mat(shade(color, 0.95+s*0.02), 0.6),
+                  cx, soilY + s*caneSegH + caneSegH/2, cz));
+      // 節
+      g.add(cylAt(0.020, 0.020, 0.018, 10, mat(shade(color,0.7), 0.7), cx, soilY + (s+1)*caneSegH, cz));
+    }
+    // 先端の葉束
+    const topY = soilY + sh;
+    for (let li = 0; li < 5; li++) {
+      const la = (li/5)*Math.PI*2;
+      const lf = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.18, 0.005),
+        mat(shade(color, 0.9+li*0.03), 0.65));
+      lf.position.set(cx + Math.cos(la)*0.035, topY + 0.08, cz + Math.sin(la)*0.035);
+      lf.rotation.set(-0.4 + Math.random()*0.3, la, Math.random()*0.3);
+      lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+    }
+  });
+  return g;
+}
+
+// ストレリチア (極楽鳥花) — 大きなパドル型の葉
+function buildStrelitzia({ color='#2a6a30' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.22, 0.14, 0.34, '#b89060');
+  const lm = mat(color, 0.68);
+  // 長い葉柄から大きなパドル葉が放射状に
+  const leaves = [
+    { ox:0.18, oy:soilY+0.90, oz:0.05, rx:-0.25, ry:0.4, rl:0.65, rw:0.16 },
+    { ox:-0.20, oy:soilY+1.05, oz:-0.06, rx:0.20, ry:-0.5, rl:0.70, rw:0.17 },
+    { ox:0.06, oy:soilY+1.25, oz:0.22, rx:-0.30, ry:0.1, rl:0.62, rw:0.15 },
+    { ox:-0.08, oy:soilY+0.78, oz:-0.20, rx:0.18, ry:0.7, rl:0.58, rw:0.14 },
+    { ox:0.22, oy:soilY+0.65, oz:-0.12, rx:0.12, ry:-0.6, rl:0.55, rw:0.13 },
+  ];
+  leaves.forEach(({ ox,oy,oz,rx,ry,rl,rw }, i) => {
+    // 葉身 (細長い楕円)
+    const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.1, 2), lm.clone());
+    lf.scale.set(rw/0.1, 0.06, rl/0.1);
+    lf.position.set(ox, oy, oz); lf.rotation.set(rx, ry, 0);
+    lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+    // 葉柄
+    const petioleLen = 0.35 + i*0.05;
+    g.add(cylAt(0.012, 0.016, petioleLen, 6, mat('#2a5020',0.8),
+                ox*0.5, soilY + petioleLen*0.45, oz*0.5));
+    // 中央葉脈
+    const vein = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.004, rl*1.8),
+      mat(shade(color, 0.55), 0.8));
+    vein.position.set(ox, oy, oz); vein.rotation.set(rx, ry, 0); g.add(vein);
+  });
+  // 花 (オレンジ+青)
+  const bract = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.18, 8),
+    mat('#e87820', 0.5)); bract.position.set(0.15, soilY+1.35, 0.10); bract.rotation.z = -0.6; g.add(bract);
+  const petal = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.12, 0.015),
+    mat('#2060c0', 0.5)); petal.position.set(0.17, soilY+1.42, 0.10); petal.rotation.z = -0.8; g.add(petal);
+  return g;
+}
+
+// ベンジャミン (フィカス・ベンジャミナ) — 小さな丸葉の茂った樹
+function buildBenjamin({ color='#3d7040' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.18, 0.11, 0.28, '#c8b080');
+  const trunkMat = mat('#4a3520', 0.7);
+  // スリムな幹
+  g.add(cylAt(0.032, 0.042, 0.70, 10, trunkMat, 0, soilY+0.35, 0));
+  // 枝分かれ
+  const bdata = [
+    { ox:0.08, oy:soilY+0.72, oz:0.04, rx:-0.5, rz:0.6, len:0.30, r:0.018 },
+    { ox:-0.06, oy:soilY+0.75, oz:-0.04, rx:-0.4, rz:-0.5, len:0.28, r:0.016 },
+    { ox:0.02, oy:soilY+0.80, oz:0.08, rx:-0.6, rz:0.2, len:0.26, r:0.015 },
+    { ox:-0.04, oy:soilY+0.78, oz:-0.08, rx:-0.45, rz:-0.25, len:0.27, r:0.015 },
+  ];
+  bdata.forEach(b => {
+    const br = cylAt(b.r, b.r+0.004, b.len, 7, trunkMat, b.ox, b.oy, b.oz);
+    br.rotation.set(b.rx, 0, b.rz); g.add(br);
+  });
+  // 密な小葉の雲 (多数の小さな球)
+  const lm = mat(color, 0.72);
+  const cloudCenters = [
+    [0.22, soilY+1.02, 0.12], [-0.20, soilY+1.05, -0.10], [0.06, soilY+1.20, 0.22],
+    [-0.12, soilY+1.00, 0.20], [0.28, soilY+0.95, -0.08], [-0.24, soilY+1.10, 0.05],
+    [0, soilY+1.28, 0], [0.18, soilY+1.15, -0.20], [-0.16, soilY+0.88, -0.18],
+  ];
+  cloudCenters.forEach(([cx,cy,cz], i) => {
+    for (let k = 0; k < 8; k++) {
+      const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.05 + Math.random()*0.03, 0),
+        mat(shade(color, 0.82 + Math.random()*0.24), 0.72));
+      lf.position.set(cx + (Math.random()-0.5)*0.14, cy + (Math.random()-0.5)*0.12, cz + (Math.random()-0.5)*0.14);
+      lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+    }
+  });
+  return g;
+}
+
+// オリーブ — 細かい葉の野性的な樹形
+function buildOlive({ color='#7a9a5a' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.18, 0.11, 0.28, '#a89870');
+  const trunkMat = mat('#4a3a28', 0.75);
+  // ねじれた幹
+  g.add(cylAt(0.035, 0.048, 0.72, 8, trunkMat, 0.02, soilY+0.36, 0));
+  g.add(cylAt(0.025, 0.030, 0.22, 6, trunkMat, 0.06, soilY+0.82, 0.06));
+  // 枝
+  const branchDef = [
+    [0.10, soilY+0.78, 0.05, -0.45, 0.55, 0.28], [-0.08, soilY+0.82, -0.04, -0.38, -0.48, 0.25],
+    [0.03, soilY+0.90, 0.10, -0.52, 0.20, 0.22], [-0.05, soilY+0.88, -0.10, -0.42, -0.22, 0.24],
+    [0.12, soilY+0.70, -0.06, -0.3, 0.65, 0.26],
+  ];
+  branchDef.forEach(([ox,oy,oz,rx,rz,len]) => {
+    const br = cylAt(0.012, 0.015, len, 6, trunkMat, ox, oy, oz); br.rotation.set(rx,0,rz); g.add(br);
+  });
+  // 小葉クラスター (細長い葉 = 細いボックス)
+  const lm = mat(color, 0.65);
+  const silverLm = mat(shade(color, 1.25), 0.6);
+  for (let i = 0; i < 65; i++) {
+    const ang = Math.random()*Math.PI*2, dist = 0.10 + Math.random()*0.24;
+    const x = Math.cos(ang)*dist * (1 + Math.random()*0.3);
+    const y = soilY + 0.78 + (Math.random()-0.3)*0.45;
+    const z = Math.sin(ang)*dist * (1 + Math.random()*0.3);
+    const lf = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.07 + Math.random()*0.04, 0.004),
+      i%3===0 ? silverLm.clone() : lm.clone());
+    lf.position.set(x, y, z);
+    lf.rotation.set((Math.random()-0.5)*0.8, ang, (Math.random()-0.5)*1.2);
+    lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+  }
+  return g;
+}
+
+// 大型フロアグリーン (ザミオクルカス / ZZ Plant風 — 光沢のある広葉)
+function buildZZPlant({ color='#2a5a28' } = {}) {
+  const g = new THREE.Group();
+  const soilY = _pot(g, 0.20, 0.13, 0.30, '#c0a87a');
+  const stemMat = mat('#3a5a30', 0.7);
+  const lm = mat(color, 0.55, 0.08, { env: 0.4 }); // 光沢
+  // 複数の茎から楕円葉が交互に出る
+  const stems = [
+    { cx:-0.06, cz:-0.04, ang: -0.5, h:0.90 },
+    { cx: 0.08, cz: 0.06, ang:  0.6, h:1.00 },
+    { cx:-0.02, cz: 0.10, ang:  2.0, h:0.82 },
+    { cx: 0.04, cz:-0.10, ang: -1.8, h:0.95 },
+    { cx: 0.12, cz:-0.04, ang:  0.3, h:0.75 },
+  ];
+  stems.forEach(({ cx, cz, ang, h }) => {
+    g.add(cylAt(0.018, 0.018, h*0.5, 8, stemMat, cx, soilY+h*0.25, cz));
+    const numLeaflets = 5 + Math.floor(h*4);
+    for (let li = 0; li < numLeaflets; li++) {
+      const t = (li+1)/(numLeaflets+1);
+      const ly = soilY + h*t*0.9;
+      const side = li%2===0 ? 1 : -1;
+      const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.055, 1), lm.clone());
+      lf.scale.set(0.6, 0.28, 1.0);
+      lf.position.set(cx + Math.cos(ang)*0.10*side, ly, cz + Math.sin(ang)*0.10*side);
+      lf.rotation.y = ang + side*0.3;
+      lf.castShadow = true; lf.userData.colorable = true; g.add(lf);
+    }
+  });
+  return g;
+}
+
 function buildRoundRug({ color='#b9714a', w=1.6, d=1.6 } = {}) {
   const g = new THREE.Group();
   const rugMat = mat(color, 0.92, 0.0); rugMat.side = THREE.DoubleSide;
@@ -3281,6 +4474,193 @@ function buildBenchGrinder({ color='#4f7a52', w=0.7, d=0.45, h=1.25 } = {}) {
   g.add(box(0.1, 0.12, 0.04, dark, 0, 0.75, -d/2 + 0.04));
   return g;
 }
+// ===== 大型工業機械 =====
+function buildCNCMachiningCenter({ color='#3c5a7a', w=3.0, d=2.2, h=2.8 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.45, 0.3, { env: 0.5 });
+  const steel = mat('#8a9aa8', 0.25, 0.75, { env: 1.0 });
+  const dark = mat('#1e2428', 0.6, 0.2);
+  const glass = new THREE.MeshStandardMaterial({ color: 0x88bbdd, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.35 });
+  const yellow = mat('#f5c518', 0.5, 0.1);
+  // base cabinet
+  const base = box(w, 0.18, d, dark, 0, 0.09, 0); g.add(base);
+  // main machine body
+  const main = box(w, h - 0.18, d, body, 0, (h - 0.18)/2 + 0.18, 0); main.userData.colorable = true; g.add(main);
+  // front viewing window (large door with glass)
+  g.add(plainBox(w * 0.62, h * 0.48, 0.06, body, 0, h * 0.42, d/2 - 0.02));
+  const win = plainBox(w * 0.52, h * 0.36, 0.05, glass, 0, h * 0.44, d/2);
+  win.userData.fadeNormal = new THREE.Vector3(0, 0, 1); win.castShadow = false; g.add(win);
+  // spindle head on gantry
+  const gantry = box(w - 0.2, 0.12, 0.12, steel, 0, h * 0.78, -0.1); g.add(gantry);
+  const spindle_head = box(0.5, 0.45, 0.4, dark, 0, h * 0.62, -0.2); g.add(spindle_head);
+  const spindle = cyl(0.06, 0.04, 0.35, 18, steel); spindle.position.set(0, h * 0.44, -0.2); g.add(spindle);
+  const toolholder = cyl(0.04, 0.025, 0.2, 14, mat('#d4af37', 0.3, 0.7)); toolholder.position.set(0, h * 0.34, -0.2); g.add(toolholder);
+  // worktable
+  const table = box(w - 0.5, 0.08, d - 0.6, steel, 0, 0.55, 0); g.add(table);
+  for (let tx = -(w-0.5)/2 + 0.1; tx < (w-0.5)/2; tx += 0.16) {
+    g.add(box(0.02, 0.04, d - 0.65, dark, tx, 0.6, 0));
+  }
+  // coolant tank + chip conveyor hint
+  g.add(box(0.35, 0.55, 0.35, dark, -w/2 + 0.22, 0.46, d/2 - 0.22));
+  g.add(box(0.15, 0.08, 0.5, mat('#4a5560',0.6), -w/2 + 0.22, 0.12, d/2 - 0.05));
+  // CNC control panel (pendant)
+  const panel = box(0.32, 0.52, 0.08, mat('#111417', 0.5)); panel.position.set(w/2 - 0.1, h * 0.52, d/2 - 0.04); g.add(panel);
+  g.add(box(0.22, 0.30, 0.03, mat('#1a3050',0.3), w/2 - 0.1, h * 0.54, d/2));
+  ['#22c55e','#ef4444','#f59e0b'].forEach((cl, i) => g.add(cylAt(0.022,0.022,0.025,10,mat(cl,0.3),w/2 - 0.1, h*0.4 - i*0.055, d/2+0.01).rotateX(Math.PI/2)));
+  // safety warning stripe
+  g.add(box(w, 0.06, 0.01, yellow, 0, 0.18, d/2)); g.add(box(w, 0.06, 0.01, yellow, 0, 0.18, -d/2));
+  // exhaust duct on top
+  g.add(box(0.2, 0.35, 0.2, dark, 0, h + 0.17, 0));
+  g.add(box(0.14, 0.12, 0.14, mat('#606870',0.4,0.5), 0, h + 0.35, 0));
+  return g;
+}
+function buildIndustrialRobotLg({ color='#f59e0b', w=1.2, d=1.2, h=2.4 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.4, 0.2, { env: 0.5 });
+  const dark = mat('#1e2428', 0.6, 0.2);
+  const steel = mat('#8a9aa8', 0.25, 0.75, { env: 1.0 });
+  const joint = mat('#2a3038', 0.4, 0.4);
+  // base pedestal
+  g.add(box(0.7, 0.18, 0.7, dark, 0, 0.09, 0));
+  g.add(box(0.58, 0.28, 0.58, mat(shade(color,0.7),0.5,0.2), 0, 0.32, 0));
+  // J1 rotation base
+  const rotBase = cyl(0.28, 0.28, 0.22, 24, body); rotBase.position.set(0, 0.57, 0); rotBase.userData.colorable=true; g.add(rotBase);
+  // Lower arm (J2)
+  const larm = box(0.18, 0.72, 0.2, body, 0.05, 1.02, 0); larm.userData.colorable=true; g.add(larm);
+  g.add(cylAt(0.14,0.14,0.22,20,joint,0,0.68,0).rotateZ(Math.PI/2)); // J2 joint
+  // Upper arm (J3)
+  const uarm = box(0.15, 0.58, 0.16, body, 0.05, 1.62, -0.05); uarm.userData.colorable=true; g.add(uarm);
+  g.add(cylAt(0.12,0.12,0.20,20,joint,0,1.38,-0.04).rotateZ(Math.PI/2)); // J3 joint
+  // Wrist block (J4-J6)
+  const wrist = box(0.18, 0.22, 0.18, dark, 0.05, 2.02, -0.08); g.add(wrist);
+  g.add(cylAt(0.09,0.09,0.14,16,joint,0.05,2.14,-0.08).rotateX(Math.PI/2));
+  // Tool flange
+  const flange = cyl(0.06, 0.06, 0.12, 16, steel); flange.position.set(0.05, 2.23, -0.08); g.add(flange);
+  // Gripper fingers
+  [[-0.04,0],[0.04,0]].forEach(([fx,fz]) => {
+    g.add(box(0.025, 0.13, 0.025, dark, 0.05+fx, 2.35, -0.08+fz));
+  });
+  // Cable harness along arm
+  for (let i=0; i<6; i++) {
+    g.add(box(0.04,0.04,0.04,mat('#222',0.9),0.13,0.72+i*0.1,-0.02));
+  }
+  // Control cabinet (separate box beside robot)
+  g.add(box(0.48, 1.2, 0.34, mat('#2a2f35',0.5), -0.7, 0.6, 0.2));
+  g.add(box(0.36, 0.45, 0.04, mat('#0d2040',0.3), -0.7, 0.82, 0.38));
+  ['#22c55e','#3b82f6','#ef4444'].forEach((cl,i)=>g.add(cylAt(0.018,0.018,0.025,10,mat(cl,0.3),-0.7,0.56-i*0.05,0.38).rotateX(Math.PI/2)));
+  return g;
+}
+function buildLargeHydraulicPress({ color='#2d4a2d', w=1.8, d=1.4, h=3.5 } = {}) {
+  const g = new THREE.Group();
+  const frame = mat(color, 0.5, 0.25, { env: 0.5 });
+  const steel = mat('#8a9aa8', 0.3, 0.6, { env: 0.8 });
+  const dark = mat('#1a1e22', 0.7, 0.1);
+  const yellow = mat('#f5c518', 0.5, 0.1);
+  const ram_mat = mat('#9ab0c0', 0.15, 0.85, { env: 1.0 });
+  // C-frame (left upright + top beam + right upright)
+  g.add(box(0.22, h, 0.22, frame, -w/2 + 0.12, h/2, 0)).userData && (g.children.at(-1).userData.colorable=true);
+  g.add(box(0.22, h, 0.22, frame, w/2 - 0.12, h/2, 0));
+  g.add(box(w, 0.28, 0.22, frame, 0, h - 0.14, 0)); // top crossbeam
+  g.add(box(w, 0.28, 0.22, frame, 0, 0.14, 0));       // bottom crossbeam
+  // bolster plate / bed
+  g.add(box(w - 0.3, 0.14, d - 0.3, steel, 0, 0.35, 0));
+  // T-slots on bed
+  for (let tx = -0.4; tx <= 0.4; tx += 0.28) g.add(box(0.025, 0.04, d-0.4, dark, tx, 0.44, 0));
+  // Hydraulic cylinder on top
+  const cylinder = cyl(0.12, 0.12, 0.8, 20, frame); cylinder.position.set(0, h - 0.55, 0); g.add(cylinder);
+  // Ram (chrome rod)
+  const ram = cyl(0.07, 0.07, 0.95, 16, ram_mat); ram.position.set(0, h - 1.28, 0); g.add(ram);
+  // Upper die / ram head
+  g.add(box(w - 0.4, 0.12, d - 0.4, steel, 0, h - 1.8, 0));
+  // Safety guards (yellow striped sides)
+  g.add(box(0.04, h - 0.6, 0.01, yellow, -(w-0.3)/2, (h+0.6)/2, d/2));
+  g.add(box(0.04, h - 0.6, 0.01, yellow, (w-0.3)/2, (h+0.6)/2, d/2));
+  // Hydraulic power unit (HPU) beside press
+  g.add(box(0.55, 0.9, 0.45, dark, w/2 + 0.4, 0.45, 0));
+  g.add(cyl(0.12, 0.12, 0.4, 16, mat('#4a6a4a',0.4)));
+  g.children.at(-1).position.set(w/2+0.4, 0.98, 0);
+  // control buttons
+  const panel = box(0.22, 0.35, 0.05, dark, w/2 + 0.4, 1.52, 0.24); g.add(panel);
+  ['#22c55e','#ef4444'].forEach((cl,i)=>g.add(cylAt(0.025,0.025,0.03,10,mat(cl,0.3),w/2+0.4,1.56-i*0.1,0.27).rotateX(Math.PI/2)));
+  // safety warning stripe bottom
+  g.add(box(w, 0.05, 0.01, yellow, 0, 0.3, d/2 + 0.02));
+  return g;
+}
+function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
+  const g = new THREE.Group();
+  const shell = mat(color, 0.55, 0.15);
+  const insul = mat('#c86820', 0.9, 0.0);  // refractory brick orange-red
+  const steel = mat('#8a9aa8', 0.3, 0.6);
+  const glow  = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: new THREE.Color(0xff4400), emissiveIntensity: 0.8, roughness: 0.9 });
+  const dark  = mat('#111316', 0.8, 0.1);
+  // outer shell
+  const outer = box(w, h, d, shell, 0, h/2, 0); outer.userData.colorable=true; g.add(outer);
+  // front door (hinged, slightly ajar)
+  const door = box(w * 0.7, h * 0.55, 0.08, mat('#1a1a1a',0.6,0.2), 0, h*0.4, d/2 + 0.04); g.add(door);
+  g.add(box(w * 0.64, h * 0.48, 0.04, insul, 0, h*0.4, d/2 + 0.09)); // door refractory lining
+  // glowing chamber visible through top gap
+  const chamber = box(w - 0.18, h - 0.3, d - 0.18, glow, 0, (h - 0.3)/2 + 0.09, 0); chamber.receiveShadow = true; g.add(chamber);
+  // door handle
+  g.add(box(0.04, 0.04, 0.14, steel, w*0.34, h*0.4, d/2+0.14));
+  // exhaust duct on top
+  g.add(box(0.3, 0.55, 0.22, dark, w*0.35, h + 0.27, 0));
+  g.add(cyl(0.1,0.1,0.4,14,dark)).position && (g.children.at(-1).position.set(w*0.35, h+0.58, 0));
+  g.children.at(-1).position.set(w*0.35, h+0.58, 0);
+  // temperature controller panel (right side)
+  const ctrl = box(0.35, 0.65, 0.06, dark, w/2 - 0.02, h*0.68, -0.3); g.add(ctrl);
+  g.add(box(0.26, 0.3, 0.04, mat('#0d1520',0.3), w/2-0.02, h*0.75, -0.26));
+  ['#ef4444','#f59e0b','#22c55e'].forEach((cl,i)=>g.add(cylAt(0.015,0.015,0.025,8,mat(cl,0.2),w/2-0.02,h*0.6-i*0.05,-0.24).rotateX(Math.PI/2)));
+  // cooling water pipes
+  [-0.3, 0.3].forEach(z => {
+    g.add(cylAt(0.025,0.025,h-0.1,12,steel, -w/2-0.02, (h-0.1)/2, z).rotateX(0));
+    g.add(cylAt(0.025,0.025,0.25,8,steel,-w/2-0.02,h-0.18,z).rotateZ(Math.PI/2));
+  });
+  // base frame / legs
+  [[-w/2+0.12,d/2-0.1],[w/2-0.12,d/2-0.1],[-w/2+0.12,-d/2+0.1],[w/2-0.12,-d/2+0.1]].forEach(([x,z])=>g.add(box(0.1,0.12,0.1,dark,x,0.06,z)));
+  return g;
+}
+function buildInjectionMolder({ color='#374a60', w=3.5, d=1.5, h=2.2 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.45, 0.25);
+  const steel = mat('#9aaabb', 0.25, 0.65, { env: 0.8 });
+  const dark = mat('#1a1e24', 0.7, 0.1);
+  const chrome = mat('#c8d4dc', 0.1, 0.9, { env: 1.2 });
+  const yellow = mat('#f5c518', 0.4, 0.1);
+  // base platen (floor frame)
+  g.add(box(w, 0.16, d, dark, 0, 0.08, 0));
+  // clamping unit (right half)
+  const clamp_body = box(w * 0.42, h - 0.16, d, body, w * 0.22, (h-0.16)/2 + 0.16, 0); clamp_body.userData.colorable=true; g.add(clamp_body);
+  // 4 tie bars
+  [[-0.36, 0.48],[0.36, 0.48],[-0.36,-0.48],[0.36,-0.48]].forEach(([x,z])=>{
+    g.add(cylAt(0.055,0.055,w*0.68,16,chrome,0,h*0.38,0).rotateZ(Math.PI/2));
+    g.add(cylAt(0.055,0.055,h*0.76+0.04,16,chrome,w*0.22+x,h*0.38 + z * 0, z));
+  });
+  // fixed platen (left)
+  g.add(box(0.14, h * 0.68, d * 0.88, steel, -w*0.32, h*0.34+0.16, 0));
+  // moving platen
+  g.add(box(0.12, h * 0.65, d * 0.84, steel, w*0.08, h*0.34+0.16, 0));
+  // mold halves (in between)
+  g.add(box(0.22, h * 0.54, d * 0.72, mat('#556070',0.4,0.3), -w*0.12, h*0.34+0.16, 0));
+  g.add(box(0.22, h * 0.54, d * 0.72, mat('#556070',0.4,0.3), w*0.00, h*0.34+0.16, 0));
+  // injection unit (left half - barrel + hopper)
+  const inj_body = box(w * 0.48, h * 0.38, d * 0.55, body, -w * 0.24, h*0.19+0.16, 0); inj_body.userData.colorable=true; g.add(inj_body);
+  const barrel = cyl(0.085, 0.085, w * 0.5, 18, steel); barrel.rotation.z=Math.PI/2; barrel.position.set(-w*0.08, h*0.48, 0); g.add(barrel);
+  const nozzle = cyl(0.04, 0.025, 0.22, 12, chrome); nozzle.rotation.z=Math.PI/2; nozzle.position.set(w*0.18, h*0.48, 0); g.add(nozzle);
+  // hopper
+  const hopper_body = box(0.22, 0.45, 0.22, mat('#aab4bc',0.3,0.5), -w*0.3, h*0.78, 0); g.add(hopper_body);
+  g.add(box(0.18, 0.06, 0.18, mat('#88949c',0.2,0.6), -w*0.3, h*0.58, 0)); // hopper outlet
+  // band heaters on barrel
+  for (let bx = -w*0.04; bx < w*0.18; bx += 0.16) g.add(box(0.12, 0.09, 0.19, mat('#8a4a20',0.7), bx, h*0.48, 0));
+  // safety guard
+  g.add(box(w*0.5, h*0.72, 0.025, new THREE.MeshStandardMaterial({color:0x88bbdd,roughness:0.05,metalness:0.1,transparent:true,opacity:0.2}), w*0.05, h*0.52, d/2));
+  // control panel
+  const panel = box(0.35, 0.65, 0.06, dark, -w/2+0.22, h*0.6, d/2-0.03); g.add(panel);
+  g.add(box(0.28, 0.4, 0.04, mat('#0a1828',0.2), -w/2+0.22, h*0.64, d/2));
+  // safety stripe
+  g.add(box(w, 0.05, 0.01, yellow, 0, 0.18, d/2+0.01));
+  return g;
+}
+
 function buildToolRack({ color='#3a3f47', w=1.0, d=0.12, h=1.2 } = {}) {
   const g = new THREE.Group();
   const board = mat(color, 0.6, 0.1), metal = mat('#aab0b4', 0.3, 0.7, { env: 0.9 });
@@ -3307,16 +4687,400 @@ function buildToolRack({ color='#3a3f47', w=1.0, d=0.12, h=1.2 } = {}) {
   return g;
 }
 
+// ============================================================ MACHINING EQUIPMENT BUILDERS
+function buildBandSaw({ color='#4a5c6a', w=0.6, d=0.55, h=1.55 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.5, 0.15, { env: 0.4 }), table_m = mat('#c8c0b0', 0.4, 0.3, { env: 0.5 }), blade_m = mat('#aaaaaa', 0.2, 0.9, { env: 0.8 });
+  const cab = new THREE.Mesh(roundedBoxGeom(w, h * 0.42, d, 0.03, 4), body); cab.position.set(0, h * 0.21, 0); cab.castShadow = true; cab.userData.colorable = true; g.add(cab);
+  const tbl = new THREE.Mesh(roundedBoxGeom(w * 0.95, 0.04, d * 0.9, 0.01, 4), table_m); tbl.position.set(0, h * 0.42 + 0.02, 0); tbl.castShadow = true; g.add(tbl);
+  const upperArm = new THREE.Mesh(roundedBoxGeom(w * 0.28, h * 0.46, d * 0.3, 0.02, 4), body); upperArm.position.set(-w * 0.28, h * 0.42 + h * 0.23, -d * 0.3); upperArm.castShadow = true; g.add(upperArm);
+  [h * 0.36, h - 0.08].forEach(wy => {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.04, 20), mat('#555', 0.3, 0.6)); wheel.rotation.z = Math.PI / 2; wheel.position.set(-w * 0.28, wy, -d * 0.22); g.add(wheel);
+  });
+  const bladeGuide = new THREE.Mesh(new THREE.BoxGeometry(0.01, h * 0.32, 0.01), blade_m); bladeGuide.position.set(-w * 0.28, h * 0.58, -d * 0.22); g.add(bladeGuide);
+  const fence = new THREE.Mesh(roundedBoxGeom(w * 0.8, 0.06, 0.02, 0.005, 4), mat('#888', 0.3, 0.5)); fence.position.set(0, h * 0.45, 0); g.add(fence);
+  return g;
+}
+function buildWelderStation({ color='#2e4a6a', w=0.55, d=0.45, h=0.9 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.55, 0.2, { env: 0.3 }), panel = mat('#1a1a1a', 0.7), metal = mat('#888', 0.25, 0.8, { env: 0.7 });
+  const cab = new THREE.Mesh(roundedBoxGeom(w, h * 0.72, d, 0.03, 4), body); cab.position.set(0, h * 0.36, 0); cab.castShadow = true; cab.userData.colorable = true; g.add(cab);
+  const face = plainBox(w * 0.9, h * 0.5, 0.01, panel, 0, h * 0.38, d / 2); g.add(face);
+  const dial1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.015, 16), mat('#e0c060', 0.3, 0.7)); dial1.rotation.x = Math.PI / 2; dial1.position.set(-0.1, h * 0.44, d / 2 + 0.01); g.add(dial1);
+  const dial2 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.015, 16), mat('#e0c060', 0.3, 0.7)); dial2.rotation.x = Math.PI / 2; dial2.position.set(0.1, h * 0.44, d / 2 + 0.01); g.add(dial2);
+  const spool = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 20), mat('#d4882a', 0.6)); spool.rotation.x = Math.PI / 2; spool.position.set(w * 0.2, h * 0.8, 0); spool.castShadow = true; g.add(spool);
+  const spoolPost = cylAt(0.015, 0.015, 0.14, 8, metal, w * 0.2, h * 0.8, 0); spoolPost.rotation.x = Math.PI / 2; g.add(spoolPost);
+  const hose = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.012, 6, 18, Math.PI * 1.2), mat('#222', 0.8)); hose.position.set(-w * 0.3, h * 0.2, d * 0.4); hose.rotation.y = 0.5; g.add(hose);
+  return g;
+}
+function buildHydraulicPress({ color='#3a5a3a', w=0.7, d=0.65, h=1.8 } = {}) {
+  const g = new THREE.Group();
+  const frame_m = mat(color, 0.5, 0.2, { env: 0.4 }), cyl_m = mat('#7a7a7a', 0.25, 0.7, { env: 0.7 }), plate_m = mat('#555', 0.35, 0.4);
+  const base = new THREE.Mesh(roundedBoxGeom(w, 0.1, d, 0.02, 4), frame_m); base.position.set(0, 0.05, 0); base.castShadow = true; base.userData.colorable = true; g.add(base);
+  const topBeam = new THREE.Mesh(roundedBoxGeom(w, 0.1, d, 0.02, 4), frame_m); topBeam.position.set(0, h - 0.05, 0); topBeam.castShadow = true; g.add(topBeam);
+  [[-w / 2 + 0.06, d / 2 - 0.06], [-w / 2 + 0.06, -(d / 2 - 0.06)], [w / 2 - 0.06, d / 2 - 0.06], [w / 2 - 0.06, -(d / 2 - 0.06)]].forEach(([cx, cz]) => {
+    const col = new THREE.Mesh(roundedBoxGeom(0.07, h, 0.07, 0.02, 4), frame_m); col.position.set(cx, h / 2, cz); col.castShadow = true; g.add(col);
+  });
+  const workTable = new THREE.Mesh(roundedBoxGeom(w - 0.16, 0.06, d - 0.16, 0.015, 4), plate_m); workTable.position.set(0, h * 0.42, 0); workTable.castShadow = true; g.add(workTable);
+  const cylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, h * 0.28, 16), cyl_m); cylinder.position.set(0, h - 0.05 - h * 0.14, 0); cylinder.castShadow = true; g.add(cylinder);
+  const ram = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, h * 0.18, 12), mat('#aaa', 0.2, 0.8, { env: 0.8 })); ram.position.set(0, h * 0.55, 0); g.add(ram);
+  const pressPlate = new THREE.Mesh(roundedBoxGeom(w * 0.55, 0.04, d * 0.55, 0.01, 4), plate_m); pressPlate.position.set(0, h * 0.46, 0); pressPlate.castShadow = true; g.add(pressPlate);
+  return g;
+}
+function build3DPrinter({ color='#f0f0f0', w=0.5, d=0.5, h=0.6 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.55, 0.05), frame_m = mat('#1a1a1a', 0.4, 0.3), glass_m = new THREE.MeshStandardMaterial({ color: 0xd0eaf8, transparent: true, opacity: 0.22, roughness: 0.05 }), filament_m = mat('#ff8822', 0.5);
+  const outer = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.03, 4), body); outer.position.set(0, h / 2, 0); outer.castShadow = true; outer.userData.colorable = true; g.add(outer);
+  const frontGlass = plainBox(w - 0.04, h * 0.7, 0.01, glass_m, 0, h * 0.42, d / 2 - 0.01); g.add(frontGlass);
+  const buildPlate = new THREE.Mesh(roundedBoxGeom(w * 0.75, 0.02, d * 0.75, 0.005, 4), mat('#888', 0.4, 0.3)); buildPlate.position.set(0, h * 0.18, 0); g.add(buildPlate);
+  const xRail = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, w * 0.8, 8), frame_m); xRail.rotation.z = Math.PI / 2; xRail.position.set(0, h * 0.72, 0); g.add(xRail);
+  const head = new THREE.Mesh(roundedBoxGeom(0.06, 0.05, 0.05, 0.01, 4), frame_m); head.position.set(0, h * 0.68, 0); g.add(head);
+  const nozzle = cylAt(0.006, 0.004, 0.04, 8, mat('#e08030', 0.3, 0.7), 0, h * 0.65, 0); g.add(nozzle);
+  const spool = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.018, 8, 24), filament_m); spool.rotation.x = Math.PI / 2; spool.position.set(w * 0.32, h * 0.8, -d * 0.3); spool.castShadow = true; g.add(spool);
+  const screen = plainBox(0.1, 0.07, 0.01, mat('#1a3a5a', 0.6, { emissive: '#1a3a5a', emissiveIntensity: 0.5 }), -w * 0.3, h * 0.85, d / 2 + 0.005); g.add(screen);
+  return g;
+}
+function buildLaserCutter({ color='#2a2a2a', w=1.0, d=0.7, h=0.35 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.6, 0.1), cover_m = mat('#3a3a3a', 0.55, 0.1), glass_m = new THREE.MeshStandardMaterial({ color: 0xd0f0e8, transparent: true, opacity: 0.28, roughness: 0.05 });
+  const base = new THREE.Mesh(roundedBoxGeom(w, h * 0.45, d, 0.025, 4), body); base.position.set(0, h * 0.225, 0); base.castShadow = true; base.userData.colorable = true; g.add(base);
+  const lid = new THREE.Mesh(roundedBoxGeom(w - 0.02, h * 0.38, d - 0.02, 0.02, 4), cover_m); lid.position.set(0, h * 0.45 + h * 0.19, 0); lid.castShadow = true; g.add(lid);
+  const lidGlass = plainBox(w * 0.7, 0.01, d * 0.65, glass_m, 0, h * 0.84, 0); g.add(lidGlass);
+  const xBar = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, w * 0.85, 8), mat('#888', 0.25, 0.7)); xBar.rotation.z = Math.PI / 2; xBar.position.set(0, h * 0.46, 0); g.add(xBar);
+  const head = new THREE.Mesh(roundedBoxGeom(0.05, 0.06, 0.04, 0.01, 4), mat('#cc2222', 0.4, 0.3)); head.position.set(0.1, h * 0.44, 0); g.add(head);
+  const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.12, 10), mat('#555', 0.5, 0.2)); exhaust.rotation.z = Math.PI / 2; exhaust.position.set(-w / 2 - 0.06, h * 0.3, d * 0.25); g.add(exhaust);
+  const panel = plainBox(0.18, h * 0.4, 0.02, mat('#1a1a1a', 0.7), w * 0.38, h * 0.22, d / 2 + 0.01); g.add(panel);
+  return g;
+}
+function buildScrollSaw({ color='#4a5a4a', w=0.55, d=0.45, h=0.95 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.5, 0.15, { env: 0.3 }), table_m = mat('#b8b0a0', 0.4, 0.3);
+  const cab = new THREE.Mesh(roundedBoxGeom(w, h * 0.38, d, 0.025, 4), body); cab.position.set(0, h * 0.19, 0); cab.castShadow = true; cab.userData.colorable = true; g.add(cab);
+  const tbl = new THREE.Mesh(roundedBoxGeom(w * 0.9, 0.04, d * 0.88, 0.01, 4), table_m); tbl.position.set(0, h * 0.4, 0); tbl.castShadow = true; g.add(tbl);
+  const lowerArm = new THREE.Mesh(roundedBoxGeom(w * 0.22, h * 0.22, d * 0.28, 0.02, 4), body); lowerArm.position.set(-w * 0.24, h * 0.51, -d * 0.28); lowerArm.castShadow = true; g.add(lowerArm);
+  const upperArm = new THREE.Mesh(roundedBoxGeom(w * 0.22, h * 0.22, d * 0.28, 0.02, 4), body); upperArm.position.set(-w * 0.24, h * 0.78, -d * 0.28); upperArm.castShadow = true; g.add(upperArm);
+  const post = new THREE.Mesh(roundedBoxGeom(0.06, h * 0.38, 0.06, 0.02, 4), body); post.position.set(-w * 0.24, h * 0.61, -d * 0.28 - 0.04); g.add(post);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.005, h * 0.28, 0.005), mat('#aaaaaa', 0.2, 0.9)); blade.position.set(-w * 0.24, h * 0.62, -d * 0.1); g.add(blade);
+  return g;
+}
+
+// ============================================================ ANALYTICAL INSTRUMENT BUILDERS
+function buildHPLC({ color='#e8e8e8', w=0.5, d=0.55, h=1.6 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.5, 0.05), module_m = mat(shade(color, 0.88), 0.5, 0.05), accent = mat('#2255aa', 0.4, 0.1);
+  const numModules = 5;
+  const modH = (h - 0.06) / numModules;
+  for (let i = 0; i < numModules; i++) {
+    const m = new THREE.Mesh(roundedBoxGeom(w, modH - 0.01, d, 0.02, 4), i % 2 === 0 ? body : module_m); m.position.set(0, modH / 2 + i * modH + 0.01, 0); m.castShadow = true; m.userData.colorable = (i === 0); g.add(m);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, 0.012, 0.01), accent); strip.position.set(0, modH / 2 + i * modH + 0.01 + modH * 0.35, d / 2 + 0.001); g.add(strip);
+  }
+  const screen = plainBox(w * 0.5, modH * 0.55, 0.01, mat('#0a1a3a', 0.6, 0, { emissive: '#1a5a8a', emissiveIntensity: 0.5 }), -w * 0.1, modH * 0.5 + (numModules - 1) * modH * 0.4, d / 2 + 0.008); g.add(screen);
+  const tubeColors = ['#c8c800', '#00c8c8', '#c80000'];
+  tubeColors.forEach((tc, i) => {
+    const tube = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.006, 6, 14, Math.PI * 0.7), mat(tc, 0.5)); tube.position.set(-w * 0.35 + i * 0.06, h * 0.55, d * 0.38); tube.rotation.y = 0.5; g.add(tube);
+  });
+  return g;
+}
+function buildSpectrophotometer({ color='#d8d8d8', w=0.55, d=0.4, h=0.35 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.5, 0.05), dark = mat('#1a1a1a', 0.7);
+  const base = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.025, 4), body); base.position.set(0, h / 2, 0); base.castShadow = true; base.userData.colorable = true; g.add(base);
+  const samplePort = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.06, 14), dark); samplePort.position.set(0, h * 0.75, 0); samplePort.castShadow = true; g.add(samplePort);
+  const lid = new THREE.Mesh(roundedBoxGeom(0.12, 0.04, 0.12, 0.01, 4), mat('#888', 0.4, 0.2)); lid.position.set(0, h * 0.8, 0); g.add(lid);
+  const screen = plainBox(0.18, 0.1, 0.01, mat('#0a1a3a', 0.6, 0, { emissive: '#22aa55', emissiveIntensity: 0.6 }), w * 0.2, h * 0.6, d / 2 + 0.008); g.add(screen);
+  const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.025, 12), mat('#666', 0.4, 0.3)); knob.rotation.x = Math.PI / 2; knob.position.set(-w * 0.3, h * 0.55, d / 2 + 0.012); g.add(knob);
+  return g;
+}
+function buildLabOven({ color='#c8c8c0', w=0.6, d=0.5, h=0.6 } = {}) {
+  const g = new THREE.Group();
+  const outer = mat(color, 0.45, 0.1), inner = mat('#cccccc', 0.35, 0.2), glass_m = new THREE.MeshStandardMaterial({ color: 0xd8e8f0, transparent: true, opacity: 0.3, roughness: 0.05 });
+  const body = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.02, 4), outer); body.position.set(0, h / 2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  const doorFrame = new THREE.Mesh(roundedBoxGeom(w * 0.6, h * 0.72, 0.03, 0.01, 4), mat('#999', 0.3, 0.4)); doorFrame.position.set(0, h * 0.5, d / 2 + 0.005); g.add(doorFrame);
+  const doorGlass = plainBox(w * 0.5, h * 0.6, 0.015, glass_m, 0, h * 0.5, d / 2 + 0.018); g.add(doorGlass);
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, w * 0.35, 8), mat('#888', 0.25, 0.7)); handle.rotation.z = Math.PI / 2; handle.position.set(0, h * 0.28, d / 2 + 0.04); g.add(handle);
+  const panel = plainBox(w * 0.38, h * 0.18, 0.01, mat('#1a1a1a', 0.7), w * 0.26, h * 0.88, d / 2 + 0.005); g.add(panel);
+  const display = plainBox(0.12, 0.07, 0.01, mat('#001a00', 0.7, 0, { emissive: '#00cc44', emissiveIntensity: 0.7 }), w * 0.22, h * 0.88, d / 2 + 0.01); g.add(display);
+  return g;
+}
+function buildIncubator({ color='#e0e0d8', w=0.7, d=0.65, h=0.85 } = {}) {
+  const g = new THREE.Group();
+  const outer = mat(color, 0.45, 0.05), glass_m = new THREE.MeshStandardMaterial({ color: 0xd0eaf8, transparent: true, opacity: 0.2, roughness: 0.05 });
+  const body = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.025, 4), outer); body.position.set(0, h / 2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  const doorL = plainBox((w - 0.06) / 2, h * 0.76, 0.015, glass_m, -w / 4 - 0.01, h * 0.48, d / 2 + 0.004); g.add(doorL);
+  const doorR = plainBox((w - 0.06) / 2, h * 0.76, 0.015, glass_m, w / 4 + 0.01, h * 0.48, d / 2 + 0.004); g.add(doorR);
+  const divider = new THREE.Mesh(roundedBoxGeom(0.025, h * 0.78, 0.02, 0.005, 4), mat('#bbb', 0.4, 0.2)); divider.position.set(0, h * 0.48, d / 2 + 0.007); g.add(divider);
+  [h * 0.28, h * 0.52, h * 0.68].forEach(sy => {
+    const shelf = new THREE.Mesh(roundedBoxGeom(w - 0.08, 0.015, d - 0.08, 0.004, 4), mat('#bbb', 0.3, 0.4)); shelf.position.set(0, sy, 0); g.add(shelf);
+  });
+  const panel = plainBox(w * 0.5, h * 0.12, 0.01, mat('#111', 0.7), 0, h * 0.94, d / 2 + 0.005); g.add(panel);
+  const display = plainBox(0.14, 0.07, 0.01, mat('#001a00', 0.7, 0, { emissive: '#00cc44', emissiveIntensity: 0.7 }), -0.08, h * 0.94, d / 2 + 0.01); g.add(display);
+  return g;
+}
+function buildUltrasonicCleaner({ color='#c0c8cc', w=0.35, d=0.28, h=0.28 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.35, 0.3, { env: 0.5 }), tank_m = mat('#d0d8dc', 0.25, 0.4, { env: 0.6 }), water_m = new THREE.MeshStandardMaterial({ color: 0xb0d0e8, transparent: true, opacity: 0.45, roughness: 0.05 });
+  const outer = new THREE.Mesh(roundedBoxGeom(w, h * 0.72, d, 0.02, 4), body); outer.position.set(0, h * 0.36, 0); outer.castShadow = true; outer.userData.colorable = true; g.add(outer);
+  const tankInner = new THREE.Mesh(roundedBoxGeom(w - 0.06, h * 0.52, d - 0.06, 0.01, 4), tank_m); tankInner.position.set(0, h * 0.3, 0); g.add(tankInner);
+  const waterSurf = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.08, d - 0.08), water_m); waterSurf.rotation.x = -Math.PI / 2; waterSurf.position.set(0, h * 0.52, 0); g.add(waterSurf);
+  const lid = new THREE.Mesh(roundedBoxGeom(w, 0.025, d, 0.01, 4), mat(shade(color, 0.9), 0.35, 0.3)); lid.position.set(0, h * 0.73, 0); g.add(lid);
+  const ctrlBox = new THREE.Mesh(roundedBoxGeom(w * 0.55, h * 0.25, d * 0.3, 0.01, 4), mat('#2a2a2a', 0.7)); ctrlBox.position.set(w * 0.2, h * 0.88, 0); ctrlBox.castShadow = true; g.add(ctrlBox);
+  const display = plainBox(0.08, 0.04, 0.008, mat('#001800', 0.7, 0, { emissive: '#00cc44', emissiveIntensity: 0.7 }), w * 0.18, h * 0.9, d * 0.15 + 0.005); g.add(display);
+  return g;
+}
+function buildVacuumPump({ color='#4a4a4a', w=0.4, d=0.3, h=0.4 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.45, 0.2, { env: 0.4 }), metal = mat('#888', 0.25, 0.7, { env: 0.7 }), oil_m = mat('#c8a020', 0.3, 0.1);
+  const motorBody = new THREE.Mesh(new THREE.CylinderGeometry(d / 2, d / 2, w * 0.62, 20), body); motorBody.rotation.z = Math.PI / 2; motorBody.position.set(-w * 0.1, h * 0.52, 0); motorBody.castShadow = true; motorBody.userData.colorable = true; g.add(motorBody);
+  const pumpBody = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.38, d * 0.38, w * 0.32, 16), mat(shade(color, 1.2), 0.35, 0.3)); pumpBody.rotation.z = Math.PI / 2; pumpBody.position.set(w * 0.28, h * 0.52, 0); pumpBody.castShadow = true; g.add(pumpBody);
+  const base = new THREE.Mesh(roundedBoxGeom(w, 0.06, d, 0.015, 4), mat('#333', 0.6)); base.position.set(0, 0.03, 0); base.castShadow = true; g.add(base);
+  const oilReservoir = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.12, 12), oil_m); oilReservoir.position.set(w * 0.3, h * 0.3, d * 0.3); oilReservoir.castShadow = true; g.add(oilReservoir);
+  const oilCap = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 12), metal); oilCap.position.set(w * 0.3, h * 0.36, d * 0.3); g.add(oilCap);
+  const inletPort = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.06, 10), metal); inletPort.rotation.x = Math.PI / 2; inletPort.position.set(w * 0.3, h * 0.58, d / 2 + 0.03); g.add(inletPort);
+  const exhaustPort = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.05, 10), metal); exhaustPort.rotation.z = Math.PI / 2; exhaustPort.position.set(w / 2 + 0.025, h * 0.62, 0); g.add(exhaustPort);
+  return g;
+}
+
+function buildForklift({ color='#f0a020', w=1.1, d=2.0, h=2.0 } = {}) {
+  const g = new THREE.Group();
+  const body_m = mat(color, 0.5, 0.1), black = mat('#1a1a1a', 0.7), metal = mat('#888', 0.3, 0.5, { env: 0.5 }), glass_m = new THREE.MeshStandardMaterial({ color: 0x88ccee, transparent: true, opacity: 0.35, roughness: 0.05 });
+
+  // main body
+  const mainBody = new THREE.Mesh(roundedBoxGeom(w, 0.72, d * 0.55, 0.04, 4), body_m); mainBody.position.set(0, 0.46, d * 0.05); mainBody.castShadow = true; mainBody.userData.colorable = true; g.add(mainBody);
+
+  // counterweight (heavy rear block)
+  const cw = new THREE.Mesh(roundedBoxGeom(w, 0.55, d * 0.22, 0.03, 4), mat(shade(color, 0.7), 0.5, 0.15)); cw.position.set(0, 0.36, d * 0.35); cw.castShadow = true; g.add(cw);
+
+  // cab / operator area
+  const cab = new THREE.Mesh(roundedBoxGeom(w * 0.82, 0.62, d * 0.3, 0.03, 4), body_m); cab.position.set(0, 1.0, d * 0.08); cab.castShadow = true; g.add(cab);
+  const windshield = plainBox(w * 0.72, 0.42, 0.015, glass_m, 0, 1.05, -d * 0.07); g.add(windshield);
+  const seat = new THREE.Mesh(roundedBoxGeom(w * 0.55, 0.08, d * 0.22, 0.03, 4), mat('#333', 0.8)); seat.position.set(0, 0.86, d * 0.1); g.add(seat);
+  const steering = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.018, 8, 20), mat('#222', 0.6)); steering.rotation.x = Math.PI * 0.38; steering.position.set(0, 1.1, -d * 0.02); g.add(steering);
+
+  // overhead guard (ROPS cage)
+  const guardH = h - 0.85;
+  [-w/2 + 0.06, w/2 - 0.06].forEach(gx => {
+    [-d * 0.17, d * 0.22].forEach(gz => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, guardH, 8), metal); post.position.set(gx, 1.31 + guardH / 2, gz); g.add(post);
+    });
+    const topBar = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, d * 0.39, 8), metal); topBar.rotation.x = Math.PI / 2; topBar.position.set(gx, 1.31 + guardH, d * 0.025); g.add(topBar);
+  });
+  const topFront = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, w - 0.12, 8), metal); topFront.rotation.z = Math.PI / 2; topFront.position.set(0, 1.31 + guardH, -d * 0.17); g.add(topFront);
+  const topBack = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, w - 0.12, 8), metal); topBack.rotation.z = Math.PI / 2; topBack.position.set(0, 1.31 + guardH, d * 0.22); g.add(topBack);
+
+  // mast (two vertical channels)
+  const mastH = h * 0.88;
+  [-w * 0.28, w * 0.28].forEach(mx => {
+    const mast = new THREE.Mesh(roundedBoxGeom(0.07, mastH, 0.08, 0.02, 4), metal); mast.position.set(mx, mastH / 2, -d * 0.38); mast.castShadow = true; g.add(mast);
+  });
+  // carriage crossbar
+  const carriage = new THREE.Mesh(roundedBoxGeom(w * 0.62, 0.14, 0.07, 0.02, 4), metal); carriage.position.set(0, 0.55, -d * 0.38); g.add(carriage);
+
+  // fork tines (L-shape: horizontal extending forward + short vertical heel)
+  [-w * 0.18, w * 0.18].forEach(fx => {
+    const tine = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, d * 0.62), metal); tine.position.set(fx, 0.3, -d * 0.5 - d * 0.31 + d * 0.31); tine.castShadow = true; g.add(tine);
+    const heel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.05), metal); heel.position.set(fx, 0.41, -d * 0.38); g.add(heel);
+  });
+
+  // lift cylinder
+  const liftCyl = cylAt(0.04, 0.04, mastH * 0.7, 10, mat('#aaa', 0.2, 0.7, { env: 0.8 }), 0, mastH * 0.35, -d * 0.38); g.add(liftCyl);
+
+  // 4 wheels
+  const wheelR = 0.22, wheelW = 0.15;
+  [[-w/2 - wheelW/2 + 0.02, -d * 0.3], [w/2 + wheelW/2 - 0.02, -d * 0.3], [-w/2 - wheelW/2 + 0.02, d * 0.28], [w/2 + wheelW/2 - 0.02, d * 0.28]].forEach(([wx, wz]) => {
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(wheelR, wheelR, wheelW, 20), black); tire.rotation.z = Math.PI / 2; tire.position.set(wx, wheelR, wz); tire.castShadow = true; g.add(tire);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(wheelR * 0.45, wheelR * 0.45, wheelW + 0.01, 12), mat('#777', 0.3, 0.5)); hub.rotation.z = Math.PI / 2; hub.position.set(wx, wheelR, wz); g.add(hub);
+  });
+
+  // headlights
+  [[- w * 0.3, 0.55], [w * 0.3, 0.55]].forEach(([hx, hy]) => {
+    const hl = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.03, 12), mat('#ffffcc', 0.1, 0.3, { emissive: '#ffffaa', emissiveIntensity: 0.8 })); hl.rotation.x = Math.PI / 2; hl.position.set(hx, hy, -d * 0.28); g.add(hl);
+  });
+
+  return g;
+}
+
+function buildAluminumCoil({ color='#c8c8cc', w=1.0, d=0.8, h=0.8 } = {}) {
+  const g = new THREE.Group();
+  const alum = mat(color, 0.2, 0.85, { env: 0.9 }), core_m = mat('#888', 0.4, 0.5);
+
+  // main coil body (cylinder lying on its side)
+  const coilR = Math.min(w, h) / 2;
+  const coil = new THREE.Mesh(new THREE.CylinderGeometry(coilR, coilR, d, 32), alum);
+  coil.rotation.x = Math.PI / 2; coil.position.set(0, coilR, 0); coil.castShadow = true; coil.receiveShadow = true; coil.userData.colorable = true; g.add(coil);
+
+  // inner core (hollow steel tube)
+  const coreR = coilR * 0.28;
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, d + 0.02, 16), core_m);
+  core.rotation.x = Math.PI / 2; core.position.set(0, coilR, 0); g.add(core);
+
+  // end face rings (layered sheet look)
+  [-(d / 2), d / 2].forEach(fz => {
+    for (let r = coreR + 0.03; r < coilR - 0.01; r += 0.06) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 4, 28), alum);
+      ring.rotation.x = Math.PI / 2; ring.position.set(0, coilR, fz); g.add(ring);
+    }
+    const face = new THREE.Mesh(new THREE.CircleGeometry(coilR, 32), alum);
+    face.rotation.x = -Math.PI / 2; face.position.set(0, coilR, fz + (fz < 0 ? -0.005 : 0.005)); if (fz < 0) face.rotation.y = Math.PI; g.add(face);
+  });
+
+  return g;
+}
+
+function buildTensileTestMachine({ color='#d8d8d8', w=0.8, d=0.7, h=2.0 } = {}) {
+  const g = new THREE.Group();
+  const frame_m = mat(color, 0.45, 0.1), metal = mat('#888', 0.25, 0.6, { env: 0.6 }), dark = mat('#1a1a1a', 0.7), accent = mat('#2255aa', 0.4, 0.1);
+
+  // base plate
+  const base = new THREE.Mesh(roundedBoxGeom(w, 0.07, d, 0.02, 4), frame_m); base.position.set(0, 0.035, 0); base.castShadow = true; base.userData.colorable = true; g.add(base);
+
+  // two vertical columns
+  const colW = 0.07;
+  [- w / 2 + colW / 2 + 0.04, w / 2 - colW / 2 - 0.04].forEach(cx => {
+    const col = new THREE.Mesh(roundedBoxGeom(colW, h - 0.07, colW, 0.02, 4), frame_m); col.position.set(cx, 0.07 + (h - 0.07) / 2, 0); col.castShadow = true; g.add(col);
+  });
+
+  // top crosshead (fixed)
+  const topCross = new THREE.Mesh(roundedBoxGeom(w, 0.1, d * 0.6, 0.02, 4), frame_m); topCross.position.set(0, h - 0.05, 0); topCross.castShadow = true; g.add(topCross);
+
+  // movable crosshead (about 60% up)
+  const movCross = new THREE.Mesh(roundedBoxGeom(w - 0.02, 0.08, d * 0.55, 0.02, 4), metal); movCross.position.set(0, h * 0.58, 0); movCross.castShadow = true; g.add(movCross);
+
+  // load cell (cylinder between crossheads)
+  const loadCell = cylAt(0.04, 0.04, 0.14, 14, mat('#aaa', 0.2, 0.7, { env: 0.8 }), 0, h - 0.18, 0); g.add(loadCell);
+
+  // upper grip
+  const upGrip = new THREE.Mesh(roundedBoxGeom(0.06, 0.18, 0.06, 0.015, 4), metal); upGrip.position.set(0, h * 0.74, 0); g.add(upGrip);
+
+  // lower grip
+  const loGrip = new THREE.Mesh(roundedBoxGeom(0.06, 0.18, 0.06, 0.015, 4), metal); loGrip.position.set(0, h * 0.6, 0); g.add(loGrip);
+
+  // test specimen (thin strip between grips)
+  const specimen = new THREE.Mesh(new THREE.BoxGeometry(0.018, h * 0.12, 0.012), mat('#c8c8a0', 0.5, 0.3)); specimen.position.set(0, h * 0.67, 0); g.add(specimen);
+
+  // control panel (side)
+  const panel = new THREE.Mesh(roundedBoxGeom(0.32, 0.44, 0.22, 0.02, 4), dark); panel.position.set(w / 2 + 0.16 + 0.11, h * 0.55, 0); panel.castShadow = true; g.add(panel);
+  const screen = plainBox(0.22, 0.28, 0.01, mat('#001020', 0.7, 0, { emissive: '#1a5a8a', emissiveIntensity: 0.6 }), w / 2 + 0.28, h * 0.58, d * 0.08); g.add(screen);
+  const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.018, 12), mat('#e0c060', 0.3, 0.6)); dial.rotation.x = Math.PI / 2; dial.position.set(w / 2 + 0.28, h * 0.44, d * 0.09); g.add(dial);
+
+  // lead screw (vertical rod in frame center)
+  const screw = cylAt(0.016, 0.016, h * 0.6, 8, mat('#bbb', 0.2, 0.8, { env: 0.8 }), 0, h * 0.42, 0); g.add(screw);
+
+  // strain gauge strip on specimen
+  const gauge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 0.005), accent); gauge.position.set(0, h * 0.67, 0.012); g.add(gauge);
+
+  return g;
+}
+
+function buildScrapBucket({ color='#c0c0c8', w=0.7, d=0.7, h=0.65 } = {}) {
+  const g = new THREE.Group();
+  const bucket_m = mat('#5a5a62', 0.5, 0.3, { env: 0.4 }), alum = mat(color, 0.25, 0.75, { env: 0.8 }), rim_m = mat('#888', 0.3, 0.5);
+
+  // bucket body (tapered — wider at top)
+  const topR = w / 2, botR = w / 2 * 0.78;
+  const bucketBody = new THREE.Mesh(new THREE.CylinderGeometry(topR, botR, h * 0.82, 20), bucket_m); bucketBody.position.set(0, h * 0.41, 0); bucketBody.castShadow = true; bucketBody.receiveShadow = true; bucketBody.userData.colorable = true; g.add(bucketBody);
+
+  // rim
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(topR + 0.01, 0.018, 8, 24), rim_m); rim.rotation.x = Math.PI / 2; rim.position.set(0, h * 0.82, 0); rim.castShadow = true; g.add(rim);
+
+  // bottom
+  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(botR - 0.01, botR - 0.01, 0.02, 20), bucket_m); bottom.position.set(0, 0.01, 0); g.add(bottom);
+
+  // handle (arc over top)
+  const handleR = topR * 0.88;
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(handleR, 0.016, 8, 18, Math.PI), rim_m); handle.rotation.x = -Math.PI / 2; handle.rotation.z = Math.PI; handle.position.set(0, h * 0.82 + handleR, 0); g.add(handle);
+
+  // scrap pieces: random small aluminum chips/curls/shards piled in bucket
+  const scrapCount = 22;
+  const seed = [0.38, 0.81, 0.14, 0.57, 0.93, 0.26, 0.72, 0.45, 0.18, 0.64, 0.33, 0.87, 0.09, 0.52, 0.77, 0.31, 0.68, 0.22, 0.55, 0.89, 0.11, 0.44];
+  for (let i = 0; i < scrapCount; i++) {
+    const s = seed[i % seed.length];
+    const s2 = seed[(i + 7) % seed.length];
+    const s3 = seed[(i + 13) % seed.length];
+    const angle = s * Math.PI * 2;
+    const r = s2 * (topR * 0.62);
+    const px = Math.cos(angle) * r, pz = Math.sin(angle) * r;
+    const py = h * 0.85 + s3 * 0.12;
+    const stype = i % 3;
+    let scrap;
+    if (stype === 0) {
+      // flat chip / sliver
+      scrap = new THREE.Mesh(new THREE.BoxGeometry(s * 0.07 + 0.02, 0.008, s2 * 0.05 + 0.015), alum);
+    } else if (stype === 1) {
+      // curled strip (torus segment)
+      scrap = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.006, 4, 10, Math.PI * (0.6 + s * 0.8)), alum);
+    } else {
+      // short rod / turning
+      scrap = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, s * 0.06 + 0.02, 6), alum);
+    }
+    scrap.position.set(px, py, pz);
+    scrap.rotation.set(s * Math.PI * 2, s2 * Math.PI * 2, s3 * Math.PI * 2);
+    scrap.castShadow = true;
+    g.add(scrap);
+  }
+
+  return g;
+}
+
+function buildSteelPallet({ color='#8a8a92', w=1.1, d=1.1, h=0.15 } = {}) {
+  const g = new THREE.Group();
+  const m  = mat(color, 0.6, 0.5);
+  const m2 = mat(shade(color, 0.82), 0.6, 0.5);
+  // top deck
+  g.add(box(w, 0.02, d, m, 0, h - 0.01, 0));
+  // three cross-stringers under deck
+  [-0.44, 0, 0.44].forEach(z => g.add(box(w, 0.04, 0.07, m2, 0, h - 0.04, z)));
+  // three bottom skid runners
+  [-0.44, 0, 0.44].forEach(x => g.add(box(0.09, 0.06, d, m2, x, 0.03, 0)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+function buildResinPallet({ color='#1a3f7a', w=1.1, d=1.1, h=0.15 } = {}) {
+  const g = new THREE.Group();
+  const m  = mat(color, 0.85, 0.0);
+  const m2 = mat(shade(color, 0.88), 0.85, 0.0);
+  // top surface
+  g.add(box(w, 0.025, d, m, 0, h - 0.0125, 0));
+  // 3×3 block feet
+  for (let ix = -1; ix <= 1; ix++) {
+    for (let iz = -1; iz <= 1; iz++) {
+      g.add(box(0.13, h - 0.025, 0.13, m2, ix * 0.44, (h - 0.025) / 2, iz * 0.44));
+    }
+  }
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+function buildDrum({ color='#1a4a9a', w=0.58, d=0.58, h=0.88 } = {}) {
+  const g = new THREE.Group();
+  const r = Math.min(w, d) / 2;
+  const bodyM = mat(color, 0.45, 0.35);
+  const capM  = mat(shade(color, 1.15), 0.4, 0.55);
+  const ribM  = mat(shade(color, 0.75), 0.5, 0.6);
+  // body
+  g.add(cylAt(r, r, h - 0.04, 24, bodyM, 0, h / 2, 0));
+  // top/bottom caps
+  g.add(cylAt(r, r, 0.022, 24, capM, 0, h - 0.011, 0));
+  g.add(cylAt(r, r, 0.022, 24, capM, 0, 0.011, 0));
+  // rolling ribs
+  [0.22, 0.5, 0.76].forEach(t => g.add(cylAt(r + 0.016, r + 0.016, 0.032, 24, ribM, 0, h * t, 0)));
+  // bung plug on top
+  g.add(cylAt(0.028, 0.028, 0.03, 12, mat('#787878', 0.4, 0.7), r * 0.5, h - 0.005, 0));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
 // ============================================================ PRESETS
 function P(defId, x, z, rot = 0, color) { const def = FURNITURE_DEFS.find(d => d.id === defId); return { defId, x, z, rotY: rot, color: color ?? COLORS[def.colorIdx] }; }
 const PRESETS = [
   // ===== 商業施設 =====
   {
-    id: 'factory_lg', name: '大型工場', icon: 'fa-industry',
+    id: 'factory_lg', name: '大型工場', icon: 'fa-industry', cat: '工場',
     desc: '18m×14m の本格的な生産フロア。コントロールルーム・CNC・産業ロボット・コンベア・パレットラックを配置。',
     room: { w: 18, d: 14 }, floorType: 'concrete', wallType: 'concrete',
     partitions: [
       { x1: -9, z1: 2, x2: -6, z2: 2 },
+      { x1: -6, z1: 2, x2: -5, z2: 2, openings: [{ t: 0.5, w: 0.9, kind: 'glass_door' }] },
       { x1: -5, z1: 2, x2: -4, z2: 2 },
       { x1: -4, z1: 2, x2: -4, z2: 7 },
     ],
@@ -3364,11 +5128,12 @@ const PRESETS = [
     ],
   },
   {
-    id: 'office', name: 'オープンオフィス', icon: 'fa-briefcase',
+    id: 'office', name: 'オープンオフィス', icon: 'fa-briefcase', cat: 'オフィス',
     desc: '14m×10mのオープンプラン。受付・会議コーナー・執務エリアを完備。',
     room: { w: 14, d: 10 }, floorType: 'carpet', wallType: 'white',
     partitions: [
       { x1: 2, z1: -5, x2: 2, z2: 1.0 },
+      { x1: 2, z1: 1.0, x2: 2, z2: 2.0, openings: [{ t: 0.5, w: 0.9, kind: 'glass_door' }] },
       { x1: 2, z1: 2.0, x2: 2, z2: 5 },
       { x1: 2, z1: 1.0, x2: 7, z2: 1.0 },
     ],
@@ -3405,7 +5170,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'conference', name: '会議室', icon: 'fa-chalkboard-user',
+    id: 'conference', name: '会議室', icon: 'fa-chalkboard-user', cat: 'オフィス',
     desc: '8m×6mの中規模会議室。大型テーブル・ホワイトボード・プレゼン用TVを配置。',
     room: { w: 8, d: 6 }, floorType: 'carpet', wallType: 'white',
     partitions: [],
@@ -3424,12 +5189,13 @@ const PRESETS = [
     ],
   },
   {
-    id: 'museum', name: '博物館展示室', icon: 'fa-landmark',
+    id: 'museum', name: '博物館展示室', icon: 'fa-landmark', cat: '特殊',
     desc: '16m×12mの展示ホール。展示ケース・台座・解説パネルを配置した開放的なギャラリー。',
     room: { w: 16, d: 12 }, floorType: 'marble', wallType: 'white',
     partitions: [
-      { x1: -8, z1: 3.5, x2: -2, z2: 3.5 },
-      { x1:  1, z1: 3.5, x2:  8, z2: 3.5 },
+      { x1: -8, z1: 3.5, x2: -0.6, z2: 3.5 },
+      { x1: -0.6, z1: 3.5, x2: 0.6, z2: 3.5, openings: [{ t: 0.5, w: 1.0, kind: 'auto_door' }] },
+      { x1:  0.6, z1: 3.5, x2:  8, z2: 3.5 },
     ],
     floors: [
       { x1: -8, z1: 3.5, x2: 8, z2: 6, type: 'tile' },
@@ -3458,11 +5224,12 @@ const PRESETS = [
     ],
   },
   {
-    id: 'convenience', name: 'コンビニエンスストア', icon: 'fa-store',
+    id: 'convenience', name: 'コンビニエンスストア', icon: 'fa-store', cat: '店舗',
     desc: '12m×8mの小型コンビニ。商品棚・ショーケース冷蔵庫・レジカウンターを配置。',
     room: { w: 12, d: 8 }, floorType: 'tile', wallType: 'white',
     partitions: [
       { x1: -6, z1: -1.5, x2:  3, z2: -1.5 },
+      { x1:  3, z1: -1.5, x2:  4, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
       { x1:  4, z1: -1.5, x2:  6, z2: -1.5 },
     ],
     floors: [
@@ -3495,11 +5262,12 @@ const PRESETS = [
     ],
   },
   {
-    id: 'restaurant', name: 'レストラン', icon: 'fa-utensils',
+    id: 'restaurant', name: 'レストラン', icon: 'fa-utensils', cat: '店舗',
     desc: '12m×10mのダイニングレストラン。テーブル6卓・カウンター席・厨房エリアを配置。',
     room: { w: 12, d: 10 }, floorType: 'wood', wallType: 'cream',
     partitions: [
       { x1: -6, z1: -2.5, x2: 0.5, z2: -2.5 },
+      { x1: 0.5, z1: -2.5, x2: 2, z2: -2.5, openings: [{ t: 0.5, w: 1.2, kind: 'double_door' }] },
       { x1:  2, z1: -2.5, x2:  6,  z2: -2.5 },
     ],
     floors: [
@@ -3519,34 +5287,35 @@ const PRESETS = [
       P('barstool', -3.8, -1.5, 0, '#5b5048'),
       // ダイニングテーブル
       P('roundtable', -3.5, 0.5, 0, '#8a5a2b'),
-      P('dchr', -4.3, 0.5, 90, '#5b5048'), P('dchr', -2.7, 0.5, 270, '#5b5048'),
-      P('dchr', -3.5,-0.3,  0, '#5b5048'), P('dchr', -3.5, 1.3, 180, '#5b5048'),
+      P('windsorchair', -4.3, 0.5, 90, '#5b5048'), P('windsorchair', -2.7, 0.5, 270, '#5b5048'),
+      P('windsorchair', -3.5,-0.3,  0, '#5b5048'), P('windsorchair', -3.5, 1.3, 180, '#5b5048'),
       P('roundtable', -0.5, 0.5, 0, '#8a5a2b'),
-      P('dchr', -1.3, 0.5, 90, '#5b5048'), P('dchr',  0.3, 0.5, 270, '#5b5048'),
-      P('dchr', -0.5,-0.3,  0, '#5b5048'), P('dchr', -0.5, 1.3, 180, '#5b5048'),
+      P('windsorchair', -1.3, 0.5, 90, '#5b5048'), P('windsorchair',  0.3, 0.5, 270, '#5b5048'),
+      P('windsorchair', -0.5,-0.3,  0, '#5b5048'), P('windsorchair', -0.5, 1.3, 180, '#5b5048'),
       P('roundtable',  2.5, 0.5, 0, '#8a5a2b'),
-      P('dchr',  1.7, 0.5, 90, '#5b5048'), P('dchr',  3.3, 0.5, 270, '#5b5048'),
-      P('dchr',  2.5,-0.3,  0, '#5b5048'), P('dchr',  2.5, 1.3, 180, '#5b5048'),
+      P('windsorchair',  1.7, 0.5, 90, '#5b5048'), P('windsorchair',  3.3, 0.5, 270, '#5b5048'),
+      P('windsorchair',  2.5,-0.3,  0, '#5b5048'), P('windsorchair',  2.5, 1.3, 180, '#5b5048'),
       P('roundtable', -3.5, 3.0, 0, '#8a5a2b'),
-      P('dchr', -4.3, 3.0, 90, '#5b5048'), P('dchr', -2.7, 3.0, 270, '#5b5048'),
-      P('dchr', -3.5, 2.2,  0, '#5b5048'), P('dchr', -3.5, 3.8, 180, '#5b5048'),
+      P('windsorchair', -4.3, 3.0, 90, '#5b5048'), P('windsorchair', -2.7, 3.0, 270, '#5b5048'),
+      P('windsorchair', -3.5, 2.2,  0, '#5b5048'), P('windsorchair', -3.5, 3.8, 180, '#5b5048'),
       P('roundtable',  0.0, 3.0, 0, '#8a5a2b'),
-      P('dchr', -0.8, 3.0, 90, '#5b5048'), P('dchr',  0.8, 3.0, 270, '#5b5048'),
-      P('dchr',  0.0, 2.2,  0, '#5b5048'), P('dchr',  0.0, 3.8, 180, '#5b5048'),
+      P('windsorchair', -0.8, 3.0, 90, '#5b5048'), P('windsorchair',  0.8, 3.0, 270, '#5b5048'),
+      P('windsorchair',  0.0, 2.2,  0, '#5b5048'), P('windsorchair',  0.0, 3.8, 180, '#5b5048'),
       P('roundtable',  3.5, 3.0, 0, '#8a5a2b'),
-      P('dchr',  2.7, 3.0, 90, '#5b5048'), P('dchr',  4.3, 3.0, 270, '#5b5048'),
-      P('dchr',  3.5, 2.2,  0, '#5b5048'), P('dchr',  3.5, 3.8, 180, '#5b5048'),
+      P('windsorchair',  2.7, 3.0, 90, '#5b5048'), P('windsorchair',  4.3, 3.0, 270, '#5b5048'),
+      P('windsorchair',  3.5, 2.2,  0, '#5b5048'), P('windsorchair',  3.5, 3.8, 180, '#5b5048'),
       P('plant', -5.5,  4.5), P('plant', 5.5,  4.5),
       P('lamp',  -5.5, -1.0), P('lamp',  5.5, -1.0),
       P('rug',    0.0,  1.5, 0, '#5b5048'),
     ],
   },
   {
-    id: 'cafe', name: 'カフェ', icon: 'fa-mug-hot',
+    id: 'cafe', name: 'カフェ', icon: 'fa-mug-hot', cat: '店舗',
     desc: '10m×8mのおしゃれカフェ。バーカウンター・バースツール・小テーブルを配置。',
     room: { w: 10, d: 8 }, floorType: 'wood', wallType: 'cream',
     partitions: [
       { x1: -5, z1: -1.5, x2:  1.5, z2: -1.5 },
+      { x1: 1.5, z1: -1.5, x2: 3, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
       { x1:  3, z1: -1.5, x2:  5,   z2: -1.5 },
     ],
     floors: [
@@ -3565,11 +5334,11 @@ const PRESETS = [
       P('barstool',  0.0, -0.4, 0, '#5b5048'),
       P('barstool',  1.0, -0.4, 0, '#5b5048'),
       // 小テーブル (テラス席イメージ)
-      P('ctable', -3.0, 1.0, 0), P('dchr', -3.8, 1.0, 90, '#5b5048'), P('dchr', -2.2, 1.0, 270, '#5b5048'),
-      P('ctable', -0.5, 1.0, 0), P('dchr', -1.3, 1.0, 90, '#5b5048'), P('dchr',  0.3, 1.0, 270, '#5b5048'),
-      P('ctable',  2.0, 1.0, 0), P('dchr',  1.2, 1.0, 90, '#5b5048'), P('dchr',  2.8, 1.0, 270, '#5b5048'),
-      P('ctable', -3.0, 3.0, 0), P('dchr', -3.8, 3.0, 90, '#5b5048'), P('dchr', -2.2, 3.0, 270, '#5b5048'),
-      P('ctable',  0.0, 3.0, 0), P('dchr', -0.8, 3.0, 90, '#5b5048'), P('dchr',  0.8, 3.0, 270, '#5b5048'),
+      P('cafetable', -3.0, 1.0, 0), P('cafechr', -3.8, 1.0, 90, '#6a4830'), P('cafechr', -2.2, 1.0, 270, '#6a4830'),
+      P('cafetable', -0.5, 1.0, 0), P('cafechr', -1.3, 1.0, 90, '#6a4830'), P('cafechr',  0.3, 1.0, 270, '#6a4830'),
+      P('cafetable',  2.0, 1.0, 0), P('cafechr',  1.2, 1.0, 90, '#6a4830'), P('cafechr',  2.8, 1.0, 270, '#6a4830'),
+      P('cafetable', -3.0, 3.0, 0), P('cafechr', -3.8, 3.0, 90, '#6a4830'), P('cafechr', -2.2, 3.0, 270, '#6a4830'),
+      P('cafetable',  0.0, 3.0, 0), P('cafechr', -0.8, 3.0, 90, '#6a4830'), P('cafechr',  0.8, 3.0, 270, '#6a4830'),
       P('sofa3',   3.5, 2.5, 270, '#b9714a'),
       P('ctable',  4.3, 1.5, 0),
       P('rug',     3.8, 1.8, 0, '#5b5048'),
@@ -3579,12 +5348,13 @@ const PRESETS = [
     ],
   },
   {
-    id: 'laboratory', name: '実験室', icon: 'fa-flask',
+    id: 'laboratory', name: '実験室', icon: 'fa-flask', cat: '特殊',
     desc: '12m×9mの化学実験室。実験台・ドラフトチャンバー・薬品棚・顕微鏡・遠心分離機を完備。',
     room: { w: 12, d: 9 }, floorType: 'tile', wallType: 'white',
     partitions: [
-      { x1: -6, z1: 1.5, x2: -1, z2: 1.5 },
-      { x1: 1, z1: 1.5, x2: 6, z2: 1.5 },
+      { x1: -6, z1: 1.5, x2: -0.6, z2: 1.5 },
+      { x1: -0.6, z1: 1.5, x2: 0.6, z2: 1.5, openings: [{ t: 0.5, w: 1.0, kind: 'lab_door' }] },
+      { x1: 0.6, z1: 1.5, x2: 6, z2: 1.5 },
     ],
     floors: [
       { x1: -6, z1: 1.5, x2: 6, z2: 4.5, type: 'genkan' },
@@ -3621,11 +5391,12 @@ const PRESETS = [
     ],
   },
   {
-    id: 'testroom', name: '試験室', icon: 'fa-gauge-high',
+    id: 'testroom', name: '試験室', icon: 'fa-gauge-high', cat: '特殊',
     desc: '11m×8mの計測・試験室。測定試験機・オシロスコープ・電子天秤・恒温槽で精密測定。',
     room: { w: 11, d: 8 }, floorType: 'tile', wallType: 'white',
     partitions: [
       { x1: 1.5, z1: -4, x2: 1.5, z2: -0.5 },
+      { x1: 1.5, z1: -0.5, x2: 1.5, z2: 0.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
       { x1: 1.5, z1: 0.5, x2: 1.5, z2: 4 },
     ],
     floors: [
@@ -3661,11 +5432,11 @@ const PRESETS = [
     ],
   },
   {
-    id: 'machineshop', name: '加工室', icon: 'fa-gears',
+    id: 'machineshop', name: '加工室', icon: 'fa-gears', cat: '工場',
     desc: '14m×10mの機械加工室。旋盤・フライス盤・ボール盤・グラインダー・工具ラックを完備。',
     room: { w: 14, d: 10 }, floorType: 'concrete', wallType: 'concrete',
     partitions: [
-      { x1: -7, z1: 2.5, x2: -2.5, z2: 2.5 },
+      { x1: -7, z1: 2.5, x2: -2.5, z2: 2.5, openings: [{ t: 0.85, w: 0.9, kind: 'door' }] },
       { x1: -2.5, z1: 2.5, x2: -2.5, z2: 5 },
     ],
     floors: [
@@ -3704,7 +5475,7 @@ const PRESETS = [
   },
   // ===== 住宅 =====
   {
-    id: 'studio', name: 'ワンルーム (1R)', icon: 'fa-cube',
+    id: 'studio', name: 'ワンルーム (1R)', icon: 'fa-cube', cat: '住宅',
     desc: 'コンパクトな単身向けレイアウト。ベッド・デスク・くつろぎスペースを集約。',
     room: { w: 6, d: 5 }, partitions: [],
     items: [
@@ -3717,20 +5488,22 @@ const PRESETS = [
     ],
   },
   {
-    id: 'family', name: 'ファミリーホーム', icon: 'fa-house-user',
+    id: 'family', name: 'ファミリーホーム', icon: 'fa-house-user', cat: '住宅',
     desc: '玄関〜水回り〜LDK〜寝室を備えた一戸建てプラン。家族向けのフル装備レイアウト。',
     room: { w: 12, d: 10 },
     partitions: [
-      // 左ゾーン縦仕切り (水回り/玄関 と 中央LDK を分ける) — ドア開口あり
+      // 左ゾーン縦仕切り (水回り/玄関 と 中央LDK を分ける)
       { x1: -2.5, z1: -5.0, x2: -2.5, z2: -1.0 },
+      { x1: -2.5, z1: -1.0, x2: -2.5, z2: 0.0, openings: [{ t: 0.5, w: 0.9, kind: 'fusuma' }] },
       { x1: -2.5, z1: 0.0, x2: -2.5, z2: 5.0 },
-      // 左ゾーン内の横仕切り (浴室 / 洗面所 / トイレ / 玄関 を区切る)
-      { x1: -6.0, z1: -2.0, x2: -4.0, z2: -2.0 },              // 浴室↔洗面所
-      { x1: -6.0, z1: 1.0, x2: -4.5, z2: 1.0 },                // 洗面所↔トイレ (開口あり)
-      { x1: -4.0, z1: 2.6, x2: -2.5, z2: 2.6 },                // トイレ↔玄関
+      // 左ゾーン内の横仕切り (浴室 / 洗面所 / トイレ / 玄関)
+      { x1: -6.0, z1: -2.0, x2: -2.5, z2: -2.0, openings: [{ t: 0.2, w: 0.8, kind: 'bath_door' }] },
+      { x1: -6.0, z1: 1.0, x2: -2.5, z2: 1.0, openings: [{ t: 0.2, w: 0.8, kind: 'toilet_door' }] },
+      { x1: -6.0, z1: 2.6, x2: -2.5, z2: 2.6, openings: [{ t: 0.75, w: 0.8, kind: 'door' }] },
       // 中央↔右 (LDK と 寝室/リビング) 縦仕切り
-      { x1: 2.0, z1: -5.0, x2: 2.0, z2: -2.6 },                // 寝室の壁
-      { x1: 2.0, z1: -1.5, x2: 2.0, z2: 0.5 },                 // LDK↔リビング (開口あり)
+      { x1: 2.0, z1: -5.0, x2: 2.0, z2: -2.6 },
+      { x1: 2.0, z1: -2.6, x2: 2.0, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'fusuma' }] },
+      { x1: 2.0, z1: -1.5, x2: 2.0, z2: 0.5, openings: [{ t: 0.5, w: 0.9, kind: 'shoji' }] },
       // 寝室の横仕切り
       { x1: 2.0, z1: -2.6, x2: 4.5, z2: -2.6 },
     ],
@@ -3775,29 +5548,134 @@ const PRESETS = [
   },
 ];
 
-function buildPresetCards() {
+// Floor swatch colors for plan preview
+const PLAN_FLOOR_COLOR = {
+  wood:'#d4aa70', parquet:'#b8904a', dark_wood:'#5a3820', concrete:'#b0b8bc',
+  tile:'#d8e0e8', marble:'#f0eee8', carpet:'#c8bcd8', tatami:'#c8be80',
+  genkan:'#c8c0b0', terracotta:'#c87840', stone:'#a8a4a0',
+  rubber:'#404040', checker_plate:'#909898', epoxy:'#4a8850',
+  dirt:'#907050', grass:'#60904a', lawn:'#70a054',
+};
+function presetPlanSVG(p) {
+  const svgW = 130, svgH = 88;
+  const rw = p.room.w, rd = p.room.d;
+  const pad = 10;
+  const scale = Math.min((svgW - pad*2) / rw, (svgH - pad*2) / rd);
+  const ox = svgW/2, oy = svgH/2;
+  const wx = v => ox + v * scale, wz = v => oy + v * scale;
+  const x0 = ox - rw/2*scale, y0 = oy - rd/2*scale;
+  const rW = rw*scale, rH = rd*scale;
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`;
+  // Room fill
+  const mainFloor = PLAN_FLOOR_COLOR[p.floorType] || '#d4c8b4';
+  s += `<rect x="${x0}" y="${y0}" width="${rW}" height="${rH}" fill="${mainFloor}" opacity="0.7"/>`;
+  // Zone floors
+  (p.floors || []).forEach(f => {
+    const c = PLAN_FLOOR_COLOR[f.type] || '#c8c0b0';
+    const fx0=wx(Math.min(f.x1,f.x2)), fx1=wx(Math.max(f.x1,f.x2));
+    const fz0=wz(Math.min(f.z1,f.z2)), fz1=wz(Math.max(f.z1,f.z2));
+    s += `<rect x="${fx0}" y="${fz0}" width="${fx1-fx0}" height="${fz1-fz0}" fill="${c}" opacity="0.85"/>`;
+  });
+  // Room outline
+  s += `<rect x="${x0}" y="${y0}" width="${rW}" height="${rH}" fill="none" stroke="#5a5040" stroke-width="2.5"/>`;
+  // Partitions
+  (p.partitions || []).forEach(part => {
+    const px1=wx(part.x1), pz1=wz(part.z1), px2=wx(part.x2), pz2=wz(part.z2);
+    if (part.openings && part.openings.length) {
+      // Draw wall in segments around openings
+      const len = Math.hypot(part.x2-part.x1, part.z2-part.z1);
+      part.openings.forEach(op => {
+        const t0 = op.t - op.w/2/len, t1 = op.t + op.w/2/len;
+        const ax0=px1+(px2-px1)*Math.max(t0,0), az0=pz1+(pz2-pz1)*Math.max(t0,0);
+        const ax1=px1+(px2-px1)*Math.min(t1,1), az1=pz1+(pz2-pz1)*Math.min(t1,1);
+        if (t0 > 0) s += `<line x1="${px1}" y1="${pz1}" x2="${ax0}" y2="${az0}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
+        if (t1 < 1) s += `<line x1="${ax1}" y1="${az1}" x2="${px2}" y2="${pz2}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
+        // Door arc symbol
+        const mx=(ax0+ax1)/2, mz=(az0+az1)/2;
+        const dw = op.w * scale * 0.5;
+        s += `<line x1="${ax0}" y1="${az0}" x2="${ax1}" y2="${az1}" stroke="#98c8a8" stroke-width="2.5" stroke-linecap="round"/>`;
+        s += `<circle cx="${mx}" cy="${mz}" r="3" fill="#62a86d" opacity="0.9"/>`;
+      });
+    } else {
+      s += `<line x1="${px1}" y1="${pz1}" x2="${px2}" y2="${pz2}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
+    }
+  });
+  // Room size label
+  s += `<text x="${svgW/2}" y="${svgH - 3}" text-anchor="middle" font-size="8" fill="#888" font-family="sans-serif">${rw}m × ${rd}m</text>`;
+  s += `</svg>`;
+  return s;
+}
+
+let _presetActiveCat = 'all';
+let _presetSearch = '';
+let _lastUsedPresetId = null;
+
+function renderPresetGrid() {
   const grid = document.getElementById('preset-grid'); grid.innerHTML = '';
-  PRESETS.forEach(p => {
-    const card = document.createElement('button'); card.className = 'preset-card';
+  const q = _presetSearch.toLowerCase();
+  const filtered = PRESETS.filter(p =>
+    (_presetActiveCat === 'all' || p.cat === _presetActiveCat) &&
+    (!q || p.name.includes(q) || (p.desc||'').includes(q))
+  );
+  if (filtered.length === 0) {
+    const empty = document.createElement('div'); empty.className = 'preset-empty';
+    empty.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>該当するプリセットが見つかりません';
+    grid.appendChild(empty); return;
+  }
+  filtered.forEach(p => {
+    const card = document.createElement('button');
+    card.className = 'pc-card' + (p.id === _lastUsedPresetId ? ' last-used' : '');
+    const tagCls = `pc-tag pc-tag-${p.cat || ''}`;
     card.innerHTML = `
-      <div class="pc-icon"><i class="fa-solid ${p.icon}"></i></div>
-      <h4>${p.name}</h4>
-      <p>${p.desc}</p>
-      <div class="pc-meta">
-        <span><i class="fa-solid fa-ruler-combined"></i> ${p.room.w}m × ${p.room.d}m</span>
-        <span><i class="fa-solid fa-cube"></i> ${p.items.length} 点</span>
+      <div class="pc-plan-area">
+        ${presetPlanSVG(p)}
+        <div class="${tagCls}">${p.cat || ''}</div>
+      </div>
+      <div class="pc-info">
+        <div class="pc-name"><i class="fa-solid ${p.icon}" style="margin-right:5px;opacity:0.7"></i>${p.name}</div>
+        <div class="pc-desc">${p.desc}</div>
+        <div class="pc-badges">
+          <span class="pc-badge"><i class="fa-solid fa-ruler-combined"></i>${p.room.w}×${p.room.d}m</span>
+          <span class="pc-badge"><i class="fa-solid fa-cube"></i>${p.items.length}点</span>
+          ${p.partitions && p.partitions.length ? `<span class="pc-badge"><i class="fa-solid fa-border-none"></i>間仕切${p.partitions.length}本</span>` : ''}
+        </div>
       </div>`;
-    card.addEventListener('click', () => { applyLayout(p); closePresetModal(); toast(p.name + ' を読み込みました'); });
+    card.addEventListener('click', () => {
+      _lastUsedPresetId = p.id;
+      applyLayout(p); closePresetModal();
+      toast(p.name + ' を読み込みました');
+    });
     grid.appendChild(card);
   });
 }
-function openPresetModal() { document.getElementById('preset-modal').classList.add('open'); }
+
+function buildPresetCards() { renderPresetGrid(); }
+
+function openPresetModal() {
+  document.getElementById('preset-modal').classList.add('open');
+  renderPresetGrid();
+}
 function closePresetModal() { document.getElementById('preset-modal').classList.remove('open'); }
 
 // ============================================================ CATALOG UI
 function buildCatalog(filter = '', cat = 'all') {
   const list = document.getElementById('furniture-list'); list.innerHTML = '';
-  FURNITURE_DEFS.filter(d => (cat==='all'||d.cat===cat) && (filter===''||d.name.includes(filter))).forEach(def => {
+  // Update count badges on tabs
+  document.querySelectorAll('.cat-tab[data-cat]').forEach(tab => {
+    const tc = tab.dataset.cat;
+    const count = FURNITURE_DEFS.filter(d => tc==='all' || d.cat===tc).length;
+    let badge = tab.querySelector('.cat-count');
+    if (!badge) { badge = document.createElement('span'); badge.className = 'cat-count'; tab.appendChild(badge); }
+    badge.textContent = count;
+  });
+  const filtered = FURNITURE_DEFS.filter(d => (cat==='all'||d.cat===cat) && (filter===''||d.name.includes(filter)));
+  if (filtered.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center;padding:32px 16px;color:var(--text-inv-muted);font-size:12px;';
+    empty.innerHTML = '<i class="fa-solid fa-magnifying-glass" style="font-size:24px;opacity:0.4;display:block;margin-bottom:8px"></i>該当する家具が見つかりません';
+    list.appendChild(empty); return;
+  }
+  filtered.forEach(def => {
     const item = document.createElement('div'); item.className = 'furniture-item'; item.dataset.id = def.id;
     item.innerHTML = `<div class="fitem-icon"><i class="fa-solid ${def.icon}"></i></div>
       <div class="fitem-info"><div class="fitem-name">${def.name}</div><div class="fitem-size">${def.w}m × ${def.d}m</div></div>`;
@@ -3881,6 +5759,22 @@ function initUI() {
   document.getElementById('btn-presets').addEventListener('click', openPresetModal);
   document.getElementById('preset-close').addEventListener('click', closePresetModal);
   document.getElementById('preset-modal').addEventListener('click', e => { if (e.target.id === 'preset-modal') closePresetModal(); });
+  // Preset search
+  document.getElementById('preset-search-input').addEventListener('input', e => {
+    _presetSearch = e.target.value; renderPresetGrid();
+  });
+  // Preset category filter
+  document.getElementById('preset-cat-bar').addEventListener('click', e => {
+    const btn = e.target.closest('.pc-cat-btn'); if (!btn) return;
+    _presetActiveCat = btn.dataset.pcat;
+    document.querySelectorAll('.pc-cat-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderPresetGrid();
+  });
+  // New empty room
+  document.getElementById('btn-preset-new').addEventListener('click', () => {
+    clearItems(); partitions = []; roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType);
+    buildRoom(); closePresetModal(); toast('新しい空のルームを作成しました');
+  });
 
   // 2D floor-plan editor
   document.getElementById('btn-editor').addEventListener('click', openEditor);
@@ -4068,11 +5962,11 @@ function updateWalls() {
     const m = w.material; let target;
     if (wallMode === 'solid') target = 1;
     else if (wallMode === 'ghost') target = 0.24;
-    else if (wallMode === 'semifade') { const d = w.userData.fadeNormal.dot(camDirH); target = d > 0.15 ? 0.18 : 1.0; }
+    else if (wallMode === 'semifade') { const d = w.userData.fadeNormal.dot(camDirH); target = d > 0.15 ? (w.userData.isPartition ? 0.68 : 0.18) : 1.0; }
     else {
       // cutaway: outer walls → fully transparent, partition/inner walls → semi-transparent
       const d = w.userData.fadeNormal.dot(camDirH);
-      if (d > 0.15) target = w.userData.isPartition ? 0.22 : 0.0;
+      if (d > 0.15) target = w.userData.isPartition ? 0.45 : 0.0;
       else target = 1.0;
     }
     m.opacity += (target - m.opacity) * 0.18;
@@ -4377,14 +6271,101 @@ function closeEditor() { document.getElementById('editor-modal').classList.remov
   document.addEventListener('click', () => { tip.style.display = 'none'; });
 })();
 
+// ============================================================ INDEXEDDB AUTO-SAVE
+const IDB_NAME = 'room-planner-v1', IDB_VER = 1, IDB_STORE = 'autosave';
+let idb = null;
+function openIDB() {
+  return new Promise((res, rej) => {
+    try {
+      const req = indexedDB.open(IDB_NAME, IDB_VER);
+      req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+      req.onsuccess = e => { idb = e.target.result; res(idb); };
+      req.onerror = () => { console.warn('IndexedDB unavailable'); res(null); };
+    } catch(e) { console.warn('IndexedDB error', e); res(null); }
+  });
+}
+function idbPut(data) {
+  if (!idb) return;
+  try {
+    const tx = idb.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(data, 'layout');
+  } catch(e) { console.warn('idbPut failed', e); }
+}
+function idbGet() {
+  return new Promise(res => {
+    if (!idb) { res(null); return; }
+    try {
+      const tx = idb.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get('layout');
+      req.onsuccess = e => res(e.target.result || null);
+      req.onerror = () => res(null);
+    } catch(e) { res(null); }
+  });
+}
+function buildSavePayload() {
+  const cells = [];
+  roomPlan.cells.forEach((type, key) => { const [ix, iz] = key.split(',').map(Number); cells.push([ix, iz, type]); });
+  const walls = roomPlan.walls.map(w => ({ x1:w.x1, z1:w.z1, x2:w.x2, z2:w.z2, type:w.type||'wall', openings:(w.openings||[]) }));
+  return { version: 5, room: { w: roomW, d: roomD }, partitions, floorType, wallType,
+    plan: { cells, walls },
+    items: placedItems.map(i => ({ defId:i.defId, x:i.position.x, y:i.position.y, z:i.position.z, rotY:i.rotY, color:i.color })) };
+}
+let _autoSaveTimer = null;
+function showSaveStatus(state) {
+  const el = document.getElementById('save-status');
+  const txt = document.getElementById('save-status-text');
+  if (!el) return;
+  el.className = 'save-status ' + state;
+  if (state === 'saving') {
+    el.querySelector('i').className = 'fa-solid fa-rotate';
+    txt.textContent = '保存中…';
+  } else {
+    el.querySelector('i').className = 'fa-solid fa-cloud-arrow-up';
+    txt.textContent = '保存済み';
+  }
+}
+let _autoSaveEnabled = false;
+function scheduleAutoSave() {
+  if (!_autoSaveEnabled) return;
+  showSaveStatus('saving');
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => {
+    try { idbPut(buildSavePayload()); showSaveStatus('saved'); }
+    catch(e) { console.warn('auto-save failed', e); }
+  }, 1500);
+}
+
 // ============================================================ BOOT
-function boot() {
+async function boot() {
   if (typeof WebGLRenderingContext === 'undefined') { document.getElementById('no-webgl').classList.add('show'); document.getElementById('app').style.display = 'none'; return; }
-  roomPlan = rectToPlan(6, 6, [], 'wood'); // valid plan before first build
+  roomPlan = rectToPlan(6, 6, [], 'wood');
   buildRoom(); initUI(); updateHistoryButtons(); handleResize(); animate();
-  // Welcome with convenience store preset to showcase commercial layouts
-  applyLayout(PRESETS[4]);
-  setTimeout(() => { document.getElementById('loading').classList.add('hidden'); setStatus('準備完了 — 家具を配置、またはプリセットを選択'); }, 650);
+  await openIDB();
+  _autoSaveEnabled = true;
+  const saved = await idbGet();
+  if (saved && saved.items && saved.items.length > 0) {
+    // Show restore banner
+    const banner = document.createElement('div');
+    banner.className = 'restore-banner';
+    banner.innerHTML = `<div class="rb-text"><b>前回のレイアウトが見つかりました</b><br><span style="font-size:11px;color:var(--text-secondary)">${saved.items.length} 点の家具 / ${saved.room?.w||'?'}m × ${saved.room?.d||'?'}m</span></div>
+      <div class="rb-btns">
+        <button class="rb-restore" id="rb-yes">復元する</button>
+        <button id="rb-no">新規スタート</button>
+      </div>`;
+    document.body.appendChild(banner);
+    document.getElementById('rb-yes').addEventListener('click', () => {
+      applyLayout(saved); banner.remove();
+      setStatus('前回のレイアウトを復元しました');
+    });
+    document.getElementById('rb-no').addEventListener('click', () => {
+      applyLayout(PRESETS[4]); banner.remove();
+      setStatus('準備完了 — 家具を配置、またはプリセットを選択');
+    });
+  } else {
+    applyLayout(PRESETS[4]);
+    setStatus('準備完了 — 家具を配置、またはプリセットを選択');
+  }
+  setTimeout(() => { document.getElementById('loading').classList.add('hidden'); }, 650);
 }
 boot();
 </script>
