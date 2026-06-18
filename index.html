@@ -591,6 +591,8 @@ body {
             <option value="wall">普通の壁</option>
             <option value="glass">ガラス壁</option>
             <option value="window">窓付き壁</option>
+            <option value="door">扉</option>
+            <option value="half">腰壁</option>
           </select>
         </div>
         <div class="ed-floorsel"><i class="fa-solid fa-door-open"></i> 開口タイプ
@@ -646,7 +648,7 @@ const COLORS = [
 
 // ============================================================ APP STATE
 let state = 'IDLE';
-let currentDef = null, ghostGroup = null, ghostRotOffset = 0;
+let currentDef = null, ghostGroup = null, ghostRotOffset = 0, ghostPlacement = null;
 let selectedGroup = null, selectedColor = '#c8a06a', selectedRot = 0;
 let placedItems = [], history = [], historyIndex = -1;
 let roomW = 6, roomD = 6, partitions = [];
@@ -1129,6 +1131,13 @@ const WALL_TYPES = {
   brick:    { name: 'レンガ',        tex: brickTex,   color: 0xffffff, rough: 0.92, metal: 0.0 },
   concrete: { name: '打ちっぱなし',   tex: concreteTex, color: 0xc2c6ca, rough: 0.95, metal: 0.02 },
   wood:     { name: '木目パネル',    tex: woodTex,    color: 0xcaa46d, rough: 0.7,  metal: 0.02 },
+  charcoal: { name: 'チャコール',    tex: wallTexSrc, color: 0x44474c, rough: 0.88, metal: 0.0 },
+  terracotta:{ name: 'テラコッタ',   tex: wallTexSrc, color: 0xc08457, rough: 0.92, metal: 0.0 },
+  mint:     { name: 'ミントグリーン', tex: wallTexSrc, color: 0xa9d4c2, rough: 0.9,  metal: 0.0 },
+  blush:    { name: 'ブラッシュピンク',tex: wallTexSrc, color: 0xe6c4c0, rough: 0.9,  metal: 0.0 },
+  mustard:  { name: 'マスタード',    tex: wallTexSrc, color: 0xc8a64b, rough: 0.9,  metal: 0.0 },
+  tile:     { name: 'タイル壁',      tex: tileTex,    color: 0xffffff, rough: 0.4,  metal: 0.05 },
+  marble:   { name: '大理石壁',      tex: marbleTex,  color: 0xffffff, rough: 0.2,  metal: 0.05 },
 };
 
 // ============================================================ GEOMETRY HELPERS
@@ -1475,6 +1484,67 @@ function buildWallSegment(wall) {
   // a solid full-height piece spanning [s0,s1]
   const addSolid = (s0, s1) => addPartial(s0, s1, 0, WALL_H);
 
+  const frameMatStd = () => new THREE.MeshStandardMaterial({ color: 0x9c7b4f, roughness: 0.6, metalness: 0.0, transparent: true, opacity: 1.0 });
+
+  // ---- HALF WALL (腰壁 / counter wall): solid but only ~1.1m tall ----
+  if (wType === 'half') {
+    const HALF_H = 1.1;
+    addPartial(0, len, 0, HALF_H);
+    // capping rail along the top
+    const [ccx, ccz] = ptAt(len / 2);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(len + 0.04, 0.06, WALL_T + 0.06),
+      new THREE.MeshStandardMaterial({ color: 0xb89a6a, roughness: 0.55, metalness: 0.04, transparent: true, opacity: 1.0 }));
+    cap.position.set(ccx, HALF_H + 0.03, ccz); cap.rotation.y = rotY; cap.castShadow = true; roomGroup.add(cap); registerWall(cap);
+    return;
+  }
+
+  // ---- DOOR WALL (扉): the whole segment is a door unit (single or double) ----
+  if (wType === 'door') {
+    const fw = 0.07, ft = WALL_T + 0.03;
+    const lh = WALL_H - DOOR_H;
+    // lintel above the door spanning the full segment
+    const [lcx, lcz] = ptAt(len / 2);
+    const { m: lmat } = wallMat(len);
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(len, lh, WALL_T), lmat);
+    lintel.position.set(lcx, DOOR_H + lh / 2, lcz); lintel.rotation.y = rotY;
+    lintel.castShadow = true; lintel.receiveShadow = true; lintel.userData.isMainWall = true;
+    roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
+    // jamb posts at both ends + head
+    [0, len].forEach(sp => {
+      const [px, pz] = ptAt(sp); const post = new THREE.Mesh(new THREE.BoxGeometry(fw, DOOR_H, ft), frameMatStd());
+      post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
+    });
+    const head = new THREE.Mesh(new THREE.BoxGeometry(len + fw, fw, ft), frameMatStd());
+    head.position.set(lcx, DOOR_H - fw / 2, lcz); head.rotation.y = rotY; head.castShadow = true; roomGroup.add(head); registerWall(head);
+    // interior normal (toward room center) for ajar swing + fade
+    const fn = new THREE.Vector3(lcx, 0, lcz); if (fn.length() < 0.35) fn.set(0, 0, 0); else fn.normalize();
+    const slabMat = () => new THREE.MeshStandardMaterial({ color: 0xb9925e, roughness: 0.5, metalness: 0.05, transparent: true, opacity: 1.0 });
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0xcdb78a, roughness: 0.3, metalness: 0.8 });
+    const slabH = DOOR_H - fw;
+    const makeLeaf = (hingeS, leafW, dir) => {
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(leafW, slabH, 0.045), slabMat());
+      // recessed panel detail
+      slab.add(new THREE.Mesh(new THREE.BoxGeometry(leafW - 0.12, slabH - 0.2, 0.05), new THREE.MeshStandardMaterial({ color: 0xa97f4e, roughness: 0.55 })));
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.1, 10), handleMat);
+      handle.rotation.x = Math.PI / 2; handle.position.set(dir * (leafW - 0.08), 0, 0.05); slab.add(handle);
+      const pivot = new THREE.Group();
+      const [hx, hz] = ptAt(hingeS);
+      pivot.position.set(hx, slabH / 2, hz); pivot.rotation.y = rotY;
+      slab.position.set(dir * leafW / 2, 0, 0.06);
+      slab.castShadow = true; pivot.add(slab);
+      pivot.rotation.y = rotY - dir * 0.32;
+      roomGroup.add(pivot); registerWall(slab);
+      slab.userData.fadeNormal = fn;
+    };
+    if (len <= 1.35) {
+      makeLeaf(fw / 2, len - fw, 1);                 // single leaf hinged at left
+    } else {
+      makeLeaf(fw / 2, len / 2 - fw, 1);             // left leaf
+      makeLeaf(len - fw / 2, len / 2 - fw, -1);      // right leaf
+    }
+    return;
+  }
+
   // Openings sorted; each has s0,s1,kind
   const openings = rawOpenings.map(dr => {
     const dw = dr.w || 0.9, s = clamp(dr.t, 0, 1) * len;
@@ -1610,16 +1680,16 @@ const FURNITURE_DEFS = [
   { id:'washer',   cat:'sanitary', name:'洗濯機',        icon:'fa-soap',            w:0.6, d:0.6,  h:0.9, colorIdx:10, build:buildWasher },
   { id:'bathtub',  cat:'sanitary', name:'浴槽',          icon:'fa-bath',            w:0.8, d:1.6,  h:0.6, colorIdx:4, build:buildBathtub },
   { id:'bathset',  cat:'sanitary', name:'ユニットバス',  icon:'fa-shower',          w:1.6, d:1.6,  h:2.2, colorIdx:10, build:buildBathSet },
-  { id:'walltv',   cat:'deco',     name:'壁掛けテレビ',  icon:'fa-tv',              w:1.3, d:0.08, h:0.8, colorIdx:2, build:buildWallTV },
+  { id:'walltv',   cat:'deco',     name:'壁掛けテレビ',  icon:'fa-tv',              w:1.3, d:0.08, h:0.8, colorIdx:2, build:buildWallTV, wallMount:true },
   // ---- office ----
   { id:'conftable',  cat:'office',  name:'会議テーブル',      icon:'fa-table',             w:3.6, d:1.2,  h:0.74, colorIdx:8,  build:buildConferenceTable },
-  { id:'whiteboard', cat:'office',  name:'ホワイトボード',    icon:'fa-chalkboard',        w:1.5, d:0.04, h:1.4,  colorIdx:1,  build:buildWhiteboard },
+  { id:'whiteboard', cat:'office',  name:'ホワイトボード',    icon:'fa-chalkboard',        w:1.5, d:0.04, h:1.4,  colorIdx:1,  build:buildWhiteboard, wallMount:true },
   { id:'filingcab',  cat:'office',  name:'ファイリングキャビネット', icon:'fa-folder',     w:0.46,d:0.62, h:1.32, colorIdx:10, build:buildFilingCabinet },
   { id:'reception',  cat:'office',  name:'受付カウンター',    icon:'fa-concierge-bell',    w:2.4, d:0.7,  h:1.1,  colorIdx:1,  build:buildReceptionCounter },
   // ---- museum ----
   { id:'displaycase',cat:'museum',  name:'展示ケース',        icon:'fa-box-open',          w:0.88,d:0.52, h:1.3,  colorIdx:10, build:buildDisplayCase },
   { id:'pedestal',   cat:'museum',  name:'展示台',            icon:'fa-chess-rook',        w:0.5, d:0.5,  h:1.05, colorIdx:1,  build:buildPedestal },
-  { id:'infopanel',  cat:'museum',  name:'解説パネル',        icon:'fa-sign-hanging',      w:0.76,d:0.03, h:1.5,  colorIdx:1,  build:buildInfoPanel },
+  { id:'infopanel',  cat:'museum',  name:'解説パネル',        icon:'fa-sign-hanging',      w:0.76,d:0.03, h:1.5,  colorIdx:1,  build:buildInfoPanel, wallMount:true },
   // ---- shop ----
   { id:'shelfrack',  cat:'shop',    name:'商品棚',            icon:'fa-shelves',           w:1.2, d:0.5,  h:1.9,  colorIdx:1,  build:buildShelfRack },
   { id:'register',   cat:'shop',    name:'レジカウンター',    icon:'fa-cash-register',     w:1.2, d:0.65, h:0.9,  colorIdx:1,  build:buildRegisterCounter },
@@ -1641,31 +1711,47 @@ const FURNITURE_DEFS = [
   { id:'milling',    cat:'lab',     name:'フライス盤',        icon:'fa-screwdriver-wrench',w:1.2,  d:1.1,  h:1.95, colorIdx:6,  build:buildMillingMachine },
   { id:'drillpress', cat:'lab',     name:'ボール盤',          icon:'fa-arrow-down-long',   w:0.6,  d:0.7,  h:1.75, colorIdx:6,  build:buildDrillPress },
   { id:'grinder',    cat:'lab',     name:'グラインダー',      icon:'fa-circle-notch',      w:0.7,  d:0.45, h:1.25, colorIdx:6,  build:buildBenchGrinder },
-  { id:'toolrack',   cat:'lab',     name:'工具ラック',        icon:'fa-toolbox',           w:1.0,  d:0.12, h:1.2,  colorIdx:2,  build:buildToolRack },
+  { id:'toolrack',   cat:'lab',     name:'工具ラック',        icon:'fa-toolbox',           w:1.0,  d:0.12, h:1.2,  colorIdx:2,  build:buildToolRack, wallMount:true },
 ];
 
 // ============================================================ FURNITURE BUILDERS
 function buildSofa3({ color='#c8a06a', w=2.2, d=0.95, h=0.85 } = {}) {
   const g = new THREE.Group();
-  const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.7);
-  const base = box(w, 0.24, d, fabric, 0, 0.14, 0); base.userData.colorable = true; g.add(base);
-  const cushW = (w - 0.1) / 3;
+  const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.7), accent = fabricMat(shade(color, 0.82));
+  // soft base with apron
+  const base = new THREE.Mesh(roundedBoxGeom(w, 0.26, d, 0.08, 4), fabric); base.position.set(0, 0.16, 0); base.castShadow = base.receiveShadow = true; base.userData.colorable = true; g.add(base);
+  // seat cushions (rounded)
+  const cushW = (w - 0.12) / 3;
   for (let i = 0; i < 3; i++) {
-    const cx = -w/2 + cushW/2 + 0.05 + i*cushW;
-    const c = box(cushW - 0.05, 0.2, d - 0.12, fabric, cx, 0.33, 0.04); c.userData.colorable = true; g.add(c);
+    const cx = -w/2 + cushW/2 + 0.06 + i*cushW;
+    const c = new THREE.Mesh(roundedBoxGeom(cushW - 0.04, 0.22, d - 0.18, 0.07, 4), fabric); c.position.set(cx, 0.36, 0.05); c.castShadow = true; c.userData.colorable = true; g.add(c);
   }
-  const back = box(w, h - 0.22, 0.24, fabric, 0, 0.24 + (h-0.22)/2, -d/2 + 0.12); back.userData.colorable = true; g.add(back);
-  [-w/2 + 0.11, w/2 - 0.11].forEach(x => { const a = box(0.2, h - 0.1, d, fabric, x, (h-0.1)/2 + 0.06, 0); a.userData.colorable = true; g.add(a); });
-  [[-w/2+0.12,d/2-0.12],[-w/2+0.12,-(d/2-0.12)],[w/2-0.12,d/2-0.12],[w/2-0.12,-(d/2-0.12)]].forEach(([lx,lz]) => g.add(box(0.08,0.08,0.08,wood,lx,0.04,lz)));
+  // back cushions (rounded, separate per seat)
+  for (let i = 0; i < 3; i++) {
+    const cx = -w/2 + cushW/2 + 0.06 + i*cushW;
+    const bc = new THREE.Mesh(roundedBoxGeom(cushW - 0.04, h - 0.34, 0.2, 0.07, 4), fabric); bc.position.set(cx, 0.28 + (h-0.34)/2, -d/2 + 0.16); bc.castShadow = true; bc.userData.colorable = true; g.add(bc);
+  }
+  // back support panel behind cushions
+  const back = box(w, h - 0.26, 0.16, accent, 0, 0.26 + (h-0.26)/2, -d/2 + 0.08); back.userData.colorable = true; g.add(back);
+  // rolled arms
+  [-w/2 + 0.12, w/2 - 0.12].forEach(x => {
+    const a = new THREE.Mesh(roundedBoxGeom(0.22, h - 0.12, d, 0.1, 4), fabric); a.position.set(x, (h-0.12)/2 + 0.08, 0); a.castShadow = true; a.userData.colorable = true; g.add(a);
+  });
+  // throw pillows for a cozy look
+  [[-w/2 + 0.42, 0.5, '#d96a5b'], [w/2 - 0.42, 0.52, '#5b86b8']].forEach(([px, py, pc]) => {
+    const pil = new THREE.Mesh(roundedBoxGeom(0.34, 0.34, 0.12, 0.06, 4), fabricMat(pc)); pil.position.set(px, py, -d/2 + 0.3); pil.rotation.z = px < 0 ? 0.12 : -0.12; pil.castShadow = true; g.add(pil);
+  });
+  [[-w/2+0.13,d/2-0.13],[-w/2+0.13,-(d/2-0.13)],[w/2-0.13,d/2-0.13],[w/2-0.13,-(d/2-0.13)]].forEach(([lx,lz]) => { const leg = cyl(0.04, 0.05, 0.1, 8, wood); leg.position.set(lx, 0.05, lz); g.add(leg); });
   return g;
 }
 function buildArmchair({ color='#c8a06a', w=0.9, d=0.85, h=0.9 } = {}) {
   const g = new THREE.Group(); const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.7);
-  const base = box(w, 0.22, d, fabric, 0, 0.13, 0); base.userData.colorable = true; g.add(base);
-  const seat = box(w - 0.12, 0.2, d - 0.14, fabric, 0, 0.32, 0.04); seat.userData.colorable = true; g.add(seat);
-  const back = box(w, h - 0.2, 0.22, fabric, 0, 0.2 + (h-0.2)/2, -d/2 + 0.11); back.userData.colorable = true; g.add(back);
-  [-w/2+0.11, w/2-0.11].forEach(x => { const a = box(0.18, h-0.12, d, fabric, x, (h-0.12)/2+0.06, 0); a.userData.colorable = true; g.add(a); });
-  [[-w/2+0.1,d/2-0.1],[-w/2+0.1,-(d/2-0.1)],[w/2-0.1,d/2-0.1],[w/2-0.1,-(d/2-0.1)]].forEach(([lx,lz]) => g.add(box(0.07,0.08,0.07,wood,lx,0.04,lz)));
+  const base = new THREE.Mesh(roundedBoxGeom(w, 0.24, d, 0.08, 4), fabric); base.position.set(0, 0.15, 0); base.castShadow = base.receiveShadow = true; base.userData.colorable = true; g.add(base);
+  const seat = new THREE.Mesh(roundedBoxGeom(w - 0.16, 0.2, d - 0.18, 0.07, 4), fabric); seat.position.set(0, 0.34, 0.05); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  const backC = new THREE.Mesh(roundedBoxGeom(w - 0.16, h - 0.34, 0.18, 0.07, 4), fabric); backC.position.set(0, 0.28 + (h-0.34)/2, -d/2 + 0.16); backC.castShadow = true; backC.userData.colorable = true; g.add(backC);
+  const back = box(w, h - 0.26, 0.14, fabric, 0, 0.26 + (h-0.26)/2, -d/2 + 0.08); back.userData.colorable = true; g.add(back);
+  [-w/2+0.11, w/2-0.11].forEach(x => { const a = new THREE.Mesh(roundedBoxGeom(0.2, h-0.16, d, 0.09, 4), fabric); a.position.set(x, (h-0.16)/2+0.08, 0); a.castShadow = true; a.userData.colorable = true; g.add(a); });
+  [[-w/2+0.11,d/2-0.11],[-w/2+0.11,-(d/2-0.11)],[w/2-0.11,d/2-0.11],[w/2-0.11,-(d/2-0.11)]].forEach(([lx,lz]) => { const leg = cyl(0.035, 0.045, 0.1, 8, wood); leg.position.set(lx, 0.05, lz); g.add(leg); });
   return g;
 }
 function buildDiningChair({ color='#5b5048', w=0.48, d=0.48, h=0.9 } = {}) {
@@ -1725,13 +1811,23 @@ function buildSideTable({ color='#f3ece0', w=0.5, d=0.5, h=0.55 } = {}) {
 }
 function buildBed({ color='#f3ece0', w=1.0, d=2.1, h=0.55, double=false } = {}) {
   const g = new THREE.Group();
-  const frame = mat('#8a6b48', 0.7), fabric = fabricMat(color), pillow = fabricMat('#fbf7ef'), sheet = fabricMat('#fdfaf3');
+  const frame = mat('#8a6b48', 0.65, 0.02, { env: 0.3 }), fabric = fabricMat(color), pillow = fabricMat('#fbf7ef'), sheet = fabricMat('#fdfaf3');
+  // base frame + slats
   g.add(box(w, 0.2, d, frame, 0, 0.1, 0));
-  const m = box(w-0.06, 0.18, d-0.26, sheet, 0, 0.28, 0.06); g.add(m);
-  const blank = box(w-0.04, 0.12, d*0.55, fabric, 0, 0.39, 0.3); blank.userData.colorable = true; g.add(blank);
-  const pw = double ? w/2 - 0.08 : w - 0.12, pc = double ? 2 : 1;
-  for (let i = 0; i < pc; i++) { const px = double ? (i===0 ? -pw/2-0.03 : pw/2+0.03) : 0; g.add(box(pw, 0.12, 0.36, pillow, px, 0.38, -d/2+0.24)); }
-  g.add(box(w, h, 0.1, frame, 0, h/2, -d/2+0.05));
+  // mattress (rounded, plush)
+  const m = new THREE.Mesh(roundedBoxGeom(w-0.04, 0.2, d-0.22, 0.06, 4), sheet); m.position.set(0, 0.29, 0.04); m.castShadow = m.receiveShadow = true; g.add(m);
+  // duvet / blanket covering lower ~55% with a turned-down fold
+  const blank = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.14, d*0.55, 0.05, 4), fabric); blank.position.set(0, 0.4, 0.28); blank.castShadow = true; blank.userData.colorable = true; g.add(blank);
+  const fold = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.1, 0.18, 0.04, 3), fabricMat(shade(color, 1.08))); fold.position.set(0, 0.43, d*0.55/2 + 0.18); fold.rotation.x = -0.25; fold.userData.colorable = true; g.add(fold);
+  // pillows (plush rounded)
+  const pw = double ? w/2 - 0.08 : w - 0.18, pc = double ? 2 : 1;
+  for (let i = 0; i < pc; i++) {
+    const px = double ? (i===0 ? -pw/2-0.04 : pw/2+0.04) : 0;
+    const p = new THREE.Mesh(roundedBoxGeom(pw, 0.14, 0.4, 0.08, 4), pillow); p.position.set(px, 0.4, -d/2+0.3); p.rotation.x = 0.08; p.castShadow = true; g.add(p);
+  }
+  // headboard (taller, padded) + footboard
+  const hb = new THREE.Mesh(roundedBoxGeom(w, h+0.18, 0.12, 0.05, 3), frame); hb.position.set(0, (h+0.18)/2, -d/2+0.06); hb.castShadow = true; g.add(hb);
+  g.add(new THREE.Mesh(roundedBoxGeom(w-0.14, h-0.1, 0.06, 0.04, 3), fabricMat(shade(color,0.92))).translateY((h)/2+0.02).translateZ(-d/2+0.13));
   g.add(box(w, 0.26, 0.08, frame, 0, 0.13, d/2-0.04));
   [[-w/2+0.07,d/2-0.08],[-w/2+0.07,-d/2+0.08],[w/2-0.07,d/2-0.08],[w/2-0.07,-d/2+0.08]].forEach(([lx,lz]) => g.add(box(0.08,0.08,0.08,frame,lx,0.04,lz)));
   return g;
@@ -1798,22 +1894,41 @@ function buildFloorLamp({ color='#8a6fb0' } = {}) {
   return g;
 }
 function buildPlant({ color='#6f9e74' } = {}) {
-  const g = new THREE.Group(); const pot = mat('#b9714a', 0.75), earth = mat('#3d2b1f', 0.95), leaf = mat(color, 0.8);
-  g.add(cylAt(0.13, 0.1, 0.24, 16, pot, 0, 0.12, 0));
-  g.add(cylAt(0.12, 0.12, 0.02, 16, earth, 0, 0.24, 0));
-  g.add(cylAt(0.04, 0.055, 0.8, 8, mat('#5c3d1e', 0.8), 0, 0.64, 0));
-  [[0,1.16,0,0.18],[0.16,1.0,0.1,0.15],[-0.18,1.06,-0.05,0.16],[0.06,1.28,-0.14,0.13],[0,0.9,0.18,0.14],[-0.1,1.2,0.12,0.12]].forEach(([x,y,z,r]) => {
-    const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), leaf.clone()); lf.position.set(x,y,z); lf.castShadow = true; lf.receiveShadow = true; lf.userData.colorable = true; g.add(lf);
+  const g = new THREE.Group(); const pot = mat('#d8c5a8', 0.85), potRim = mat('#c7b393', 0.85), earth = mat('#3d2b1f', 0.98), leaf = mat(color, 0.78);
+  // tapered ceramic pot with rim
+  const potMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.1, 0.26, 20), pot); potMesh.position.y = 0.13; potMesh.castShadow = potMesh.receiveShadow = true; g.add(potMesh);
+  g.add(cylAt(0.16, 0.15, 0.04, 20, potRim, 0, 0.25, 0));
+  g.add(cylAt(0.14, 0.14, 0.02, 16, earth, 0, 0.26, 0));
+  // trunk
+  g.add(cylAt(0.035, 0.05, 0.55, 8, mat('#5c3d1e', 0.8), 0, 0.52, 0));
+  // fuller, layered foliage with slight per-leaf color variation
+  const positions = [
+    [0,1.12,0,0.2],[0.18,0.98,0.1,0.17],[-0.2,1.04,-0.05,0.18],[0.08,1.3,-0.14,0.15],
+    [0,0.88,0.2,0.16],[-0.12,1.22,0.13,0.14],[0.22,1.16,-0.06,0.15],[-0.16,0.84,0.06,0.14],
+    [0.12,0.78,-0.12,0.13],[0,1.4,0.02,0.13],[0.26,0.92,0.08,0.12],[-0.24,1.12,0.1,0.12]
+  ];
+  positions.forEach(([x,y,z,r], i) => {
+    const lm = leaf.clone(); lm.color = new THREE.Color(shade(color, 0.85 + (i%4)*0.08));
+    const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), lm);
+    lf.position.set(x,y,z); lf.scale.y = 1.25; lf.rotation.set(Math.random()*0.4, i, Math.random()*0.4);
+    lf.castShadow = true; lf.receiveShadow = true; lf.userData.colorable = true; g.add(lf);
   });
   return g;
 }
-function buildTV({ color='#3a332b', w=1.4, h=0.85 } = {}) {
-  const g = new THREE.Group(); const frame = mat(color, 0.4, 0.4, { env: 0.6 }), screen = mat('#0d1117', 0.1, 0.2), chrome = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
-  const body = box(w, h, 0.06, frame, 0, h/2+0.25, 0); body.userData.colorable = true; g.add(body);
-  g.add(box(w-0.06, h-0.06, 0.02, screen, 0, h/2+0.25, 0.03));
-  const glow = new THREE.Mesh(new THREE.PlaneGeometry(w-0.08, h-0.08), new THREE.MeshBasicMaterial({ color: 0x24405f, transparent: true, opacity: 0.65 })); glow.position.set(0, h/2+0.25, 0.042); g.add(glow);
-  g.add(box(0.24, 0.04, 0.2, chrome, 0, 0.02, 0));
-  g.add(box(0.06, 0.25, 0.06, chrome, 0, 0.14, 0));
+function buildTV({ color='#1c1c1f', w=1.4, h=0.85 } = {}) {
+  const g = new THREE.Group(); const frame = mat(color, 0.35, 0.45, { env: 0.7 }), screen = mat('#08090c', 0.08, 0.25), chrome = mat('#9aa0a4', 0.22, 0.85, { env: 1.0 });
+  const cy = h/2 + 0.25;
+  // ultra-thin bezel body
+  const body = box(w, h, 0.04, frame, 0, cy, 0); body.userData.colorable = true; g.add(body);
+  g.add(box(w-0.03, h-0.03, 0.015, screen, 0, cy, 0.025));
+  // screen image glow (subtle gradient feel via two planes)
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(w-0.05, h-0.05), new THREE.MeshBasicMaterial({ color: 0x2c4a6a, transparent: true, opacity: 0.6 })); glow.position.set(0, cy, 0.034); g.add(glow);
+  const glow2 = new THREE.Mesh(new THREE.PlaneGeometry((w-0.05)*0.5, (h-0.05)*0.6), new THREE.MeshBasicMaterial({ color: 0x6a90c0, transparent: true, opacity: 0.35 })); glow2.position.set(-w*0.12, cy+0.04, 0.036); g.add(glow2);
+  // brand strip
+  g.add(box(0.12, 0.012, 0.005, chrome, 0, 0.27, 0.026));
+  // pedestal stand
+  g.add(box(0.5, 0.025, 0.26, chrome, 0, 0.012, 0));
+  g.add(box(0.06, 0.25, 0.05, frame, 0, 0.14, 0));
   return g;
 }
 function buildRug({ color='#3f5d7a', w=2.0, d=1.5 } = {}) {
@@ -2150,13 +2265,19 @@ function buildFridge({ color='#e8e2d6', w=0.7, d=0.7, h=1.8 } = {}) {
   g.add(cylAt(0.015,0.015,h-split-0.3,10,metal,-w/2+0.08,split+(h-split)/2,d/2+0.03));
   return g;
 }
-function buildWallTV({ color='#3a332b', w=1.3, d=0.08, h=0.8 } = {}) {
-  const g = new THREE.Group(); const frame = mat(color, 0.4, 0.4, { env: 0.6 }), screen = mat('#0d1117', 0.1, 0.2), metal = mat('#555', 0.4, 0.5);
-  const cy = 1.35; // mounted height
-  g.add(box(0.25, 0.25, 0.06, metal, 0, cy, -0.02)); // wall bracket
-  const body = box(w, h, 0.05, frame, 0, cy, 0.03); body.userData.colorable = true; g.add(body);
-  g.add(box(w-0.05, h-0.05, 0.02, screen, 0, cy, 0.06));
-  const glow = new THREE.Mesh(new THREE.PlaneGeometry(w-0.07, h-0.07), new THREE.MeshBasicMaterial({ color: 0x24405f, transparent: true, opacity: 0.65 })); glow.position.set(0, cy, 0.072); g.add(glow);
+function buildWallTV({ color='#1c1c1f', w=1.3, d=0.08, h=0.8 } = {}) {
+  const g = new THREE.Group(); const frame = mat(color, 0.3, 0.5, { env: 0.7 }), screen = mat('#08090c', 0.08, 0.25), metal = mat('#444', 0.4, 0.6);
+  const cy = 1.35; // mounted height above floor
+  // VESA wall mount
+  g.add(box(0.22, 0.22, 0.04, metal, 0, cy, -0.02));
+  g.add(box(0.04, 0.18, 0.03, metal, 0, cy, 0.0));
+  // ultra-thin panel
+  const body = box(w, h, 0.035, frame, 0, cy, 0.04); body.userData.colorable = true; g.add(body);
+  g.add(box(w-0.025, h-0.025, 0.012, screen, 0, cy, 0.06));
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(w-0.04, h-0.04), new THREE.MeshBasicMaterial({ color: 0x2c4a6a, transparent: true, opacity: 0.6 })); glow.position.set(0, cy, 0.067); g.add(glow);
+  const glow2 = new THREE.Mesh(new THREE.PlaneGeometry((w-0.04)*0.45, (h-0.04)*0.55), new THREE.MeshBasicMaterial({ color: 0x6a90c0, transparent: true, opacity: 0.32 })); glow2.position.set(-w*0.14, cy+0.05, 0.069); g.add(glow2);
+  // soundbar below
+  g.add(box(w*0.7, 0.05, 0.06, mat('#2a2a2e', 0.5, 0.2), 0, cy - h/2 - 0.08, 0.04));
   return g;
 }
 
@@ -2181,6 +2302,37 @@ function getHitFurniture(e) {
 function clampToRoom(pos, def) {
   const hw = roomW/2, hd = roomD/2, hw2 = (def.w||1)/2, hd2 = (def.d||1)/2;
   return new THREE.Vector3(clamp(pos.x, -hw+hw2, hw-hw2), 0, clamp(pos.z, -hd+hd2, hd-hd2));
+}
+
+// Snap a wall-mount item (TV, whiteboard, panel...) flat against the nearest
+// wall segment, oriented so its front (+z) faces into the room. Returns
+// { pos: Vector3, rotY: degrees } or null when no wall is within reach.
+function snapToWall(point, def, maxDist = 1.6) {
+  if (!roomPlan || !roomPlan.walls) return null;
+  let best = null;
+  roomPlan.walls.forEach(wall => {
+    if (wall.type === 'glass' || wall.type === 'door') return; // can't mount on glass/door spans
+    const dx = wall.x2 - wall.x1, dz = wall.z2 - wall.z1;
+    const len = Math.hypot(dx, dz); if (len < 0.3) return;
+    const ux = dx / len, uz = dz / len;
+    // project point onto the segment
+    let t = ((point.x - wall.x1) * ux + (point.z - wall.z1) * uz);
+    const halfItem = (def.w || 1) / 2;
+    t = clamp(t, halfItem, len - halfItem);
+    if (t < 0 || t > len) return;
+    const px = wall.x1 + ux * t, pz = wall.z1 + uz * t;
+    const dist = Math.hypot(point.x - px, point.z - pz);
+    if (dist > maxDist) return;
+    if (!best || dist < best.dist) best = { dist, px, pz, ux, uz, wall };
+  });
+  if (!best) return null;
+  // wall normal pointing toward the side the cursor is on
+  let nx = best.uz, nz = -best.ux;
+  if ((point.x - best.px) * nx + (point.z - best.pz) * nz < 0) { nx = -nx; nz = -nz; }
+  const off = WALL_T / 2 + (def.d || 0.1) / 2 + 0.005;
+  const pos = new THREE.Vector3(best.px + nx * off, 0, best.pz + nz * off);
+  const rotY = Math.atan2(nx, nz) * 180 / Math.PI;
+  return { pos, rotY };
 }
 
 // For stackable items: cast a ray straight down at (x,z) and return the top
@@ -3566,9 +3718,18 @@ canvas.addEventListener('pointermove', e => {
   if (state === 'PLACING' && ghostGroup) {
     const pt = getFloorPoint(e);
     if (pt) {
-      const s = clampToRoom(snapToGrid(pt), currentDef);
-      if (currentDef.stack) s.y = computeRestY(s.x, s.z, null);
-      ghostGroup.position.copy(s); ghostGroup.rotation.y = (ghostRotOffset*Math.PI)/180; ghostGroup.visible = true;
+      let snap = currentDef.wallMount ? snapToWall(pt, currentDef) : null;
+      if (snap) {
+        ghostGroup.position.copy(snap.pos);
+        ghostGroup.rotation.y = (snap.rotY * Math.PI) / 180;
+        ghostPlacement = { pos: snap.pos.clone(), rotY: snap.rotY };
+      } else {
+        const s = clampToRoom(snapToGrid(pt), currentDef);
+        if (currentDef.stack) s.y = computeRestY(s.x, s.z, null);
+        ghostGroup.position.copy(s); ghostGroup.rotation.y = (ghostRotOffset*Math.PI)/180;
+        ghostPlacement = { pos: s.clone(), rotY: ghostRotOffset };
+      }
+      ghostGroup.visible = true;
     }
   }
   if (pointerDown && grabbed && selectedGroup) {
@@ -3579,8 +3740,16 @@ canvas.addEventListener('pointermove', e => {
       if (pt) {
         const item = placedItems.find(i => i.group === selectedGroup);
         const def = item ? FURNITURE_DEFS.find(d => d.id === item.defId) : null;
-        let np = pt.clone().sub(dragOffset); np.y = 0; if (def) np = clampToRoom(snapToGrid(np), def);
-        if (def && def.stack) np.y = computeRestY(np.x, np.z, selectedGroup);
+        const wallSnap = def && def.wallMount ? snapToWall(pt.clone().sub(dragOffset), def) : null;
+        let np;
+        if (wallSnap) {
+          np = wallSnap.pos;
+          selectedGroup.rotation.y = (wallSnap.rotY * Math.PI) / 180;
+          if (item) item.rotY = wallSnap.rotY;
+        } else {
+          np = pt.clone().sub(dragOffset); np.y = 0; if (def) np = clampToRoom(snapToGrid(np), def);
+          if (def && def.stack) np.y = computeRestY(np.x, np.z, selectedGroup);
+        }
         selectedGroup.position.copy(np); if (item) item.position.copy(np);
         selectionRing.position.set(np.x, 0.03, np.z);
         document.getElementById('pos-x').textContent = np.x.toFixed(1) + 'm';
@@ -3600,7 +3769,8 @@ canvas.addEventListener('pointerup', e => {
   }
   if (isClick) {
     if (state === 'PLACING' && currentDef && ghostGroup && ghostGroup.visible) {
-      placeFurniture(currentDef, ghostGroup.position.clone(), ghostRotOffset, COLORS[currentDef.colorIdx] || '#c8a06a');
+      const rot = ghostPlacement ? ghostPlacement.rotY : ghostRotOffset;
+      placeFurniture(currentDef, ghostGroup.position.clone(), rot, COLORS[currentDef.colorIdx] || '#c8a06a');
       setStatus('配置モード: ' + currentDef.name + ' (続けて配置できます)', 'busy');
     } else if (state !== 'PLACING' && !grabbed) {
       if (!getHitFurniture(e)) deselect();
@@ -3747,12 +3917,25 @@ function drawEditor() {
   roomPlan.walls.forEach(wall => {
     const wType = wall.type || 'wall';
     const a = worldToScreen(wall.x1, wall.z1), b = worldToScreen(wall.x2, wall.z2);
-    const wallColor = wType === 'glass' ? '#5ba4c8' : wType === 'window' ? '#7a8fa0' : '#5b5048';
-    const wallLW = wType === 'glass' ? 3 : 5;
+    const wallColor = wType === 'glass' ? '#5ba4c8' : wType === 'window' ? '#7a8fa0'
+                    : wType === 'door' ? '#b9925e' : wType === 'half' ? '#a98b5a' : '#5b5048';
+    const wallLW = wType === 'glass' ? 3 : wType === 'half' ? 4 : 5;
     ctx.strokeStyle = wallColor; ctx.lineWidth = wallLW; ctx.lineCap = 'round';
     if (wType === 'glass') ctx.setLineDash([8, 4]);
+    else if (wType === 'half') ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     ctx.setLineDash([]);
+    // door wall: draw a swing arc to indicate it's a door unit
+    if (wType === 'door') {
+      const len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
+      if (len > 0.01) {
+        const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len;
+        const hx = wall.x1 + ux * 0.02, hz = wall.z1 + uz * 0.02;
+        const ph = worldToScreen(hx, hz);
+        ctx.strokeStyle = '#b9925e'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(ph.x, ph.y, Math.min(len, 1.0) * editorScale, 0, Math.PI / 2); ctx.stroke();
+      }
+    }
     // openings (backward compat: fall back to doors)
     const ops = wall.openings || (wall.doors || []).map(d => ({ t: d.t, w: d.w, kind: 'door' }));
     ops.forEach(dr => {
@@ -3854,7 +4037,7 @@ edCanvas.addEventListener('pointerdown', e => {
     const hit = edFindWall(w.x, w.z, 14);
     if (hit) {
       const wall = roomPlan.walls[hit.index];
-      const types = ['wall', 'glass', 'window'];
+      const types = ['wall', 'glass', 'window', 'door', 'half'];
       wall.type = types[(types.indexOf(wall.type || 'wall') + 1) % types.length];
       syncPlanTo3D();
     }
