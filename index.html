@@ -371,6 +371,48 @@ body {
 #no-webgl h1 { font-size: 20px; font-weight: 700; }
 #no-webgl p { color: var(--text-secondary); max-width: 420px; font-size: 14px; line-height: 1.7; }
 
+/* Save status indicator */
+.save-status {
+  display: flex; align-items: center; gap: 5px; font-size: 11px;
+  color: var(--text-inv-muted); padding: 0 var(--sp-2); height: 26px;
+  border-radius: var(--r-sm); transition: all 0.3s;
+}
+.save-status.saving { color: var(--warning); }
+.save-status.saved { color: var(--accent); }
+.save-status i { font-size: 10px; }
+.save-status.saving i { animation: spin 1s linear infinite; }
+
+/* Category tab count badges */
+.cat-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: var(--sidebar-border); color: var(--text-inv-muted);
+  border-radius: 8px; font-size: 9px; font-weight: 700;
+  margin-left: 3px; transition: all 0.15s;
+}
+.cat-tab.active .cat-count { background: var(--accent-dark); color: white; }
+
+/* Improved empty state */
+.props-shortcuts { padding: var(--sp-4); border-top: 1px solid var(--border); }
+.props-shortcuts h3 { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--sp-3); }
+.shortcut-row { display: flex; align-items: center; gap: var(--sp-3); padding: 4px 0; }
+.shortcut-row kbd { background: var(--bg-panel-alt); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-family: monospace; color: var(--text-secondary); white-space: nowrap; }
+.shortcut-row span { font-size: 11px; color: var(--text-muted); }
+
+/* IDB restore banner */
+.restore-banner {
+  position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+  display: flex; align-items: center; gap: var(--sp-3);
+  box-shadow: var(--shadow-lg); z-index: 500; font-size: 12px;
+  animation: modal-in 0.25s ease;
+}
+.restore-banner .rb-text { flex: 1; }
+.restore-banner .rb-btns { display: flex; gap: var(--sp-2); }
+.restore-banner button { height: 28px; padding: 0 var(--sp-3); border-radius: var(--r-sm); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-alt); color: var(--text-secondary); }
+.restore-banner button.rb-restore { background: var(--accent); border-color: var(--accent); color: white; }
+
 .hidden { display: none !important; }
 [data-tip] { position: relative; }
 #global-tooltip { position: fixed; background: rgba(47,42,34,0.93); color: #fff; padding: 5px 10px; border-radius: 7px; font-size: 11px; white-space: nowrap; pointer-events: none; z-index: 9999; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.22); transition: opacity 0.08s; }
@@ -444,6 +486,7 @@ body {
       <button class="tb-btn" id="btn-load" data-tip="読み込む"><i class="fa-solid fa-folder-open"></i></button>
       <button class="tb-btn" id="btn-save" data-tip="保存"><i class="fa-solid fa-floppy-disk"></i></button>
       <button class="tb-btn" id="btn-screenshot" data-tip="スクリーンショット"><i class="fa-solid fa-camera"></i></button>
+      <div id="save-status" class="save-status saved" data-tip="自動保存状態"><i class="fa-solid fa-cloud-arrow-up"></i> <span id="save-status-text">保存済み</span></div>
       <input type="file" id="file-input" accept=".json" style="display:none">
     </div>
   </header>
@@ -502,6 +545,14 @@ body {
         <i class="fa-regular fa-hand-pointer"></i>
         <p>家具を選択するとプロパティが表示されます</p>
         <p style="font-size:11px;color:var(--text-muted)">カタログから家具を選んで配置、<br>または「プリセット」で間取りを呼び出せます</p>
+      </div>
+      <div class="props-shortcuts" id="props-shortcuts">
+        <h3><i class="fa-solid fa-keyboard"></i> キーボードショートカット</h3>
+        <div class="shortcut-row"><kbd>R</kbd><span>選択アイテムを回転</span></div>
+        <div class="shortcut-row"><kbd>Del</kbd><span>選択アイテムを削除</span></div>
+        <div class="shortcut-row"><kbd>Ctrl+Z</kbd><span>元に戻す</span></div>
+        <div class="shortcut-row"><kbd>Ctrl+Y</kbd><span>やり直し</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd><span>配置キャンセル / 選択解除</span></div>
       </div>
       <div class="props-panel" id="props-panel">
         <div class="props-header">
@@ -1094,6 +1145,218 @@ function makeLawnTexture() {
   return t;
 }
 
+// ヘリンボーンパーケット (herringbone parquet)
+function makeParquetTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(0, 0, s, s);
+  const pw = 80, ph = 24; // plank cell
+  const colors = ['#b07840','#8c5e2a','#c49050','#9a6835','#d4a868'];
+  for (let row = -2; row < s/ph + 2; row++) {
+    for (let col = -2; col < s/pw + 2; col++) {
+      const even = (row + col) % 2 === 0;
+      ctx.save();
+      const cx = col * pw + (even ? 0 : ph), cy = row * ph;
+      ctx.translate(cx + pw/2, cy + ph/2);
+      ctx.rotate(even ? 0 : Math.PI/2);
+      const cl = colors[Math.abs(row * 7 + col * 3) % colors.length];
+      const f = 0.92 + Math.random()*0.14;
+      ctx.fillStyle = shade(cl, f);
+      ctx.fillRect(-pw/2 + 1, -ph/2 + 1, pw - 2, ph - 2);
+      // grain lines
+      for (let g = 0; g < 5; g++) {
+        ctx.strokeStyle = `rgba(60,30,10,${0.04+Math.random()*0.05})`;
+        ctx.lineWidth = 0.5; ctx.beginPath();
+        const gy = -ph/2 + 3 + g * (ph - 4)/4;
+        ctx.moveTo(-pw/2 + 1, gy); ctx.lineTo(pw/2 - 1, gy + (Math.random()-0.5)*2); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,220,160,0.08)'; ctx.fillRect(-pw/2+1, -ph/2+1, pw-2, 2);
+      ctx.restore();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// ダーク木目フローリング
+function makeDarkWoodTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  const base = '#3a2414';
+  ctx.fillStyle = base; ctx.fillRect(0, 0, s, s);
+  const planks = 6, ph = s / planks;
+  for (let i = 0; i < planks; i++) {
+    const y = i * ph;
+    const f = 0.88 + Math.random()*0.24;
+    ctx.fillStyle = shade(base, f); ctx.fillRect(0, y, s, ph - 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, y + ph - 2, s, 2);
+    ctx.fillStyle = 'rgba(200,160,100,0.10)'; ctx.fillRect(0, y, s, 1);
+    for (let g = 0; g < 20; g++) {
+      ctx.strokeStyle = `rgba(${100+Math.random()*40|0},${60+Math.random()*30|0},${20+Math.random()*20|0},${0.04+Math.random()*0.07})`;
+      ctx.lineWidth = 1; ctx.beginPath();
+      const gy = y + Math.random()*ph;
+      ctx.moveTo(0, gy);
+      for (let x = 0; x <= s; x += 20) ctx.lineTo(x, gy + Math.sin(x*0.04+g)*2 + (Math.random()-0.5)*1.5);
+      ctx.stroke();
+    }
+    if (Math.random() < 0.4) {
+      const kx = Math.random()*s, ky = y + ph*0.5, r = 5+Math.random()*8;
+      const gr = ctx.createRadialGradient(kx,ky,1,kx,ky,r);
+      gr.addColorStop(0,'rgba(30,15,5,0.6)'); gr.addColorStop(1,'rgba(30,15,5,0)');
+      ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(kx,ky,r,0,7); ctx.fill();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// ゴム床 (工場用クッション床)
+function makeRubberTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#252525'; ctx.fillRect(0, 0, s, s);
+  // raised dot pattern
+  const sp = 24;
+  for (let x = sp/2; x < s; x += sp) for (let y = sp/2; y < s; y += sp) {
+    const gr = ctx.createRadialGradient(x,y,1,x,y,sp/2-2);
+    gr.addColorStop(0,'rgba(80,80,80,0.7)'); gr.addColorStop(0.5,'rgba(50,50,50,0.4)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x,y,sp/2-2,0,7); ctx.fill();
+  }
+  for (let i=0; i<200; i++) {
+    const v = 35+Math.random()*20;
+    ctx.fillStyle = `rgba(${v},${v},${v},0.3)`;
+    ctx.fillRect(Math.random()*s, Math.random()*s, 1+Math.random()*2, 1+Math.random()*2);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// 縞鋼板 (チェッカープレート)
+function makeCheckerPlateTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#707880'; ctx.fillRect(0, 0, s, s);
+  // diagonal raised ribs
+  const sp = 28;
+  for (let d = -s; d < s*2; d += sp) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(180,190,200,0.7)'; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d + s, s); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(d+2, 0); ctx.lineTo(d + s+2, s); ctx.stroke();
+    ctx.strokeStyle = 'rgba(40,45,50,0.35)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(d+9, 0); ctx.lineTo(d + s+9, s); ctx.stroke();
+    ctx.restore();
+  }
+  for (let d = s*2; d > -s; d -= sp) {
+    ctx.strokeStyle = 'rgba(160,170,180,0.3)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d - s, s); ctx.stroke();
+  }
+  // base metal noise
+  for (let i=0; i<3000; i++) {
+    const v=160+Math.random()*60;
+    ctx.fillStyle = `rgba(${v},${v+5},${v+8},0.04)`;
+    ctx.fillRect(Math.random()*s, Math.random()*s, 1, 1);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// エポキシ塗床 (工場グリーン)
+function makeEpoxyTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#3a7040'; ctx.fillRect(0, 0, s, s);
+  // very subtle aggregate sparkle
+  for (let i=0; i<4000; i++) {
+    const v = Math.random();
+    ctx.fillStyle = `rgba(${v<0.3?200:60},${v<0.3?230:100},${v<0.3?210:50},${0.04+Math.random()*0.06})`;
+    ctx.fillRect(Math.random()*s, Math.random()*s, 1, 1);
+  }
+  // expansion joints
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 3;
+  for (let i=128; i<s; i+=128) {
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(s,i); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+  for (let i=128; i<s; i+=128) {
+    ctx.beginPath(); ctx.moveTo(i+2,0); ctx.lineTo(i+2,s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i+2); ctx.lineTo(s,i+2); ctx.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// テラコッタ六角タイル
+function makeTerracottaTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#8a5a3a'; ctx.fillRect(0, 0, s, s);
+  const r = 36, h = r * Math.sqrt(3);
+  for (let row = -1; row < s/h + 1; row++) {
+    for (let col = -1; col < s/(r*1.5) + 1; col++) {
+      const cx = col * r * 3 + (row % 2) * r * 1.5;
+      const cy = row * h;
+      const f = 0.88 + Math.random()*0.22;
+      const colors = ['#c8724a','#d4845a','#b8623c','#e09068','#aa5230'];
+      ctx.fillStyle = shade(colors[Math.abs(row*5+col*3)%colors.length], f);
+      ctx.beginPath();
+      for (let i=0; i<6; i++) {
+        const a = Math.PI/6 + i*Math.PI/3;
+        i===0 ? ctx.moveTo(cx+Math.cos(a)*(r-2), cy+Math.sin(a)*(r-2)) : ctx.lineTo(cx+Math.cos(a)*(r-2), cy+Math.sin(a)*(r-2));
+      }
+      ctx.closePath(); ctx.fill();
+      // highlight
+      ctx.fillStyle = 'rgba(255,200,150,0.07)';
+      ctx.beginPath();
+      for (let i=0; i<6; i++) { const a=Math.PI/6+i*Math.PI/3; i===0?ctx.moveTo(cx+Math.cos(a)*(r-2),cy+Math.sin(a)*(r-2)-1):ctx.lineTo(cx+Math.cos(a)*(r-2),cy+Math.sin(a)*(r-2)-1); }
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+// 石畳
+function makeStoneTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#7a7270'; ctx.fillRect(0, 0, s, s);
+  const stones = [];
+  for (let i=0; i<80; i++) {
+    stones.push({ x: Math.random()*s, y: Math.random()*s, rx: 22+Math.random()*28, ry: 16+Math.random()*22, a: Math.random()*Math.PI });
+  }
+  stones.forEach(st => {
+    const f = 0.82+Math.random()*0.28;
+    const base = 165+Math.random()*40;
+    ctx.save();
+    ctx.translate(st.x,st.y); ctx.rotate(st.a);
+    ctx.fillStyle = `rgb(${base*f|0},${(base-8)*f|0},${(base-15)*f|0})`;
+    ctx.beginPath(); ctx.ellipse(0,0,st.rx-2,st.ry-2,0,0,Math.PI*2); ctx.fill();
+    // texture speckles
+    for (let k=0; k<30; k++) {
+      const v=Math.random()<0.5?0.7:1.3;
+      ctx.fillStyle=`rgba(${base*v|0},${base*v|0},${base*v|0},0.08)`;
+      ctx.fillRect((Math.random()-0.5)*st.rx*1.5,(Math.random()-0.5)*st.ry*1.5,1.5,1.5);
+    }
+    // top highlight
+    ctx.fillStyle='rgba(255,255,255,0.12)';
+    ctx.beginPath(); ctx.ellipse(0,-st.ry*0.25,st.rx*0.6,st.ry*0.25,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
 const woodTex = makeWoodTexture();
 const concreteTex = makeConcreteTexture();
 const wallTexSrc = makeWallTexture();
@@ -1108,19 +1371,33 @@ const genkanTex = makeGenkanTexture();
 const dirtTex = makeDirtTexture();
 const grassTex = makeGrassTexture();
 const lawnTex = makeLawnTexture();
+const parquetTex = makeParquetTexture();
+const darkWoodTex = makeDarkWoodTexture();
+const rubberTex = makeRubberTexture();
+const checkerTex = makeCheckerPlateTexture();
+const epoxyTex = makeEpoxyTexture();
+const terracottaTex = makeTerracottaTexture();
+const stoneTex = makeStoneTexture();
 
 // Floor & wall material registries — single source of truth for the selectors
 const FLOOR_TYPES = {
-  wood:     { name: '木目フローリング', tex: woodTex,     color: 0xffffff, rough: 0.72, metal: 0.02, per: 2.2 },
-  concrete: { name: 'コンクリート',     tex: concreteTex, color: 0xb0b8bc, rough: 0.92, metal: 0.04, per: 2.2 },
-  tile:     { name: 'タイル',           tex: tileTex,     color: 0xffffff, rough: 0.35, metal: 0.05, per: 1.5 },
-  marble:   { name: '大理石',           tex: marbleTex,   color: 0xffffff, rough: 0.18, metal: 0.06, per: 3.0 },
-  carpet:   { name: 'カーペット',       tex: carpetTex,   color: 0xc9c2b4, rough: 0.98, metal: 0.0,  per: 1.2 },
-  tatami:   { name: '畳',               tex: tatamiTex,   color: 0xffffff, rough: 0.85, metal: 0.0,  per: 0.9 },
-  genkan:   { name: '玄関タイル',       tex: genkanTex,   color: 0xffffff, rough: 0.55, metal: 0.03, per: 1.0 },
-  dirt:     { name: '土',               tex: dirtTex,     color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 2.0 },
-  grass:    { name: '草',               tex: grassTex,    color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 1.5 },
-  lawn:     { name: '芝生',             tex: lawnTex,     color: 0xffffff, rough: 0.98, metal: 0.0,  per: 1.8 },
+  wood:          { name: '木目フローリング',  tex: woodTex,      color: 0xffffff, rough: 0.72, metal: 0.02, per: 2.2 },
+  parquet:       { name: 'ヘリンボーン',      tex: parquetTex,   color: 0xffffff, rough: 0.65, metal: 0.02, per: 1.8 },
+  dark_wood:     { name: 'ダーク木目',        tex: darkWoodTex,  color: 0xffffff, rough: 0.68, metal: 0.02, per: 2.2 },
+  concrete:      { name: 'コンクリート',      tex: concreteTex,  color: 0xb0b8bc, rough: 0.92, metal: 0.04, per: 2.2 },
+  tile:          { name: 'タイル',            tex: tileTex,      color: 0xffffff, rough: 0.35, metal: 0.05, per: 1.5 },
+  marble:        { name: '大理石',            tex: marbleTex,    color: 0xffffff, rough: 0.18, metal: 0.06, per: 3.0 },
+  carpet:        { name: 'カーペット',        tex: carpetTex,    color: 0xc9c2b4, rough: 0.98, metal: 0.0,  per: 1.2 },
+  tatami:        { name: '畳',                tex: tatamiTex,    color: 0xffffff, rough: 0.85, metal: 0.0,  per: 0.9 },
+  genkan:        { name: '玄関タイル',        tex: genkanTex,    color: 0xffffff, rough: 0.55, metal: 0.03, per: 1.0 },
+  terracotta:    { name: 'テラコッタタイル',  tex: terracottaTex,color: 0xffffff, rough: 0.75, metal: 0.0,  per: 1.2 },
+  stone:         { name: '石畳',              tex: stoneTex,     color: 0xffffff, rough: 0.88, metal: 0.0,  per: 2.0 },
+  rubber:        { name: 'ゴム床',            tex: rubberTex,    color: 0x808080, rough: 0.95, metal: 0.0,  per: 1.0 },
+  checker_plate: { name: '縞鋼板',            tex: checkerTex,   color: 0xaaaaaa, rough: 0.55, metal: 0.5,  per: 1.5 },
+  epoxy:         { name: 'エポキシ塗床',      tex: epoxyTex,     color: 0xffffff, rough: 0.25, metal: 0.08, per: 3.0 },
+  dirt:          { name: '土',                tex: dirtTex,      color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 2.0 },
+  grass:         { name: '草',                tex: grassTex,     color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 1.5 },
+  lawn:          { name: '芝生',              tex: lawnTex,      color: 0xffffff, rough: 0.98, metal: 0.0,  per: 1.8 },
 };
 const WALL_TYPES = {
   cream:    { name: 'クリーム壁紙',  tex: wallTexSrc, color: 0xfbf6ec, rough: 0.95, metal: 0.0 },
@@ -1247,6 +1524,7 @@ function applyFloorSpec(material, type, w, d) {
 function updateFloorTexture() {
   roomPlan.cells.forEach((_, key) => roomPlan.cells.set(key, floorType));
   buildFloorMeshes();
+  scheduleAutoSave();
 }
 
 function applyWallType() {
@@ -1331,9 +1609,12 @@ function eraseFloorAt(worldX, worldZ) {
 
 // Representative swatch colors for the 2D editor (when FLOOR_TYPES.color is white).
 const FLOOR_SWATCH = {
-  wood:'#caa46d', concrete:'#9ca3a8', tile:'#e7eaee', marble:'#f0eee9',
-  carpet:'#c9c2b4', tatami:'#cdbf86', genkan:'#ddd6c8', dirt:'#8a6a47',
-  grass:'#5f8a44', lawn:'#6fa050'
+  wood:'#caa46d', parquet:'#9a7040', dark_wood:'#3a2414',
+  concrete:'#9ca3a8', tile:'#e7eaee', marble:'#f0eee9',
+  carpet:'#c9c2b4', tatami:'#cdbf86', genkan:'#ddd6c8',
+  terracotta:'#c8724a', stone:'#8a8480',
+  rubber:'#303030', checker_plate:'#7a8090', epoxy:'#3a7040',
+  dirt:'#8a6a47', grass:'#5f8a44', lawn:'#6fa050'
 };
 function floorSwatch(type) { return FLOOR_SWATCH[type] || '#caa46d'; }
 
@@ -1998,7 +2279,13 @@ const FURNITURE_DEFS = [
   { id:'tensile',    cat:'lab',     name:'引張試験機',       icon:'fa-arrows-up-down',    w:0.8,  d:0.7,  h:2.0,  colorIdx:10, build:buildTensileTestMachine },
   { id:'steelpallet',cat:'factory', name:'鉄パレット',       icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:6,  build:buildSteelPallet },
   { id:'resinpallet',cat:'factory', name:'樹脂パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:9,  build:buildResinPallet },
-  { id:'drum',       cat:'factory', name:'ドラム缶',         icon:'fa-circle',             w:0.58, d:0.58, h:0.88, colorIdx:9,  build:buildDrum },
+  { id:'drum',           cat:'factory', name:'ドラム缶',           icon:'fa-circle',              w:0.58, d:0.58, h:0.88,  colorIdx:9,  build:buildDrum },
+  // ---- 大型工業機械 ----
+  { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:3.0,  d:2.2,  h:2.8,   colorIdx:8,  build:buildCNCMachiningCenter },
+  { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:7,  build:buildIndustrialRobotLg },
+  { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:1.8,  d:1.4,  h:3.5,   colorIdx:6,  build:buildLargeHydraulicPress },
+  { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
+  { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:3.5,  d:1.5,  h:2.2,   colorIdx:8,  build:buildInjectionMolder },
 ];
 
 // ============================================================ FURNITURE BUILDERS
@@ -2741,7 +3028,7 @@ function removeFurniture(group, record = true) {
 }
 
 // ============================================================ HISTORY
-function pushHistory(a) { history = history.slice(0, historyIndex+1); history.push(a); historyIndex++; updateHistoryButtons(); }
+function pushHistory(a) { history = history.slice(0, historyIndex+1); history.push(a); historyIndex++; updateHistoryButtons(); scheduleAutoSave(); }
 function undo() {
   if (historyIndex < 0) return; const a = history[historyIndex--];
   if (a.type === 'place') { deselect(); removeFurniture(a.item.group, false); }
@@ -2779,6 +3066,7 @@ function deselect() {
   selectedGroup = null; selectionRing.visible = false;
   document.getElementById('props-empty').style.display = 'flex';
   document.getElementById('props-panel').classList.remove('visible');
+  const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = '';
 }
 function refreshSelection() { if (selectedGroup) updateSelectionRing(selectedGroup); }
 function updateSelectionRing(group) {
@@ -2791,6 +3079,7 @@ function showProperties(group, item) {
   const def = FURNITURE_DEFS.find(d => d.id === item.defId);
   document.getElementById('props-empty').style.display = 'none';
   document.getElementById('props-panel').classList.add('visible');
+  const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = 'none';
   document.getElementById('props-name').textContent = def.name;
   document.getElementById('props-dims').textContent = `${def.w}m × ${def.d}m`;
   document.getElementById('props-icon').innerHTML = `<i class="fa-solid ${def.icon}"></i>`;
@@ -2801,7 +3090,7 @@ function showProperties(group, item) {
     const b = document.createElement('button'); b.className = 'color-swatch' + (c === item.color ? ' active' : '');
     b.style.background = c; b.title = c;
     b.addEventListener('click', () => {
-      selectedColor = c; applyColor(selectedGroup, c);
+      selectedColor = c; applyColor(selectedGroup, c); scheduleAutoSave();
       document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active')); b.classList.add('active');
       const pi = placedItems.find(i => i.group === selectedGroup); if (pi) pi.color = c;
     });
@@ -2924,6 +3213,7 @@ function applyLayout(layout) {
       for (let cz = z1 + CELL/2; cz < z2; cz += CELL)
         paintFloorAt(cx, cz, f.type);
   });
+  scheduleAutoSave();
 }
 function loadLayout(json) { try { applyLayout(JSON.parse(json)); toast('レイアウトを読み込みました'); } catch (e) { toast('読み込みに失敗しました'); } }
 function takeScreenshot() { renderer.render(scene, camera); const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'room-planner.png'; a.click(); toast('スクリーンショットを保存しました'); }
@@ -3632,6 +3922,193 @@ function buildBenchGrinder({ color='#4f7a52', w=0.7, d=0.45, h=1.25 } = {}) {
   g.add(box(0.1, 0.12, 0.04, dark, 0, 0.75, -d/2 + 0.04));
   return g;
 }
+// ===== 大型工業機械 =====
+function buildCNCMachiningCenter({ color='#3c5a7a', w=3.0, d=2.2, h=2.8 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.45, 0.3, { env: 0.5 });
+  const steel = mat('#8a9aa8', 0.25, 0.75, { env: 1.0 });
+  const dark = mat('#1e2428', 0.6, 0.2);
+  const glass = new THREE.MeshStandardMaterial({ color: 0x88bbdd, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.35 });
+  const yellow = mat('#f5c518', 0.5, 0.1);
+  // base cabinet
+  const base = box(w, 0.18, d, dark, 0, 0.09, 0); g.add(base);
+  // main machine body
+  const main = box(w, h - 0.18, d, body, 0, (h - 0.18)/2 + 0.18, 0); main.userData.colorable = true; g.add(main);
+  // front viewing window (large door with glass)
+  g.add(plainBox(w * 0.62, h * 0.48, 0.06, body, 0, h * 0.42, d/2 - 0.02));
+  const win = plainBox(w * 0.52, h * 0.36, 0.05, glass, 0, h * 0.44, d/2);
+  win.userData.fadeNormal = new THREE.Vector3(0, 0, 1); win.castShadow = false; g.add(win);
+  // spindle head on gantry
+  const gantry = box(w - 0.2, 0.12, 0.12, steel, 0, h * 0.78, -0.1); g.add(gantry);
+  const spindle_head = box(0.5, 0.45, 0.4, dark, 0, h * 0.62, -0.2); g.add(spindle_head);
+  const spindle = cyl(0.06, 0.04, 0.35, 18, steel); spindle.position.set(0, h * 0.44, -0.2); g.add(spindle);
+  const toolholder = cyl(0.04, 0.025, 0.2, 14, mat('#d4af37', 0.3, 0.7)); toolholder.position.set(0, h * 0.34, -0.2); g.add(toolholder);
+  // worktable
+  const table = box(w - 0.5, 0.08, d - 0.6, steel, 0, 0.55, 0); g.add(table);
+  for (let tx = -(w-0.5)/2 + 0.1; tx < (w-0.5)/2; tx += 0.16) {
+    g.add(box(0.02, 0.04, d - 0.65, dark, tx, 0.6, 0));
+  }
+  // coolant tank + chip conveyor hint
+  g.add(box(0.35, 0.55, 0.35, dark, -w/2 + 0.22, 0.46, d/2 - 0.22));
+  g.add(box(0.15, 0.08, 0.5, mat('#4a5560',0.6), -w/2 + 0.22, 0.12, d/2 - 0.05));
+  // CNC control panel (pendant)
+  const panel = box(0.32, 0.52, 0.08, mat('#111417', 0.5)); panel.position.set(w/2 - 0.1, h * 0.52, d/2 - 0.04); g.add(panel);
+  g.add(box(0.22, 0.30, 0.03, mat('#1a3050',0.3), w/2 - 0.1, h * 0.54, d/2));
+  ['#22c55e','#ef4444','#f59e0b'].forEach((cl, i) => g.add(cylAt(0.022,0.022,0.025,10,mat(cl,0.3),w/2 - 0.1, h*0.4 - i*0.055, d/2+0.01).rotateX(Math.PI/2)));
+  // safety warning stripe
+  g.add(box(w, 0.06, 0.01, yellow, 0, 0.18, d/2)); g.add(box(w, 0.06, 0.01, yellow, 0, 0.18, -d/2));
+  // exhaust duct on top
+  g.add(box(0.2, 0.35, 0.2, dark, 0, h + 0.17, 0));
+  g.add(box(0.14, 0.12, 0.14, mat('#606870',0.4,0.5), 0, h + 0.35, 0));
+  return g;
+}
+function buildIndustrialRobotLg({ color='#f59e0b', w=1.2, d=1.2, h=2.4 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.4, 0.2, { env: 0.5 });
+  const dark = mat('#1e2428', 0.6, 0.2);
+  const steel = mat('#8a9aa8', 0.25, 0.75, { env: 1.0 });
+  const joint = mat('#2a3038', 0.4, 0.4);
+  // base pedestal
+  g.add(box(0.7, 0.18, 0.7, dark, 0, 0.09, 0));
+  g.add(box(0.58, 0.28, 0.58, mat(shade(color,0.7),0.5,0.2), 0, 0.32, 0));
+  // J1 rotation base
+  const rotBase = cyl(0.28, 0.28, 0.22, 24, body); rotBase.position.set(0, 0.57, 0); rotBase.userData.colorable=true; g.add(rotBase);
+  // Lower arm (J2)
+  const larm = box(0.18, 0.72, 0.2, body, 0.05, 1.02, 0); larm.userData.colorable=true; g.add(larm);
+  g.add(cylAt(0.14,0.14,0.22,20,joint,0,0.68,0).rotateZ(Math.PI/2)); // J2 joint
+  // Upper arm (J3)
+  const uarm = box(0.15, 0.58, 0.16, body, 0.05, 1.62, -0.05); uarm.userData.colorable=true; g.add(uarm);
+  g.add(cylAt(0.12,0.12,0.20,20,joint,0,1.38,-0.04).rotateZ(Math.PI/2)); // J3 joint
+  // Wrist block (J4-J6)
+  const wrist = box(0.18, 0.22, 0.18, dark, 0.05, 2.02, -0.08); g.add(wrist);
+  g.add(cylAt(0.09,0.09,0.14,16,joint,0.05,2.14,-0.08).rotateX(Math.PI/2));
+  // Tool flange
+  const flange = cyl(0.06, 0.06, 0.12, 16, steel); flange.position.set(0.05, 2.23, -0.08); g.add(flange);
+  // Gripper fingers
+  [[-0.04,0],[0.04,0]].forEach(([fx,fz]) => {
+    g.add(box(0.025, 0.13, 0.025, dark, 0.05+fx, 2.35, -0.08+fz));
+  });
+  // Cable harness along arm
+  for (let i=0; i<6; i++) {
+    g.add(box(0.04,0.04,0.04,mat('#222',0.9),0.13,0.72+i*0.1,-0.02));
+  }
+  // Control cabinet (separate box beside robot)
+  g.add(box(0.48, 1.2, 0.34, mat('#2a2f35',0.5), -0.7, 0.6, 0.2));
+  g.add(box(0.36, 0.45, 0.04, mat('#0d2040',0.3), -0.7, 0.82, 0.38));
+  ['#22c55e','#3b82f6','#ef4444'].forEach((cl,i)=>g.add(cylAt(0.018,0.018,0.025,10,mat(cl,0.3),-0.7,0.56-i*0.05,0.38).rotateX(Math.PI/2)));
+  return g;
+}
+function buildLargeHydraulicPress({ color='#2d4a2d', w=1.8, d=1.4, h=3.5 } = {}) {
+  const g = new THREE.Group();
+  const frame = mat(color, 0.5, 0.25, { env: 0.5 });
+  const steel = mat('#8a9aa8', 0.3, 0.6, { env: 0.8 });
+  const dark = mat('#1a1e22', 0.7, 0.1);
+  const yellow = mat('#f5c518', 0.5, 0.1);
+  const ram_mat = mat('#9ab0c0', 0.15, 0.85, { env: 1.0 });
+  // C-frame (left upright + top beam + right upright)
+  g.add(box(0.22, h, 0.22, frame, -w/2 + 0.12, h/2, 0)).userData && (g.children.at(-1).userData.colorable=true);
+  g.add(box(0.22, h, 0.22, frame, w/2 - 0.12, h/2, 0));
+  g.add(box(w, 0.28, 0.22, frame, 0, h - 0.14, 0)); // top crossbeam
+  g.add(box(w, 0.28, 0.22, frame, 0, 0.14, 0));       // bottom crossbeam
+  // bolster plate / bed
+  g.add(box(w - 0.3, 0.14, d - 0.3, steel, 0, 0.35, 0));
+  // T-slots on bed
+  for (let tx = -0.4; tx <= 0.4; tx += 0.28) g.add(box(0.025, 0.04, d-0.4, dark, tx, 0.44, 0));
+  // Hydraulic cylinder on top
+  const cylinder = cyl(0.12, 0.12, 0.8, 20, frame); cylinder.position.set(0, h - 0.55, 0); g.add(cylinder);
+  // Ram (chrome rod)
+  const ram = cyl(0.07, 0.07, 0.95, 16, ram_mat); ram.position.set(0, h - 1.28, 0); g.add(ram);
+  // Upper die / ram head
+  g.add(box(w - 0.4, 0.12, d - 0.4, steel, 0, h - 1.8, 0));
+  // Safety guards (yellow striped sides)
+  g.add(box(0.04, h - 0.6, 0.01, yellow, -(w-0.3)/2, (h+0.6)/2, d/2));
+  g.add(box(0.04, h - 0.6, 0.01, yellow, (w-0.3)/2, (h+0.6)/2, d/2));
+  // Hydraulic power unit (HPU) beside press
+  g.add(box(0.55, 0.9, 0.45, dark, w/2 + 0.4, 0.45, 0));
+  g.add(cyl(0.12, 0.12, 0.4, 16, mat('#4a6a4a',0.4)));
+  g.children.at(-1).position.set(w/2+0.4, 0.98, 0);
+  // control buttons
+  const panel = box(0.22, 0.35, 0.05, dark, w/2 + 0.4, 1.52, 0.24); g.add(panel);
+  ['#22c55e','#ef4444'].forEach((cl,i)=>g.add(cylAt(0.025,0.025,0.03,10,mat(cl,0.3),w/2+0.4,1.56-i*0.1,0.27).rotateX(Math.PI/2)));
+  // safety warning stripe bottom
+  g.add(box(w, 0.05, 0.01, yellow, 0, 0.3, d/2 + 0.02));
+  return g;
+}
+function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
+  const g = new THREE.Group();
+  const shell = mat(color, 0.55, 0.15);
+  const insul = mat('#c86820', 0.9, 0.0);  // refractory brick orange-red
+  const steel = mat('#8a9aa8', 0.3, 0.6);
+  const glow  = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: new THREE.Color(0xff4400), emissiveIntensity: 0.8, roughness: 0.9 });
+  const dark  = mat('#111316', 0.8, 0.1);
+  // outer shell
+  const outer = box(w, h, d, shell, 0, h/2, 0); outer.userData.colorable=true; g.add(outer);
+  // front door (hinged, slightly ajar)
+  const door = box(w * 0.7, h * 0.55, 0.08, mat('#1a1a1a',0.6,0.2), 0, h*0.4, d/2 + 0.04); g.add(door);
+  g.add(box(w * 0.64, h * 0.48, 0.04, insul, 0, h*0.4, d/2 + 0.09)); // door refractory lining
+  // glowing chamber visible through top gap
+  const chamber = box(w - 0.18, h - 0.3, d - 0.18, glow, 0, (h - 0.3)/2 + 0.09, 0); chamber.receiveShadow = true; g.add(chamber);
+  // door handle
+  g.add(box(0.04, 0.04, 0.14, steel, w*0.34, h*0.4, d/2+0.14));
+  // exhaust duct on top
+  g.add(box(0.3, 0.55, 0.22, dark, w*0.35, h + 0.27, 0));
+  g.add(cyl(0.1,0.1,0.4,14,dark)).position && (g.children.at(-1).position.set(w*0.35, h+0.58, 0));
+  g.children.at(-1).position.set(w*0.35, h+0.58, 0);
+  // temperature controller panel (right side)
+  const ctrl = box(0.35, 0.65, 0.06, dark, w/2 - 0.02, h*0.68, -0.3); g.add(ctrl);
+  g.add(box(0.26, 0.3, 0.04, mat('#0d1520',0.3), w/2-0.02, h*0.75, -0.26));
+  ['#ef4444','#f59e0b','#22c55e'].forEach((cl,i)=>g.add(cylAt(0.015,0.015,0.025,8,mat(cl,0.2),w/2-0.02,h*0.6-i*0.05,-0.24).rotateX(Math.PI/2)));
+  // cooling water pipes
+  [-0.3, 0.3].forEach(z => {
+    g.add(cylAt(0.025,0.025,h-0.1,12,steel, -w/2-0.02, (h-0.1)/2, z).rotateX(0));
+    g.add(cylAt(0.025,0.025,0.25,8,steel,-w/2-0.02,h-0.18,z).rotateZ(Math.PI/2));
+  });
+  // base frame / legs
+  [[-w/2+0.12,d/2-0.1],[w/2-0.12,d/2-0.1],[-w/2+0.12,-d/2+0.1],[w/2-0.12,-d/2+0.1]].forEach(([x,z])=>g.add(box(0.1,0.12,0.1,dark,x,0.06,z)));
+  return g;
+}
+function buildInjectionMolder({ color='#374a60', w=3.5, d=1.5, h=2.2 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.45, 0.25);
+  const steel = mat('#9aaabb', 0.25, 0.65, { env: 0.8 });
+  const dark = mat('#1a1e24', 0.7, 0.1);
+  const chrome = mat('#c8d4dc', 0.1, 0.9, { env: 1.2 });
+  const yellow = mat('#f5c518', 0.4, 0.1);
+  // base platen (floor frame)
+  g.add(box(w, 0.16, d, dark, 0, 0.08, 0));
+  // clamping unit (right half)
+  const clamp_body = box(w * 0.42, h - 0.16, d, body, w * 0.22, (h-0.16)/2 + 0.16, 0); clamp_body.userData.colorable=true; g.add(clamp_body);
+  // 4 tie bars
+  [[-0.36, 0.48],[0.36, 0.48],[-0.36,-0.48],[0.36,-0.48]].forEach(([x,z])=>{
+    g.add(cylAt(0.055,0.055,w*0.68,16,chrome,0,h*0.38,0).rotateZ(Math.PI/2));
+    g.add(cylAt(0.055,0.055,h*0.76+0.04,16,chrome,w*0.22+x,h*0.38 + z * 0, z));
+  });
+  // fixed platen (left)
+  g.add(box(0.14, h * 0.68, d * 0.88, steel, -w*0.32, h*0.34+0.16, 0));
+  // moving platen
+  g.add(box(0.12, h * 0.65, d * 0.84, steel, w*0.08, h*0.34+0.16, 0));
+  // mold halves (in between)
+  g.add(box(0.22, h * 0.54, d * 0.72, mat('#556070',0.4,0.3), -w*0.12, h*0.34+0.16, 0));
+  g.add(box(0.22, h * 0.54, d * 0.72, mat('#556070',0.4,0.3), w*0.00, h*0.34+0.16, 0));
+  // injection unit (left half - barrel + hopper)
+  const inj_body = box(w * 0.48, h * 0.38, d * 0.55, body, -w * 0.24, h*0.19+0.16, 0); inj_body.userData.colorable=true; g.add(inj_body);
+  const barrel = cyl(0.085, 0.085, w * 0.5, 18, steel); barrel.rotation.z=Math.PI/2; barrel.position.set(-w*0.08, h*0.48, 0); g.add(barrel);
+  const nozzle = cyl(0.04, 0.025, 0.22, 12, chrome); nozzle.rotation.z=Math.PI/2; nozzle.position.set(w*0.18, h*0.48, 0); g.add(nozzle);
+  // hopper
+  const hopper_body = box(0.22, 0.45, 0.22, mat('#aab4bc',0.3,0.5), -w*0.3, h*0.78, 0); g.add(hopper_body);
+  g.add(box(0.18, 0.06, 0.18, mat('#88949c',0.2,0.6), -w*0.3, h*0.58, 0)); // hopper outlet
+  // band heaters on barrel
+  for (let bx = -w*0.04; bx < w*0.18; bx += 0.16) g.add(box(0.12, 0.09, 0.19, mat('#8a4a20',0.7), bx, h*0.48, 0));
+  // safety guard
+  g.add(box(w*0.5, h*0.72, 0.025, new THREE.MeshStandardMaterial({color:0x88bbdd,roughness:0.05,metalness:0.1,transparent:true,opacity:0.2}), w*0.05, h*0.52, d/2));
+  // control panel
+  const panel = box(0.35, 0.65, 0.06, dark, -w/2+0.22, h*0.6, d/2-0.03); g.add(panel);
+  g.add(box(0.28, 0.4, 0.04, mat('#0a1828',0.2), -w/2+0.22, h*0.64, d/2));
+  // safety stripe
+  g.add(box(w, 0.05, 0.01, yellow, 0, 0.18, d/2+0.01));
+  return g;
+}
+
 function buildToolRack({ color='#3a3f47', w=1.0, d=0.12, h=1.2 } = {}) {
   const g = new THREE.Group();
   const board = mat(color, 0.6, 0.1), metal = mat('#aab0b4', 0.3, 0.7, { env: 0.9 });
@@ -4541,7 +5018,22 @@ function closePresetModal() { document.getElementById('preset-modal').classList.
 // ============================================================ CATALOG UI
 function buildCatalog(filter = '', cat = 'all') {
   const list = document.getElementById('furniture-list'); list.innerHTML = '';
-  FURNITURE_DEFS.filter(d => (cat==='all'||d.cat===cat) && (filter===''||d.name.includes(filter))).forEach(def => {
+  // Update count badges on tabs
+  document.querySelectorAll('.cat-tab[data-cat]').forEach(tab => {
+    const tc = tab.dataset.cat;
+    const count = FURNITURE_DEFS.filter(d => tc==='all' || d.cat===tc).length;
+    let badge = tab.querySelector('.cat-count');
+    if (!badge) { badge = document.createElement('span'); badge.className = 'cat-count'; tab.appendChild(badge); }
+    badge.textContent = count;
+  });
+  const filtered = FURNITURE_DEFS.filter(d => (cat==='all'||d.cat===cat) && (filter===''||d.name.includes(filter)));
+  if (filtered.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center;padding:32px 16px;color:var(--text-inv-muted);font-size:12px;';
+    empty.innerHTML = '<i class="fa-solid fa-magnifying-glass" style="font-size:24px;opacity:0.4;display:block;margin-bottom:8px"></i>該当する家具が見つかりません';
+    list.appendChild(empty); return;
+  }
+  filtered.forEach(def => {
     const item = document.createElement('div'); item.className = 'furniture-item'; item.dataset.id = def.id;
     item.innerHTML = `<div class="fitem-icon"><i class="fa-solid ${def.icon}"></i></div>
       <div class="fitem-info"><div class="fitem-name">${def.name}</div><div class="fitem-size">${def.w}m × ${def.d}m</div></div>`;
@@ -5121,14 +5613,101 @@ function closeEditor() { document.getElementById('editor-modal').classList.remov
   document.addEventListener('click', () => { tip.style.display = 'none'; });
 })();
 
+// ============================================================ INDEXEDDB AUTO-SAVE
+const IDB_NAME = 'room-planner-v1', IDB_VER = 1, IDB_STORE = 'autosave';
+let idb = null;
+function openIDB() {
+  return new Promise((res, rej) => {
+    try {
+      const req = indexedDB.open(IDB_NAME, IDB_VER);
+      req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+      req.onsuccess = e => { idb = e.target.result; res(idb); };
+      req.onerror = () => { console.warn('IndexedDB unavailable'); res(null); };
+    } catch(e) { console.warn('IndexedDB error', e); res(null); }
+  });
+}
+function idbPut(data) {
+  if (!idb) return;
+  try {
+    const tx = idb.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(data, 'layout');
+  } catch(e) { console.warn('idbPut failed', e); }
+}
+function idbGet() {
+  return new Promise(res => {
+    if (!idb) { res(null); return; }
+    try {
+      const tx = idb.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get('layout');
+      req.onsuccess = e => res(e.target.result || null);
+      req.onerror = () => res(null);
+    } catch(e) { res(null); }
+  });
+}
+function buildSavePayload() {
+  const cells = [];
+  roomPlan.cells.forEach((type, key) => { const [ix, iz] = key.split(',').map(Number); cells.push([ix, iz, type]); });
+  const walls = roomPlan.walls.map(w => ({ x1:w.x1, z1:w.z1, x2:w.x2, z2:w.z2, type:w.type||'wall', openings:(w.openings||[]) }));
+  return { version: 5, room: { w: roomW, d: roomD }, partitions, floorType, wallType,
+    plan: { cells, walls },
+    items: placedItems.map(i => ({ defId:i.defId, x:i.position.x, y:i.position.y, z:i.position.z, rotY:i.rotY, color:i.color })) };
+}
+let _autoSaveTimer = null;
+function showSaveStatus(state) {
+  const el = document.getElementById('save-status');
+  const txt = document.getElementById('save-status-text');
+  if (!el) return;
+  el.className = 'save-status ' + state;
+  if (state === 'saving') {
+    el.querySelector('i').className = 'fa-solid fa-rotate';
+    txt.textContent = '保存中…';
+  } else {
+    el.querySelector('i').className = 'fa-solid fa-cloud-arrow-up';
+    txt.textContent = '保存済み';
+  }
+}
+let _autoSaveEnabled = false;
+function scheduleAutoSave() {
+  if (!_autoSaveEnabled) return;
+  showSaveStatus('saving');
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => {
+    try { idbPut(buildSavePayload()); showSaveStatus('saved'); }
+    catch(e) { console.warn('auto-save failed', e); }
+  }, 1500);
+}
+
 // ============================================================ BOOT
-function boot() {
+async function boot() {
   if (typeof WebGLRenderingContext === 'undefined') { document.getElementById('no-webgl').classList.add('show'); document.getElementById('app').style.display = 'none'; return; }
-  roomPlan = rectToPlan(6, 6, [], 'wood'); // valid plan before first build
+  roomPlan = rectToPlan(6, 6, [], 'wood');
   buildRoom(); initUI(); updateHistoryButtons(); handleResize(); animate();
-  // Welcome with convenience store preset to showcase commercial layouts
-  applyLayout(PRESETS[4]);
-  setTimeout(() => { document.getElementById('loading').classList.add('hidden'); setStatus('準備完了 — 家具を配置、またはプリセットを選択'); }, 650);
+  await openIDB();
+  _autoSaveEnabled = true;
+  const saved = await idbGet();
+  if (saved && saved.items && saved.items.length > 0) {
+    // Show restore banner
+    const banner = document.createElement('div');
+    banner.className = 'restore-banner';
+    banner.innerHTML = `<div class="rb-text"><b>前回のレイアウトが見つかりました</b><br><span style="font-size:11px;color:var(--text-secondary)">${saved.items.length} 点の家具 / ${saved.room?.w||'?'}m × ${saved.room?.d||'?'}m</span></div>
+      <div class="rb-btns">
+        <button class="rb-restore" id="rb-yes">復元する</button>
+        <button id="rb-no">新規スタート</button>
+      </div>`;
+    document.body.appendChild(banner);
+    document.getElementById('rb-yes').addEventListener('click', () => {
+      applyLayout(saved); banner.remove();
+      setStatus('前回のレイアウトを復元しました');
+    });
+    document.getElementById('rb-no').addEventListener('click', () => {
+      applyLayout(PRESETS[4]); banner.remove();
+      setStatus('準備完了 — 家具を配置、またはプリセットを選択');
+    });
+  } else {
+    applyLayout(PRESETS[4]);
+    setStatus('準備完了 — 家具を配置、またはプリセットを選択');
+  }
+  setTimeout(() => { document.getElementById('loading').classList.add('hidden'); }, 650);
 }
 boot();
 </script>
