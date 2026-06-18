@@ -354,7 +354,126 @@ body {
 .modal-close:hover { background: var(--bg-panel-alt); color: var(--text-primary); }
 .modal-body { padding: var(--sp-6); overflow-y: auto; }
 
-/* Preset cards */
+/* ============================================================ PRESET MODAL REDESIGN */
+.modal.preset { width: min(900px, 96vw); }
+.preset-modal-header {
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: var(--sp-3); flex-shrink: 0;
+}
+.preset-search-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; background: var(--bg-panel-alt);
+}
+.preset-search {
+  flex: 1; display: flex; align-items: center; gap: var(--sp-2);
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 0 var(--sp-3); height: 34px;
+}
+.preset-search i { color: var(--text-muted); font-size: 11px; }
+.preset-search input { flex: 1; border: none; background: none; outline: none; font: inherit; font-size: 12px; color: var(--text-primary); }
+.preset-search input::placeholder { color: var(--text-muted); }
+.preset-new-btn {
+  height: 34px; padding: 0 var(--sp-3); border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--bg-panel); color: var(--text-secondary);
+  font: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
+  display: flex; align-items: center; gap: var(--sp-2); white-space: nowrap;
+  transition: all 0.15s;
+}
+.preset-new-btn:hover { background: var(--bg-panel-alt); color: var(--text-primary); border-color: var(--border-strong); }
+.preset-cat-bar {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+}
+.preset-cat-bar::-webkit-scrollbar { display: none; }
+.pc-cat-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 var(--sp-3);
+  border: 1px solid var(--border); border-radius: 100px;
+  background: transparent; color: var(--text-secondary);
+  font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+  white-space: nowrap; transition: all 0.15s;
+}
+.pc-cat-btn:hover { border-color: var(--border-strong); color: var(--text-primary); background: var(--bg-panel-alt); }
+.pc-cat-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.pc-cat-btn .pc-cat-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.preset-body {
+  padding: var(--sp-4) var(--sp-5); overflow-y: auto; flex: 1;
+}
+.preset-section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin: var(--sp-4) 0 var(--sp-3); display: flex; align-items: center; gap: var(--sp-2);
+}
+.preset-section-label:first-child { margin-top: 0; }
+.preset-section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+.preset-grid-new {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3);
+}
+@media (max-width: 700px) { .preset-grid-new { grid-template-columns: repeat(2,1fr); } }
+.pc-card {
+  border: 1.5px solid var(--border); border-radius: var(--r-md);
+  background: var(--bg-panel-alt); cursor: pointer;
+  transition: all 0.18s; text-align: left; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.pc-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); background: var(--bg-panel); }
+.pc-card:hover .pc-plan-area { background: #eee8db; }
+.pc-card.last-used { border-color: var(--accent); background: var(--accent-light); }
+.pc-card.last-used .pc-tag { background: var(--accent); color: white; }
+.pc-plan-area {
+  background: #f4efe4; height: 100px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid var(--border); overflow: hidden; transition: background 0.18s;
+}
+.pc-plan-area svg { display: block; }
+.pc-tag {
+  position: absolute; top: 6px; left: 6px;
+  background: var(--bg-overlay); border: 1px solid var(--border);
+  border-radius: 100px; padding: 2px 8px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+  color: var(--text-secondary); text-transform: uppercase;
+}
+.pc-info { padding: var(--sp-3); flex: 1; }
+.pc-name { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; }
+.pc-desc { font-size: 10px; color: var(--text-secondary); line-height: 1.5; margin-bottom: var(--sp-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pc-badges { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.pc-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--bg-panel-alt); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 6px; font-size: 9px; color: var(--text-muted); font-weight: 600;
+}
+.pc-badge i { font-size: 8px; }
+.preset-empty {
+  grid-column: 1/-1; text-align: center; padding: 48px 16px;
+  color: var(--text-muted); font-size: 12px;
+}
+.preset-empty i { font-size: 28px; opacity: 0.3; display: block; margin-bottom: 12px; }
+.preset-footer {
+  padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--border);
+  flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--bg-panel-alt); font-size: 11px; color: var(--text-muted);
+}
+.preset-footer i { font-size: 10px; }
+
+/* Preset category color dots */
+.cat-color-住宅  { background: #62a86d; }
+.cat-color-オフィス { background: #4a7ab5; }
+.cat-color-店舗  { background: #e0823a; }
+.cat-color-工場  { background: #7a7a7a; }
+.cat-color-特殊  { background: #9a62b5; }
+
+/* Preset category pill colors on card */
+.pc-tag-住宅  { color: #2d6635; background: #e3f1de; border-color: #b8ddc0; }
+.pc-tag-オフィス { color: #1a4a80; background: #dce8f5; border-color: #aac8e8; }
+.pc-tag-店舗  { color: #803018; background: #fae8d8; border-color: #e8c0a0; }
+.pc-tag-工場  { color: #444444; background: #e8e8e8; border-color: #c8c8c8; }
+.pc-tag-特殊  { color: #5a1a80; background: #f0e0f8; border-color: #d0a8e8; }
+
 .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 .preset-card { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4); cursor: pointer; transition: all 0.18s; background: var(--bg-panel-alt); text-align: left; }
 .preset-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); background: var(--bg-panel); }
@@ -601,17 +720,55 @@ body {
 
 <!-- PRESET MODAL -->
 <div class="modal-backdrop" id="preset-modal">
-  <div class="modal wide">
-    <div class="modal-header">
+  <div class="modal preset" style="display:flex;flex-direction:column;max-height:92vh;">
+    <!-- Header -->
+    <div class="preset-modal-header">
       <div class="modal-icon"><i class="fa-solid fa-house-chimney"></i></div>
       <div>
         <div class="modal-title">間取りプリセット</div>
-        <div class="modal-subtitle">家具配置済みのレイアウトを呼び出します</div>
+        <div class="modal-subtitle">カテゴリーを選んで呼び出す</div>
       </div>
-      <button class="modal-close" id="preset-close"><i class="fa-solid fa-xmark"></i></button>
+      <button class="modal-close" id="preset-close" style="margin-left:auto"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="modal-body">
-      <div class="preset-grid" id="preset-grid"></div>
+    <!-- Search + New room -->
+    <div class="preset-search-row">
+      <div class="preset-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="preset-search-input" placeholder="プリセットを検索…">
+      </div>
+      <button class="preset-new-btn" id="btn-preset-new">
+        <i class="fa-solid fa-file-circle-plus"></i> 新しい空のルーム
+      </button>
+    </div>
+    <!-- Category filter -->
+    <div class="preset-cat-bar" id="preset-cat-bar">
+      <button class="pc-cat-btn active" data-pcat="all">
+        <i class="fa-solid fa-border-all"></i> すべて
+      </button>
+      <button class="pc-cat-btn" data-pcat="住宅">
+        <span class="pc-cat-dot cat-color-住宅"></span> 住宅
+      </button>
+      <button class="pc-cat-btn" data-pcat="オフィス">
+        <span class="pc-cat-dot cat-color-オフィス"></span> オフィス
+      </button>
+      <button class="pc-cat-btn" data-pcat="店舗">
+        <span class="pc-cat-dot cat-color-店舗"></span> 店舗
+      </button>
+      <button class="pc-cat-btn" data-pcat="工場">
+        <span class="pc-cat-dot cat-color-工場"></span> 工場・製造
+      </button>
+      <button class="pc-cat-btn" data-pcat="特殊">
+        <span class="pc-cat-dot cat-color-特殊"></span> 特殊・文化
+      </button>
+    </div>
+    <!-- Cards -->
+    <div class="preset-body">
+      <div class="preset-grid-new" id="preset-grid"></div>
+    </div>
+    <!-- Footer -->
+    <div class="preset-footer">
+      <i class="fa-solid fa-circle-info"></i>
+      読み込むと現在のレイアウトは置き換えられます &nbsp;·&nbsp; Ctrl+Z で元に戻せます
     </div>
   </div>
 </div>
@@ -4918,7 +5075,7 @@ function P(defId, x, z, rot = 0, color) { const def = FURNITURE_DEFS.find(d => d
 const PRESETS = [
   // ===== 商業施設 =====
   {
-    id: 'factory_lg', name: '大型工場', icon: 'fa-industry',
+    id: 'factory_lg', name: '大型工場', icon: 'fa-industry', cat: '工場',
     desc: '18m×14m の本格的な生産フロア。コントロールルーム・CNC・産業ロボット・コンベア・パレットラックを配置。',
     room: { w: 18, d: 14 }, floorType: 'concrete', wallType: 'concrete',
     partitions: [
@@ -4971,7 +5128,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'office', name: 'オープンオフィス', icon: 'fa-briefcase',
+    id: 'office', name: 'オープンオフィス', icon: 'fa-briefcase', cat: 'オフィス',
     desc: '14m×10mのオープンプラン。受付・会議コーナー・執務エリアを完備。',
     room: { w: 14, d: 10 }, floorType: 'carpet', wallType: 'white',
     partitions: [
@@ -5013,7 +5170,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'conference', name: '会議室', icon: 'fa-chalkboard-user',
+    id: 'conference', name: '会議室', icon: 'fa-chalkboard-user', cat: 'オフィス',
     desc: '8m×6mの中規模会議室。大型テーブル・ホワイトボード・プレゼン用TVを配置。',
     room: { w: 8, d: 6 }, floorType: 'carpet', wallType: 'white',
     partitions: [],
@@ -5032,7 +5189,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'museum', name: '博物館展示室', icon: 'fa-landmark',
+    id: 'museum', name: '博物館展示室', icon: 'fa-landmark', cat: '特殊',
     desc: '16m×12mの展示ホール。展示ケース・台座・解説パネルを配置した開放的なギャラリー。',
     room: { w: 16, d: 12 }, floorType: 'marble', wallType: 'white',
     partitions: [
@@ -5067,7 +5224,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'convenience', name: 'コンビニエンスストア', icon: 'fa-store',
+    id: 'convenience', name: 'コンビニエンスストア', icon: 'fa-store', cat: '店舗',
     desc: '12m×8mの小型コンビニ。商品棚・ショーケース冷蔵庫・レジカウンターを配置。',
     room: { w: 12, d: 8 }, floorType: 'tile', wallType: 'white',
     partitions: [
@@ -5105,7 +5262,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'restaurant', name: 'レストラン', icon: 'fa-utensils',
+    id: 'restaurant', name: 'レストラン', icon: 'fa-utensils', cat: '店舗',
     desc: '12m×10mのダイニングレストラン。テーブル6卓・カウンター席・厨房エリアを配置。',
     room: { w: 12, d: 10 }, floorType: 'wood', wallType: 'cream',
     partitions: [
@@ -5153,7 +5310,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'cafe', name: 'カフェ', icon: 'fa-mug-hot',
+    id: 'cafe', name: 'カフェ', icon: 'fa-mug-hot', cat: '店舗',
     desc: '10m×8mのおしゃれカフェ。バーカウンター・バースツール・小テーブルを配置。',
     room: { w: 10, d: 8 }, floorType: 'wood', wallType: 'cream',
     partitions: [
@@ -5191,7 +5348,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'laboratory', name: '実験室', icon: 'fa-flask',
+    id: 'laboratory', name: '実験室', icon: 'fa-flask', cat: '特殊',
     desc: '12m×9mの化学実験室。実験台・ドラフトチャンバー・薬品棚・顕微鏡・遠心分離機を完備。',
     room: { w: 12, d: 9 }, floorType: 'tile', wallType: 'white',
     partitions: [
@@ -5234,7 +5391,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'testroom', name: '試験室', icon: 'fa-gauge-high',
+    id: 'testroom', name: '試験室', icon: 'fa-gauge-high', cat: '特殊',
     desc: '11m×8mの計測・試験室。測定試験機・オシロスコープ・電子天秤・恒温槽で精密測定。',
     room: { w: 11, d: 8 }, floorType: 'tile', wallType: 'white',
     partitions: [
@@ -5275,7 +5432,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'machineshop', name: '加工室', icon: 'fa-gears',
+    id: 'machineshop', name: '加工室', icon: 'fa-gears', cat: '工場',
     desc: '14m×10mの機械加工室。旋盤・フライス盤・ボール盤・グラインダー・工具ラックを完備。',
     room: { w: 14, d: 10 }, floorType: 'concrete', wallType: 'concrete',
     partitions: [
@@ -5318,7 +5475,7 @@ const PRESETS = [
   },
   // ===== 住宅 =====
   {
-    id: 'studio', name: 'ワンルーム (1R)', icon: 'fa-cube',
+    id: 'studio', name: 'ワンルーム (1R)', icon: 'fa-cube', cat: '住宅',
     desc: 'コンパクトな単身向けレイアウト。ベッド・デスク・くつろぎスペースを集約。',
     room: { w: 6, d: 5 }, partitions: [],
     items: [
@@ -5331,7 +5488,7 @@ const PRESETS = [
     ],
   },
   {
-    id: 'family', name: 'ファミリーホーム', icon: 'fa-house-user',
+    id: 'family', name: 'ファミリーホーム', icon: 'fa-house-user', cat: '住宅',
     desc: '玄関〜水回り〜LDK〜寝室を備えた一戸建てプラン。家族向けのフル装備レイアウト。',
     room: { w: 12, d: 10 },
     partitions: [
@@ -5391,23 +5548,113 @@ const PRESETS = [
   },
 ];
 
-function buildPresetCards() {
+// Floor swatch colors for plan preview
+const PLAN_FLOOR_COLOR = {
+  wood:'#d4aa70', parquet:'#b8904a', dark_wood:'#5a3820', concrete:'#b0b8bc',
+  tile:'#d8e0e8', marble:'#f0eee8', carpet:'#c8bcd8', tatami:'#c8be80',
+  genkan:'#c8c0b0', terracotta:'#c87840', stone:'#a8a4a0',
+  rubber:'#404040', checker_plate:'#909898', epoxy:'#4a8850',
+  dirt:'#907050', grass:'#60904a', lawn:'#70a054',
+};
+function presetPlanSVG(p) {
+  const svgW = 130, svgH = 88;
+  const rw = p.room.w, rd = p.room.d;
+  const pad = 10;
+  const scale = Math.min((svgW - pad*2) / rw, (svgH - pad*2) / rd);
+  const ox = svgW/2, oy = svgH/2;
+  const wx = v => ox + v * scale, wz = v => oy + v * scale;
+  const x0 = ox - rw/2*scale, y0 = oy - rd/2*scale;
+  const rW = rw*scale, rH = rd*scale;
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`;
+  // Room fill
+  const mainFloor = PLAN_FLOOR_COLOR[p.floorType] || '#d4c8b4';
+  s += `<rect x="${x0}" y="${y0}" width="${rW}" height="${rH}" fill="${mainFloor}" opacity="0.7"/>`;
+  // Zone floors
+  (p.floors || []).forEach(f => {
+    const c = PLAN_FLOOR_COLOR[f.type] || '#c8c0b0';
+    const fx0=wx(Math.min(f.x1,f.x2)), fx1=wx(Math.max(f.x1,f.x2));
+    const fz0=wz(Math.min(f.z1,f.z2)), fz1=wz(Math.max(f.z1,f.z2));
+    s += `<rect x="${fx0}" y="${fz0}" width="${fx1-fx0}" height="${fz1-fz0}" fill="${c}" opacity="0.85"/>`;
+  });
+  // Room outline
+  s += `<rect x="${x0}" y="${y0}" width="${rW}" height="${rH}" fill="none" stroke="#5a5040" stroke-width="2.5"/>`;
+  // Partitions
+  (p.partitions || []).forEach(part => {
+    const px1=wx(part.x1), pz1=wz(part.z1), px2=wx(part.x2), pz2=wz(part.z2);
+    if (part.openings && part.openings.length) {
+      // Draw wall in segments around openings
+      const len = Math.hypot(part.x2-part.x1, part.z2-part.z1);
+      part.openings.forEach(op => {
+        const t0 = op.t - op.w/2/len, t1 = op.t + op.w/2/len;
+        const ax0=px1+(px2-px1)*Math.max(t0,0), az0=pz1+(pz2-pz1)*Math.max(t0,0);
+        const ax1=px1+(px2-px1)*Math.min(t1,1), az1=pz1+(pz2-pz1)*Math.min(t1,1);
+        if (t0 > 0) s += `<line x1="${px1}" y1="${pz1}" x2="${ax0}" y2="${az0}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
+        if (t1 < 1) s += `<line x1="${ax1}" y1="${az1}" x2="${px2}" y2="${pz2}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
+        // Door arc symbol
+        const mx=(ax0+ax1)/2, mz=(az0+az1)/2;
+        const dw = op.w * scale * 0.5;
+        s += `<line x1="${ax0}" y1="${az0}" x2="${ax1}" y2="${az1}" stroke="#98c8a8" stroke-width="2.5" stroke-linecap="round"/>`;
+        s += `<circle cx="${mx}" cy="${mz}" r="3" fill="#62a86d" opacity="0.9"/>`;
+      });
+    } else {
+      s += `<line x1="${px1}" y1="${pz1}" x2="${px2}" y2="${pz2}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
+    }
+  });
+  // Room size label
+  s += `<text x="${svgW/2}" y="${svgH - 3}" text-anchor="middle" font-size="8" fill="#888" font-family="sans-serif">${rw}m × ${rd}m</text>`;
+  s += `</svg>`;
+  return s;
+}
+
+let _presetActiveCat = 'all';
+let _presetSearch = '';
+let _lastUsedPresetId = null;
+
+function renderPresetGrid() {
   const grid = document.getElementById('preset-grid'); grid.innerHTML = '';
-  PRESETS.forEach(p => {
-    const card = document.createElement('button'); card.className = 'preset-card';
+  const q = _presetSearch.toLowerCase();
+  const filtered = PRESETS.filter(p =>
+    (_presetActiveCat === 'all' || p.cat === _presetActiveCat) &&
+    (!q || p.name.includes(q) || (p.desc||'').includes(q))
+  );
+  if (filtered.length === 0) {
+    const empty = document.createElement('div'); empty.className = 'preset-empty';
+    empty.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>該当するプリセットが見つかりません';
+    grid.appendChild(empty); return;
+  }
+  filtered.forEach(p => {
+    const card = document.createElement('button');
+    card.className = 'pc-card' + (p.id === _lastUsedPresetId ? ' last-used' : '');
+    const tagCls = `pc-tag pc-tag-${p.cat || ''}`;
     card.innerHTML = `
-      <div class="pc-icon"><i class="fa-solid ${p.icon}"></i></div>
-      <h4>${p.name}</h4>
-      <p>${p.desc}</p>
-      <div class="pc-meta">
-        <span><i class="fa-solid fa-ruler-combined"></i> ${p.room.w}m × ${p.room.d}m</span>
-        <span><i class="fa-solid fa-cube"></i> ${p.items.length} 点</span>
+      <div class="pc-plan-area">
+        ${presetPlanSVG(p)}
+        <div class="${tagCls}">${p.cat || ''}</div>
+      </div>
+      <div class="pc-info">
+        <div class="pc-name"><i class="fa-solid ${p.icon}" style="margin-right:5px;opacity:0.7"></i>${p.name}</div>
+        <div class="pc-desc">${p.desc}</div>
+        <div class="pc-badges">
+          <span class="pc-badge"><i class="fa-solid fa-ruler-combined"></i>${p.room.w}×${p.room.d}m</span>
+          <span class="pc-badge"><i class="fa-solid fa-cube"></i>${p.items.length}点</span>
+          ${p.partitions && p.partitions.length ? `<span class="pc-badge"><i class="fa-solid fa-border-none"></i>間仕切${p.partitions.length}本</span>` : ''}
+        </div>
       </div>`;
-    card.addEventListener('click', () => { applyLayout(p); closePresetModal(); toast(p.name + ' を読み込みました'); });
+    card.addEventListener('click', () => {
+      _lastUsedPresetId = p.id;
+      applyLayout(p); closePresetModal();
+      toast(p.name + ' を読み込みました');
+    });
     grid.appendChild(card);
   });
 }
-function openPresetModal() { document.getElementById('preset-modal').classList.add('open'); }
+
+function buildPresetCards() { renderPresetGrid(); }
+
+function openPresetModal() {
+  document.getElementById('preset-modal').classList.add('open');
+  renderPresetGrid();
+}
 function closePresetModal() { document.getElementById('preset-modal').classList.remove('open'); }
 
 // ============================================================ CATALOG UI
@@ -5512,6 +5759,22 @@ function initUI() {
   document.getElementById('btn-presets').addEventListener('click', openPresetModal);
   document.getElementById('preset-close').addEventListener('click', closePresetModal);
   document.getElementById('preset-modal').addEventListener('click', e => { if (e.target.id === 'preset-modal') closePresetModal(); });
+  // Preset search
+  document.getElementById('preset-search-input').addEventListener('input', e => {
+    _presetSearch = e.target.value; renderPresetGrid();
+  });
+  // Preset category filter
+  document.getElementById('preset-cat-bar').addEventListener('click', e => {
+    const btn = e.target.closest('.pc-cat-btn'); if (!btn) return;
+    _presetActiveCat = btn.dataset.pcat;
+    document.querySelectorAll('.pc-cat-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderPresetGrid();
+  });
+  // New empty room
+  document.getElementById('btn-preset-new').addEventListener('click', () => {
+    clearItems(); partitions = []; roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType);
+    buildRoom(); closePresetModal(); toast('新しい空のルームを作成しました');
+  });
 
   // 2D floor-plan editor
   document.getElementById('btn-editor').addEventListener('click', openEditor);
