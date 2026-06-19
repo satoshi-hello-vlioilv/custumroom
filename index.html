@@ -5092,6 +5092,92 @@ function buildDrum({ color='#1a4a9a', w=0.58, d=0.58, h=0.88 } = {}) {
 // ============================================================ PRESETS
 function P(defId, x, z, rot = 0, color) { const def = FURNITURE_DEFS.find(d => d.id === defId); return { defId, x, z, rotY: rot, color: color ?? COLORS[def.colorIdx] }; }
 const PRESETS = [
+  // ===== アルミ製造工場 (デフォルト) =====
+  {
+    id: 'aluminum_factory', name: 'アルミ製造工場', icon: 'fa-industry', cat: '工場',
+    desc: '20m×16mのアルミニウム生産ライン。溶解炉・大型プレス・CNCマシニングセンタ・産業ロボット・フォークリフト2台を完備した本格的なアルミ製造工場。',
+    room: { w: 20, d: 16 }, floorType: 'epoxy', wallType: 'concrete',
+    partitions: [
+      // コントロールルーム横仕切り (z=3)
+      { x1: -10, z1: 3, x2: -6.5, z2: 3 },
+      { x1: -6.5, z1: 3, x2: -5.5, z2: 3, openings: [{ t: 0.5, w: 0.9, kind: 'glass_door' }] },
+      { x1: -5.5, z1: 3, x2: -5,   z2: 3 },
+      // コントロールルーム縦仕切り (x=-5)
+      { x1: -5, z1: 3, x2: -5, z2: 8 },
+    ],
+    floors: [
+      { x1: -10, z1: 3, x2: -5, z2: 8, type: 'tile' },      // コントロールルーム
+      { x1:   3, z1: 3, x2: 10, z2: 8, type: 'concrete' },  // 原材料・搬入エリア
+    ],
+    items: [
+      // コントロールルーム
+      P('reception',   -7.5, 3.5, 180, '#e8e2d6'),
+      P('ctrlpanel',   -9.5, 4.5, 90,  '#e8e2d6'),
+      P('ctrlpanel',   -9.5, 6.5, 90,  '#e8e2d6'),
+      P('walltv',      -9.5, 5.5, 90,  '#2a2a2a'),
+      P('desk',        -6.2, 7.0, 0,   '#f3ece0'),
+      P('ochr',        -6.2, 6.3, 0),
+      P('sansevieria', -9.5, 7.8),
+      // 溶解・加熱炉 (左壁沿い)
+      P('ind_furnace', -9.0,  1.5, 90, '#2a2a2a'),
+      P('ind_furnace', -9.0, -0.5, 90, '#2a2a2a'),
+      // 大型油圧プレス (アルミ圧延・鍛造)
+      P('lg_hydpress', -6.5,  1.5, 0),
+      P('lg_hydpress', -6.5, -1.0, 0),
+      // 射出成形機 (アルミダイキャスト)
+      P('inj_molder',  -2.5, 0.5, 0),
+      // CNCマシニングセンタ (仕上げ加工)
+      P('cnc_center',  1.5,  1.0, 0),
+      P('cnc_center',  5.5,  1.0, 0),
+      // 大型産業ロボット (CNC前 — 搬入出)
+      P('ind_robot',   1.5, -1.2, 0),
+      P('ind_robot',   5.5, -1.2, 0),
+      // コンベアライン (製造フロー)
+      P('conveyor', -4.5, -2.8, 0),
+      P('conveyor', -2.0, -2.8, 0),
+      P('conveyor',  0.5, -2.8, 0),
+      P('conveyor',  3.0, -2.8, 0),
+      P('conveyor',  5.5, -2.8, 0),
+      P('conveyor',  8.0, -2.8, 0),
+      P('conveyor',  9.5, -1.0, 90),
+      P('conveyor',  9.5,  1.5, 90),
+      // 原材料エリア (右奥) — アルミコイル原反
+      P('alumcoil', 4.5, 7.2, 0),
+      P('alumcoil', 6.0, 7.2, 0),
+      P('alumcoil', 7.5, 7.2, 0),
+      P('alumcoil', 4.5, 5.8, 0),
+      P('alumcoil', 6.0, 5.8, 0),
+      P('steelpallet', 3.5, 6.5, 0),
+      P('steelpallet', 9.0, 7.0, 0),
+      P('drum', 9.0, 5.5, 0),
+      P('drum', 9.0, 4.2, 0),
+      // フォークリフト① (原材料搬入)
+      P('forklift', 3.0, 4.5, 270),
+      // 炉前 原材料待機パレット
+      P('steelpallet', -8.0, -2.0, 0),
+      P('alumcoil',    -8.5, -2.5, 0),
+      // 加工品スクラップ回収
+      P('scrpbucket', 1.5, -4.2, 0),
+      P('scrpbucket', 5.5, -4.2, 0),
+      // 完成品保管・出荷エリア (右前)
+      P('palletrack', 9.5, -3.5, 0),
+      P('palletrack', 9.5, -5.5, 0),
+      P('palletrack', 9.5, -7.5, 0),
+      P('steelpallet', 7.0, -3.5, 0),
+      P('steelpallet', 7.0, -5.5, 0),
+      P('resinpallet', 5.5, -5.8, 0),
+      P('drum', 7.5, -7.5, 0),
+      P('drum', 8.5, -7.5, 0),
+      // フォークリフト② (完成品出荷)
+      P('forklift', 5.5, -6.5, 90),
+      // 作業台・工具エリア (左前)
+      P('workbench', -9.0, -5.0, 90, '#5a6370'),
+      P('workbench', -9.0, -7.0, 90, '#5a6370'),
+      P('toolcab',   -9.8, -4.0, 90),
+      P('toolcab',   -9.8, -6.0, 90),
+      P('scrpbucket', -7.0, -7.5, 0),
+    ],
+  },
   // ===== 商業施設 =====
   {
     id: 'factory_lg', name: '大型工場', icon: 'fa-industry', cat: '工場',
@@ -5658,7 +5744,7 @@ const FLOOR_NAME_JA = {
   rubber:'ゴムマット', checker_plate:'縞鋼板', epoxy:'エポキシ', terracotta:'テラコッタ',
   stone:'石畳', dirt:'土間', grass:'芝', lawn:'芝生'
 };
-const FEATURED_PRESETS = new Set(['family', 'factory_lg', 'office', 'laboratory']);
+const FEATURED_PRESETS = new Set(['aluminum_factory', 'family', 'factory_lg', 'office', 'laboratory']);
 
 function renderPresetGrid() {
   // Update category count badges on filter buttons
@@ -6434,11 +6520,11 @@ async function boot() {
       setStatus('前回のレイアウトを復元しました');
     });
     document.getElementById('rb-no').addEventListener('click', () => {
-      applyLayout(PRESETS[4]); banner.remove();
+      applyLayout(PRESETS[0]); banner.remove();
       setStatus('準備完了 — 家具を配置、またはプリセットを選択');
     });
   } else {
-    applyLayout(PRESETS[4]);
+    applyLayout(PRESETS[0]);
     setStatus('準備完了 — 家具を配置、またはプリセットを選択');
   }
   setTimeout(() => { document.getElementById('loading').classList.add('hidden'); }, 650);
