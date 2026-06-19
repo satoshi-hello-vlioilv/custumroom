@@ -878,7 +878,7 @@ let state = 'IDLE';
 let currentDef = null, ghostGroup = null, ghostRotOffset = 0, ghostPlacement = null;
 let selectedGroup = null, selectedColor = '#c8a06a', selectedRot = 0;
 let placedItems = [], history = [], historyIndex = -1;
-let roomW = 6, roomD = 6, partitions = [];
+let roomW = 6, roomD = 6, partitions = [], extWallOpenings = null;
 let showGrid = true, showShadows = true, isTopView = false;
 let wallMode = 'semifade';
 let wallMeshes = [];
@@ -1745,7 +1745,8 @@ function planBounds() {
   return { minIx, maxIx, minIz, maxIz, w, d };
 }
 // Build a rectangular plan (used by the room-size slider, presets, reset-to-rect).
-function rectToPlan(w, d, parts, ftype) {
+// extW: optional { south, north, west, east } — each an openings array for that exterior wall.
+function rectToPlan(w, d, parts, ftype, extW) {
   const cells = new Map();
   const nx = Math.max(1, Math.round(w / CELL)), nz = Math.max(1, Math.round(d / CELL));
   const ixMin = -Math.floor(nx / 2), ixMax = ixMin + nx - 1;
@@ -1753,11 +1754,12 @@ function rectToPlan(w, d, parts, ftype) {
   for (let ix = ixMin; ix <= ixMax; ix++) for (let iz = izMin; iz <= izMax; iz++) cells.set(cellKey(ix, iz), ftype);
   const x0 = ixMin * CELL, x1 = (ixMax + 1) * CELL;  // corner-indexed edges
   const z0 = izMin * CELL, z1 = (izMax + 1) * CELL;
+  const ew = extW || {};
   const walls = [
-    { x1: x0, z1: z0, x2: x1, z2: z0, type: 'wall', openings: [] },
-    { x1: x0, z1: z1, x2: x1, z2: z1, type: 'wall', openings: [] },
-    { x1: x0, z1: z0, x2: x0, z2: z1, type: 'wall', openings: [] },
-    { x1: x1, z1: z0, x2: x1, z2: z1, type: 'wall', openings: [] },
+    { x1: x0, z1: z0, x2: x1, z2: z0, type: 'wall', openings: ew.south || [] },
+    { x1: x0, z1: z1, x2: x1, z2: z1, type: 'wall', openings: ew.north || [] },
+    { x1: x0, z1: z0, x2: x0, z2: z1, type: 'wall', openings: ew.west  || [] },
+    { x1: x1, z1: z0, x2: x1, z2: z1, type: 'wall', openings: ew.east  || [] },
   ];
   (parts || []).forEach(p => walls.push({ x1: p.x1, z1: p.z1, x2: p.x2, z2: p.z2, type: p.type || 'wall', openings: p.openings || [], isPartition: true }));
   return { cells, walls };
@@ -3334,9 +3336,9 @@ function toast(msg) {
 // ============================================================ ROOM SIZE
 function updateRoomSize(w, d, keepPartitions = false) {
   roomW = w; roomD = d;
-  if (!keepPartitions) partitions = [];
+  if (!keepPartitions) { partitions = []; extWallOpenings = null; }
   // Regenerate the plan as a rectangle (preserves the slider / preset / reset-to-rect flow).
-  roomPlan = rectToPlan(w, d, keepPartitions ? partitions : [], floorType);
+  roomPlan = rectToPlan(w, d, keepPartitions ? partitions : [], floorType, extWallOpenings);
   document.getElementById('room-w-val').textContent = w + 'm';
   document.getElementById('room-d-val').textContent = d + 'm';
   document.getElementById('room-size-display').textContent = `${w}m × ${d}m`;
@@ -3365,6 +3367,7 @@ function clearItems() { placedItems.forEach(i => scene.remove(i.group)); placedI
 function applyLayout(layout) {
   clearItems();
   partitions = layout.partitions ? JSON.parse(JSON.stringify(layout.partitions)) : [];
+  extWallOpenings = layout.walls ? JSON.parse(JSON.stringify(layout.walls)) : null;
   if (layout.floorType && FLOOR_TYPES[layout.floorType]) floorType = layout.floorType;
   if (layout.wallType && WALL_TYPES[layout.wallType]) wallType = layout.wallType;
   updateRoomSize(layout.room.w, layout.room.d, true); // builds a rectangular plan
@@ -5424,6 +5427,12 @@ const PRESETS = [
     id: 'aluminum_factory', name: 'アルミ製造工場', icon: 'fa-industry', cat: '工場',
     desc: '20m×16mのアルミニウム生産ライン。溶解炉・大型プレス・CNCマシニングセンタ・産業ロボット・フォークリフト2台を完備した本格的なアルミ製造工場。',
     room: { w: 20, d: 16 }, floorType: 'epoxy', wallType: 'concrete',
+    walls: {
+      south: [{ t:0.14, w:3.5, kind:'door' }, { t:0.43, w:3.5, kind:'door' }, { t:0.78, w:1.2, kind:'door' }],
+      north: [{ t:0.5,  w:1.0, kind:'door' }],
+      east:  [{ t:0.22, w:1.5, kind:'window' }, { t:0.47, w:1.5, kind:'window' }, { t:0.72, w:1.5, kind:'window' }],
+      west:  [{ t:0.18, w:1.2, kind:'window' }, { t:0.4,  w:1.2, kind:'window' }, { t:0.68, w:1.5, kind:'window' }, { t:0.87, w:1.5, kind:'window' }],
+    },
     partitions: [
       // コントロールルーム横仕切り (z=3)
       { x1: -10, z1: 3, x2: -6.5, z2: 3 },
@@ -5510,6 +5519,12 @@ const PRESETS = [
     id: 'factory_lg', name: '大型工場', icon: 'fa-industry', cat: '工場',
     desc: '18m×14m の本格的な生産フロア。コントロールルーム・CNC・産業ロボット・コンベア・パレットラックを配置。',
     room: { w: 18, d: 14 }, floorType: 'concrete', wallType: 'concrete',
+    walls: {
+      south: [{ t:0.17, w:3.0, kind:'door' }, { t:0.5, w:3.0, kind:'door' }, { t:0.83, w:1.2, kind:'door' }],
+      north: [{ t:0.5,  w:1.0, kind:'door' }],
+      east:  [{ t:0.22, w:1.5, kind:'window' }, { t:0.5, w:1.5, kind:'window' }, { t:0.78, w:1.5, kind:'window' }],
+      west:  [{ t:0.2,  w:1.2, kind:'window' }, { t:0.45, w:1.2, kind:'window' }, { t:0.72, w:1.5, kind:'window' }],
+    },
     partitions: [
       { x1: -9, z1: 2, x2: -6, z2: 2 },
       { x1: -6, z1: 2, x2: -5, z2: 2, openings: [{ t: 0.5, w: 0.9, kind: 'glass_door' }] },
@@ -5570,6 +5585,12 @@ const PRESETS = [
     id: 'office', name: 'オープンオフィス', icon: 'fa-briefcase', cat: 'オフィス',
     desc: '14m×10mのオープンプラン。受付・会議コーナー・執務エリアを完備。',
     room: { w: 14, d: 10 }, floorType: 'carpet', wallType: 'white',
+    walls: {
+      north: [{ t:0.5, w:2.0, kind:'auto_door' }],
+      south: [{ t:0.5, w:1.0, kind:'door' }],
+      east:  [{ t:0.2, w:1.2, kind:'window' }, { t:0.5, w:1.2, kind:'window' }, { t:0.8, w:1.2, kind:'window' }],
+      west:  [{ t:0.2, w:1.2, kind:'window' }, { t:0.5, w:1.2, kind:'window' }, { t:0.8, w:1.2, kind:'window' }],
+    },
     partitions: [
       { x1: 2, z1: -5, x2: 2, z2: 1.0 },
       { x1: 2, z1: 1.0, x2: 2, z2: 2.0, openings: [{ t: 0.5, w: 0.9, kind: 'glass_door' }] },
@@ -5612,6 +5633,11 @@ const PRESETS = [
     id: 'conference', name: '会議室', icon: 'fa-chalkboard-user', cat: 'オフィス',
     desc: '8m×6mの中規模会議室。大型テーブル・ホワイトボード・プレゼン用TVを配置。',
     room: { w: 8, d: 6 }, floorType: 'carpet', wallType: 'white',
+    walls: {
+      north: [{ t:0.5, w:1.0, kind:'door' }],
+      east:  [{ t:0.3, w:1.2, kind:'window' }, { t:0.7, w:1.2, kind:'window' }],
+      west:  [{ t:0.3, w:1.2, kind:'window' }, { t:0.7, w:1.2, kind:'window' }],
+    },
     partitions: [],
     items: [
       P('conftable', 0, 0, 0, '#8a5a2b'),
@@ -5632,6 +5658,11 @@ const PRESETS = [
     id: 'museum', name: '博物館展示室', icon: 'fa-landmark', cat: '特殊',
     desc: '16m×12mの展示ホール。展示ケース・台座・解説パネルを配置した開放的なギャラリー。',
     room: { w: 16, d: 12 }, floorType: 'marble', wallType: 'white',
+    walls: {
+      north: [{ t:0.33, w:2.0, kind:'auto_door' }, { t:0.67, w:2.0, kind:'auto_door' }],
+      east:  [{ t:0.25, w:1.5, kind:'window' }, { t:0.6, w:1.5, kind:'window' }],
+      west:  [{ t:0.25, w:1.5, kind:'window' }, { t:0.6, w:1.5, kind:'window' }],
+    },
     partitions: [
       { x1: -8, z1: 3.5, x2: -0.6, z2: 3.5 },
       { x1: -0.6, z1: 3.5, x2: 0.6, z2: 3.5, openings: [{ t: 0.5, w: 1.0, kind: 'auto_door' }] },
@@ -5667,6 +5698,11 @@ const PRESETS = [
     id: 'convenience', name: 'コンビニエンスストア', icon: 'fa-store', cat: '店舗',
     desc: '12m×8mの小型コンビニ。商品棚・ショーケース冷蔵庫・レジカウンターを配置。',
     room: { w: 12, d: 8 }, floorType: 'tile', wallType: 'white',
+    walls: {
+      north: [{ t:0.3,  w:1.5, kind:'auto_door' }, { t:0.65, w:1.5, kind:'auto_door' }],
+      south: [{ t:0.2,  w:2.0, kind:'door' }],
+      east:  [{ t:0.35, w:1.2, kind:'window' }, { t:0.7,  w:1.2, kind:'window' }],
+    },
     partitions: [
       { x1: -6, z1: -1.5, x2:  3, z2: -1.5 },
       { x1:  3, z1: -1.5, x2:  4, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
@@ -5705,6 +5741,11 @@ const PRESETS = [
     id: 'restaurant', name: 'レストラン', icon: 'fa-utensils', cat: '店舗',
     desc: '12m×10mのダイニングレストラン。テーブル6卓・カウンター席・厨房エリアを配置。',
     room: { w: 12, d: 10 }, floorType: 'wood', wallType: 'cream',
+    walls: {
+      north: [{ t:0.5,  w:1.5, kind:'double_door' }],
+      east:  [{ t:0.25, w:1.2, kind:'window' }, { t:0.55, w:1.2, kind:'window' }, { t:0.82, w:1.2, kind:'window' }],
+      west:  [{ t:0.25, w:1.2, kind:'window' }, { t:0.55, w:1.2, kind:'window' }, { t:0.82, w:1.2, kind:'window' }],
+    },
     partitions: [
       { x1: -6, z1: -2.5, x2: 0.5, z2: -2.5 },
       { x1: 0.5, z1: -2.5, x2: 2, z2: -2.5, openings: [{ t: 0.5, w: 1.2, kind: 'double_door' }] },
@@ -5755,6 +5796,11 @@ const PRESETS = [
     id: 'cafe', name: 'カフェ', icon: 'fa-mug-hot', cat: '店舗',
     desc: '10m×8mのおしゃれカフェ。バーカウンター・バースツール・小テーブルを配置。',
     room: { w: 10, d: 8 }, floorType: 'wood', wallType: 'cream',
+    walls: {
+      north: [{ t:0.22, w:1.4, kind:'window' }, { t:0.5, w:1.4, kind:'glass_door' }, { t:0.78, w:1.4, kind:'window' }],
+      east:  [{ t:0.35, w:1.2, kind:'window' }, { t:0.7, w:1.2, kind:'window' }],
+      west:  [{ t:0.35, w:1.2, kind:'window' }, { t:0.7, w:1.2, kind:'window' }],
+    },
     partitions: [
       { x1: -5, z1: -1.5, x2:  1.5, z2: -1.5 },
       { x1: 1.5, z1: -1.5, x2: 3, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
@@ -5794,6 +5840,11 @@ const PRESETS = [
     id: 'laboratory', name: '実験室', icon: 'fa-flask', cat: '特殊',
     desc: '12m×9mの化学実験室。実験台・ドラフトチャンバー・薬品棚・顕微鏡・遠心分離機を完備。',
     room: { w: 12, d: 9 }, floorType: 'tile', wallType: 'white',
+    walls: {
+      north: [{ t:0.5,  w:1.2, kind:'lab_door' }],
+      east:  [{ t:0.2,  w:1.2, kind:'window' }, { t:0.5, w:1.2, kind:'window' }, { t:0.8, w:1.2, kind:'window' }],
+      west:  [{ t:0.33, w:1.2, kind:'window' }, { t:0.67, w:1.2, kind:'window' }],
+    },
     partitions: [
       { x1: -6, z1: 1.5, x2: -0.6, z2: 1.5 },
       { x1: -0.6, z1: 1.5, x2: 0.6, z2: 1.5, openings: [{ t: 0.5, w: 1.0, kind: 'lab_door' }] },
@@ -5840,6 +5891,11 @@ const PRESETS = [
     id: 'testroom', name: '試験室', icon: 'fa-gauge-high', cat: '特殊',
     desc: '11m×8mの計測・試験室。測定試験機・オシロスコープ・電子天秤・恒温槽で精密測定。',
     room: { w: 11, d: 8 }, floorType: 'tile', wallType: 'white',
+    walls: {
+      north: [{ t:0.5,  w:1.0, kind:'door' }],
+      east:  [{ t:0.22, w:1.2, kind:'window' }, { t:0.52, w:1.2, kind:'window' }, { t:0.8, w:1.2, kind:'window' }],
+      west:  [{ t:0.28, w:1.2, kind:'window' }, { t:0.65, w:1.2, kind:'window' }],
+    },
     partitions: [
       { x1: 1.5, z1: -4, x2: 1.5, z2: -0.5 },
       { x1: 1.5, z1: -0.5, x2: 1.5, z2: 0.5, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },
@@ -5885,6 +5941,12 @@ const PRESETS = [
     id: 'machineshop', name: '加工室', icon: 'fa-gears', cat: '工場',
     desc: '14m×10mの機械加工室。旋盤・フライス盤・ボール盤・グラインダー・工具ラックを完備。',
     room: { w: 14, d: 10 }, floorType: 'concrete', wallType: 'concrete',
+    walls: {
+      north: [{ t:0.5,  w:1.2, kind:'door' }],
+      south: [{ t:0.25, w:3.0, kind:'door' }, { t:0.72, w:1.2, kind:'door' }],
+      east:  [{ t:0.22, w:1.5, kind:'window' }, { t:0.5, w:1.5, kind:'window' }, { t:0.78, w:1.5, kind:'window' }],
+      west:  [{ t:0.3,  w:1.2, kind:'window' }, { t:0.65, w:1.2, kind:'window' }],
+    },
     partitions: [
       { x1: -7, z1: 2.5, x2: -2.5, z2: 2.5, openings: [{ t: 0.85, w: 0.9, kind: 'door' }] },
       { x1: -2.5, z1: 2.5, x2: -2.5, z2: 5 },
@@ -5931,7 +5993,14 @@ const PRESETS = [
   {
     id: 'studio', name: 'ワンルーム (1R)', icon: 'fa-cube', cat: '住宅',
     desc: 'コンパクトな単身向けレイアウト。ベッド・デスク・くつろぎスペースを集約。',
-    room: { w: 6, d: 5 }, partitions: [],
+    room: { w: 6, d: 5 },
+    walls: {
+      north: [{ t:0.5, w:0.9, kind:'door' }],
+      east:  [{ t:0.5, w:1.0, kind:'window' }],
+      west:  [{ t:0.5, w:1.0, kind:'window' }],
+      south: [{ t:0.5, w:1.2, kind:'window' }],
+    },
+    partitions: [],
     items: [
       P('sbed', -2.0, -1.2, 0, '#5b86b8'), P('stable', -2.0, 0.4),
       P('wardrobe', -2.5, 1.6, 90), P('desk', 1.6, -2.0, 180),
@@ -5946,6 +6015,12 @@ const PRESETS = [
     id: 'family', name: 'ファミリーホーム', icon: 'fa-house-user', cat: '住宅',
     desc: '玄関〜水回り〜LDK〜寝室を備えた一戸建てプラン。家族向けのフル装備レイアウト。',
     room: { w: 12, d: 10 },
+    walls: {
+      north: [{ t:0.15, w:0.9, kind:'door' }],
+      east:  [{ t:0.12, w:1.2, kind:'window' }, { t:0.4, w:1.2, kind:'window' }, { t:0.65, w:1.2, kind:'window' }, { t:0.85, w:1.2, kind:'window' }],
+      south: [{ t:0.75, w:1.2, kind:'window' }],
+      west:  [{ t:0.12, w:0.8, kind:'window' }, { t:0.42, w:0.8, kind:'window' }, { t:0.68, w:0.8, kind:'window' }],
+    },
     partitions: [
       // 左ゾーン縦仕切り (水回り/玄関 と 中央LDK を分ける)
       { x1: -2.5, z1: -5.0, x2: -2.5, z2: -1.0 },
