@@ -2984,54 +2984,116 @@ function buildConveyor({ color='#1e2530', w=2.4, d=0.5, h=0.82 } = {}) {
   return g;
 }
 
-function buildIndustrialRobot(color) {
+function buildIndustrialRobot({ color='#e8e0d0', w=0.65, d=0.65, h=1.65 } = {}) {
   const g = new THREE.Group();
-  const matte = mat('#e8e0d0', 0.5, 0.1);
-  const joint = mat('#c0bdb8', 0.3, 0.4);
-  // base
-  const base = cyl(0.28, 0.32, 0.22, 16, mat('#4a5260', 0.4, 0.5)); base.position.y = 0.11; g.add(base);
-  // shoulder body
-  const shoulder = box(0.28, 0.3, 0.22, matte, 0, 0.37, 0); g.add(shoulder);
-  const j1 = cyl(0.13, 0.13, 0.26, 12, joint); j1.rotation.z = Math.PI/2; j1.position.set(0, 0.52, 0); g.add(j1);
-  // upper arm
-  const uarm = box(0.14, 0.52, 0.16, matte, 0, 0.78, 0); g.add(uarm);
-  const j2 = cyl(0.1, 0.1, 0.22, 12, joint); j2.rotation.z = Math.PI/2; j2.position.set(0, 1.06, 0); g.add(j2);
-  // forearm (angled forward)
-  const farm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.14), matte.clone());
-  farm.position.set(0, 1.27, 0.14); farm.rotation.x = -0.38; g.add(farm);
-  // wrist
-  const wrist = cyl(0.08, 0.08, 0.14, 10, joint); wrist.position.set(0, 1.48, 0.26); g.add(wrist);
-  // gripper
-  [-0.07, 0.07].forEach(x => {
-    const finger = box(0.04, 0.13, 0.04, mat('#333', 0.6, 0.3), x, 1.56, 0.3); g.add(finger);
-  });
+  const bM  = mat(color, 0.44, 0.12);
+  const jM  = mat('#a8a4a0', 0.28, 0.45);
+  const dkM = mat('#3a3f4a', 0.35, 0.55);
+
+  // Base casting with 8 floor mounting bolts
+  g.add(cylAt(0.3, 0.32, 0.24, 20, dkM, 0, 0.12, 0));
+  g.add(cylAt(0.22, 0.24, 0.05, 16, jM,  0, 0.265, 0));  // J1 rotation ring
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    g.add(cylAt(0.016, 0.016, 0.022, 6, dkM, Math.cos(a)*0.26, 0.011, Math.sin(a)*0.26));
+  }
+
+  // J1 shoulder housing (rotary body)
+  const sh = box(0.22, 0.26, 0.2, bM, 0, 0.43, 0); sh.userData.colorable = true; g.add(sh);
+  // J2 shoulder pivot axis (horizontal)
+  const j2ax = cyl(0.1, 0.1, 0.28, 14, jM); j2ax.rotation.z = Math.PI/2; j2ax.position.set(0, 0.56, 0); g.add(j2ax);
+
+  // Upper arm + servo cover bulge
+  const ua = box(0.13, 0.42, 0.13, bM, 0, 0.8, 0); ua.userData.colorable = true; g.add(ua);
+  const sv2 = box(0.22, 0.15, 0.12, bM, 0, 0.67, 0); sv2.userData.colorable = true; g.add(sv2);
+
+  // J3 elbow pivot
+  const j3ax = cyl(0.09, 0.09, 0.22, 12, jM); j3ax.rotation.z = Math.PI/2; j3ax.position.set(0, 1.02, 0); g.add(j3ax);
+
+  // Forearm (angled forward) + J4 servo cover
+  const fm = new THREE.Mesh(roundedBoxGeom(0.11, 0.37, 0.11, 0.02, 3), bM.clone());
+  fm.position.set(0, 1.22, 0.1); fm.rotation.x = -0.3;
+  fm.castShadow = true; fm.receiveShadow = true; fm.userData.colorable = true; g.add(fm);
+  const sv4 = box(0.18, 0.12, 0.13, bM, 0, 1.1, 0.04); sv4.userData.colorable = true; g.add(sv4);
+
+  // J4 wrist roll tube
+  g.add(cylAt(0.076, 0.076, 0.1, 12, jM, 0, 1.42, 0.23));
+
+  // J5 wrist pitch housing + axis
+  const j5b = box(0.13, 0.1, 0.12, bM, 0, 1.52, 0.27); j5b.userData.colorable = true; g.add(j5b);
+  const j5ax = cyl(0.065, 0.065, 0.18, 10, jM); j5ax.rotation.z = Math.PI/2; j5ax.position.set(0, 1.52, 0.27); g.add(j5ax);
+
+  // J6 tool flange with 4 mounting bolts
+  g.add(cylAt(0.058, 0.058, 0.054, 12, jM, 0, 1.606, 0.31));
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2 + Math.PI / 4;
+    g.add(cylAt(0.007, 0.007, 0.018, 6, mat('#808898', 0.3, 0.6),
+      Math.cos(a) * 0.042, 1.62, 0.31 + Math.sin(a) * 0.042));
+  }
+
+  // Cable bundle running along the arm exterior
+  const cab = cyl(0.026, 0.026, 0.5, 8, mat('#1c2028', 0.9, 0.04));
+  cab.rotation.x = Math.PI / 4; cab.position.set(-0.12, 0.88, -0.07); g.add(cab);
+
+  // Status indicator LED (green = ready)
+  g.add(cylAt(0.022, 0.022, 0.036, 8, mat('#22c55e', 0.3, 0.1), 0.17, 0.32, 0.13));
+
   return g;
 }
 
-function buildCNCMachine(color) {
+function buildCNCMachine({ color='#3d6b7a', w=1.2, d=1.0, h=1.54 } = {}) {
   const g = new THREE.Group();
-  const bodyMat = mat(color, 0.4, 0.3);
-  const darkMat = mat('#2a3038', 0.5, 0.2);
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0x88aacc, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.35 });
-  // main body
-  const body = box(1.2, 1.4, 1.0, bodyMat, 0, 0.7, 0); body.userData.colorable = true; g.add(body);
-  // top cover
-  const topCover = box(1.22, 0.12, 1.02, darkMat, 0, 1.46, 0); g.add(topCover);
-  // viewing window
-  const glass = box(0.65, 0.55, 0.02, glassMat, 0, 0.85, 0.515); g.add(glass);
-  // window frame
-  const wf = box(0.69, 0.59, 0.025, mat('#3a4250', 0.4, 0.4), 0, 0.85, 0.51); g.add(wf);
-  // control panel on right
-  const panel = box(0.28, 0.55, 0.08, darkMat, 0.55, 0.85, 0.46); g.add(panel);
-  // buttons on panel
-  [[0,0.15],[0,0],[0,-0.15]].forEach(([dx,dy]) => {
-    const btn = cyl(0.025, 0.025, 0.03, 8, mat(dy>0?'#22c55e':dy<0?'#ef4444':'#f59e0b', 0.5, 0.2));
-    btn.rotation.z = Math.PI/2; btn.position.set(0.595, 0.85 + dy, 0.44 + dx); g.add(btn);
+  const bM  = mat(color, 0.4, 0.25);
+  const dkM = mat('#2a3038', 0.5, 0.2);
+  const glM = new THREE.MeshStandardMaterial({
+    color: 0x88aacc, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.32
   });
-  // base / feet
-  const base = box(1.28, 0.08, 1.08, darkMat, 0, 0.04, 0); g.add(base);
-  // spindle head visible at top
-  const spindle = cyl(0.04, 0.06, 0.18, 10, mat('#aab4c0', 0.2, 0.7)); spindle.position.set(0, 1.34, 0); g.add(spindle);
+
+  // Base chip/coolant tray (lowest plinth)
+  g.add(box(w + 0.04, 0.1, d + 0.04, dkM, 0, 0.05, 0));
+  [[-w/2+0.14,-d/2+0.14],[w/2-0.14,-d/2+0.14],[-w/2+0.14,d/2-0.14],[w/2-0.14,d/2-0.14]].forEach(([fx,fz]) => {
+    g.add(box(0.07, 0.04, 0.07, dkM, fx, 0.02, fz));
+  });
+
+  // Main enclosure body
+  const body = box(w, h - 0.1, d, bM, 0, (h - 0.1) / 2 + 0.05, 0);
+  body.userData.colorable = true; g.add(body);
+
+  // Top cover
+  g.add(box(w + 0.02, 0.09, d + 0.02, dkM, 0, h - 0.045, 0));
+
+  // Front door frame + glass window (left-center position, panel to right)
+  const dW = w * 0.58, dH = h * 0.5, dY = h * 0.44, dZ = d / 2 + 0.012;
+  const dX = -w * 0.08;
+  g.add(box(dW + 0.06, dH + 0.06, 0.028, mat('#2e3848', 0.4, 0.35), dX, dY, dZ));
+  g.add(box(dW, dH, 0.016, glM, dX, dY, dZ + 0.022));
+
+  // Inside: work table + spindle (visible through window)
+  g.add(box(0.5, 0.05, 0.38, mat('#4a5460', 0.45, 0.4), dX, 0.38, 0.06));
+  const sp = cyl(0.04, 0.06, 0.26, 12, mat('#aab4c0', 0.2, 0.72));
+  sp.position.set(dX, 1.0, 0.04); g.add(sp);
+  g.add(box(0.1, 0.18, 0.1, mat('#5a6474', 0.35, 0.5), dX, 1.15, 0.04));
+
+  // Control pendant (front-right, on machine face)
+  const pX = w * 0.32;
+  g.add(box(0.24, 0.48, 0.07, dkM, pX, dY, dZ + 0.005));
+  // Pendant screen
+  g.add(box(0.18, 0.2, 0.014, mat('#0a1420', 0.08, 0.1), pX, dY + 0.06, dZ + 0.044));
+  // Pendant buttons
+  [[0, -0.1], [-0.06, -0.02], [0.06, -0.02], [0, 0.1]].forEach(([bx, by]) => {
+    const col = by > 0.06 ? '#22c55e' : by < -0.06 ? '#ef4444' : '#3b82f6';
+    g.add(cylAt(0.015, 0.015, 0.018, 8, mat(col, 0.5, 0.1), pX + bx, dY + by, dZ + 0.05));
+  });
+  // Emergency stop (large red mushroom button)
+  g.add(cylAt(0.038, 0.038, 0.032, 12, mat('#ef4444', 0.38, 0.08), pX, dY - 0.2, dZ + 0.05));
+
+  // Status light bar (across top of door frame)
+  g.add(box(dW + 0.02, 0.028, 0.042, mat('#22c55e', 0.3, 0.1), dX, dY + dH / 2 + 0.04, dZ + 0.01));
+
+  // Coolant nozzle (lower-left front)
+  const cn = cyl(0.014, 0.02, 0.12, 8, mat('#7a8898', 0.3, 0.6));
+  cn.rotation.x = -Math.PI / 4; cn.position.set(-w / 2 + 0.12, 0.55, d / 2 - 0.04); g.add(cn);
+
   return g;
 }
 
