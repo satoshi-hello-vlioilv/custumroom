@@ -5682,8 +5682,8 @@ function buildDrum({ color='#1a4a9a', w=0.58, d=0.58, h=0.88 } = {}) {
   // top/bottom caps
   g.add(cylAt(r, r, 0.022, 24, capM, 0, h - 0.011, 0));
   g.add(cylAt(r, r, 0.022, 24, capM, 0, 0.011, 0));
-  // rolling ribs
-  [0.22, 0.5, 0.76].forEach(t => g.add(cylAt(r + 0.016, r + 0.016, 0.032, 24, ribM, 0, h * t, 0)));
+  // rolling ribs (symmetric about mid-height, per standard steel drum)
+  [0.24, 0.5, 0.76].forEach(t => g.add(cylAt(r + 0.016, r + 0.016, 0.032, 24, ribM, 0, h * t, 0)));
   // bung plug on top
   g.add(cylAt(0.028, 0.028, 0.03, 12, mat('#787878', 0.4, 0.7), r * 0.5, h - 0.005, 0));
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
@@ -5771,12 +5771,20 @@ function buildFireExtinguisher({ color='#cc1818', w=0.2, d=0.2, h=0.65 } = {}) {
   // Safety pin
   const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, r * 0.7, 4), mat('#f0a020', 0.5));
   pin.rotation.z = Math.PI/2; pin.position.set(0, h * 0.93 + 0.04, r * 0.15); g.add(pin);
-  // Hose segments (curved)
-  for (let i = 0; i < 4; i++) {
-    const t = i / 3;
-    const s = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, h * 0.08, 6), blackM);
-    s.position.set(-r * 0.6 - t * r * 0.5, h * 0.72 - t * h * 0.15 + 0.04, 0);
-    s.rotation.z = -0.3 - t * 0.5; g.add(s);
+  // Hose draped from the valve block down the side to the nozzle (connected chain)
+  const hosePts = [], hN = 7;
+  for (let i = 0; i < hN; i++) {
+    const t = i / (hN - 1);
+    const hx = -r * 0.28 - r * 1.05 * Math.pow(t, 1.4);
+    const hy = (h * 0.84 - (h * 0.84 - h * 0.44) * t) + 0.04;
+    hosePts.push({ x: hx, y: hy });
+  }
+  for (let i = 0; i < hN - 1; i++) {
+    const a = hosePts[i], b = hosePts[i + 1];
+    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, len * 1.05, 6), blackM);
+    s.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, 0);
+    s.rotation.z = Math.atan2(dy, dx) - Math.PI / 2; g.add(s);
   }
   // Nozzle
   const nz = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.015, 0.12, 8), blackM);
