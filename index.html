@@ -5011,6 +5011,8 @@ function buildIndustrialRobotLg({ color='#f59e0b', w=1.2, d=1.2, h=2.4 } = {}) {
   const tpCable = cyl(0.01,0.01,0.52,8,mat('#111',0.9)); tpCable.rotation.x=0.35; tpCable.position.set(-0.48,0.92,0.38); g.add(tpCable);
   g.add(box(0.11,0.18,0.03,mat('#333',0.5),-0.52,0.72,0.41));
   g.add(box(0.08,0.1,0.02,mat('#0a1828',0.2),-0.52,0.74,0.43));
+  // Respect w/d/h: geometry authored at 1.2×1.2×2.4 → scale proportionally
+  g.scale.set(w / 1.2, h / 2.4, d / 1.2);
   return g;
 }
 function buildLargeHydraulicPress({ color='#2d4a2d', w=1.8, d=1.4, h=3.5 } = {}) {
@@ -5035,9 +5037,16 @@ function buildLargeHydraulicPress({ color='#2d4a2d', w=1.8, d=1.4, h=3.5 } = {})
   const ram = cyl(0.07, 0.07, 0.95, 16, ram_mat); ram.position.set(0, h - 1.28, 0); g.add(ram);
   // Upper die / ram head
   g.add(box(w - 0.4, 0.12, d - 0.4, steel, 0, h - 1.8, 0));
-  // Safety guards (yellow striped sides)
-  g.add(box(0.04, h - 0.6, 0.01, yellow, -(w-0.3)/2, (h+0.6)/2, d/2));
-  g.add(box(0.04, h - 0.6, 0.01, yellow, (w-0.3)/2, (h+0.6)/2, d/2));
+  // Safety guard panels — transparent polycarbonate (front + rear, with yellow steel frame rails)
+  const pcMat = new THREE.MeshStandardMaterial({color:0xb0d8f0, roughness:0.06, metalness:0.08, transparent:true, opacity:0.30});
+  const grdW = w - 0.28, grdH = h * 0.72, grdY = 0.28 + grdH / 2;
+  [d/2 + 0.011, -d/2 - 0.011].forEach(gz => {
+    g.add(plainBox(grdW, grdH, 0.022, pcMat, 0, grdY, gz));
+    [-(grdW/2 + 0.013), grdW/2 + 0.013].forEach(gx =>
+      g.add(box(0.03, grdH, 0.03, yellow, gx, grdY, gz)));
+    g.add(box(grdW + 0.06, 0.028, 0.03, yellow, 0, grdY - grdH/2 - 0.014, gz)); // bottom rail
+    g.add(box(grdW + 0.06, 0.028, 0.03, yellow, 0, grdY + grdH/2 + 0.014, gz)); // top rail
+  });
   // Hydraulic power unit (HPU) beside press
   g.add(box(0.55, 0.9, 0.45, dark, w/2 + 0.4, 0.45, 0));
   g.add(cyl(0.12, 0.12, 0.4, 16, mat('#4a6a4a',0.4)));
@@ -5134,9 +5143,15 @@ function buildInjectionMolder({ color='#374a60', w=3.5, d=1.5, h=2.2 } = {}) {
   const inj_body = box(w * 0.48, h * 0.38, d * 0.55, body, -w * 0.24, h*0.19+0.16, 0); inj_body.userData.colorable=true; g.add(inj_body);
   const barrel = cyl(0.085, 0.085, w * 0.5, 18, steel); barrel.rotation.z=Math.PI/2; barrel.position.set(-w*0.08, h*0.48, 0); g.add(barrel);
   const nozzle = cyl(0.04, 0.025, 0.22, 12, chrome); nozzle.rotation.z=Math.PI/2; nozzle.position.set(w*0.18, h*0.48, 0); g.add(nozzle);
-  // hopper
-  const hopper_body = box(0.22, 0.45, 0.22, mat('#aab4bc',0.3,0.5), -w*0.3, h*0.78, 0); g.add(hopper_body);
-  g.add(box(0.18, 0.06, 0.18, mat('#88949c',0.2,0.6), -w*0.3, h*0.58, 0)); // hopper outlet
+  // hopper — conical funnel (wide top → narrow throat onto barrel)
+  const hpX = -w*0.3, hpY = h*0.48 + 0.085; // base = top of barrel at this x
+  const hpMat = mat('#aab4bc',0.3,0.5), hpDk = mat('#88949c',0.25,0.6);
+  const hpThR = 0.055, hpBinR = 0.17;
+  g.add(cylAt(hpThR, hpThR, h*0.07, 12, hpDk, hpX, hpY+h*0.035, 0)); // throat
+  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(hpBinR, hpThR, h*0.13, 12), hpMat);
+  funnel.position.set(hpX, hpY+h*0.135, 0); funnel.castShadow = true; g.add(funnel); // cone
+  g.add(cylAt(hpBinR, hpBinR, h*0.10, 12, hpMat, hpX, hpY+h*0.25, 0)); // bin
+  g.add(cylAt(hpBinR+0.012, hpBinR+0.012, 0.018, 12, hpDk, hpX, hpY+h*0.30, 0)); // rim
   // band heaters on barrel
   for (let bx = -w*0.04; bx < w*0.18; bx += 0.16) g.add(box(0.12, 0.09, 0.19, mat('#8a4a20',0.7), bx, h*0.48, 0));
   // safety guard
