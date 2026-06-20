@@ -870,7 +870,7 @@ const PART_H    = 2.4;   // interior partition height
 const COLORS = [
   '#c8a06a','#f3ece0','#5b5048','#b9714a','#5b86b8',
   '#6f9e74','#b25c78','#8a6fb0','#8a5a2b','#3f5d7a',
-  '#e8e2d6','#c2b6a3','#f5c020'
+  '#e8e2d6','#c2b6a3','#f5c020','#4a4f54'
 ];
 
 // ============================================================ APP STATE
@@ -2465,7 +2465,7 @@ const FURNITURE_DEFS = [
   // ---- factory heavy equipment ----
   { id:'forklift',   cat:'factory', name:'フォークリフト',   icon:'fa-truck-moving',      w:1.6,  d:4.7,  h:2.5,  colorIdx:12, build:buildForklift },
   { id:'alumcoil',   cat:'factory', name:'アルミコイル',     icon:'fa-circle',            w:1.0,  d:0.8,  h:0.8,  colorIdx:10, build:buildAluminumCoil },
-  { id:'scrpbucket', cat:'factory', name:'屑バケット',       icon:'fa-trash',             w:0.7,  d:0.7,  h:0.65, colorIdx:10, build:buildScrapBucket },
+  { id:'scrpbucket', cat:'factory', name:'屑バケット',       icon:'fa-trash',             w:0.7,  d:0.7,  h:0.65, colorIdx:13, build:buildScrapBucket },
   { id:'tensile',    cat:'lab',     name:'引張試験機',       icon:'fa-arrows-up-down',    w:0.8,  d:0.7,  h:2.0,  colorIdx:10, build:buildTensileTestMachine },
   { id:'steelpallet',cat:'factory', name:'鉄パレット',       icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:6,  build:buildSteelPallet },
   { id:'resinpallet',cat:'factory', name:'樹脂パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:9,  build:buildResinPallet },
@@ -5838,53 +5838,70 @@ function buildTensileTestMachine({ color='#d8d8d8', w=0.8, d=0.7, h=2.0 } = {}) 
   return g;
 }
 
-function buildScrapBucket({ color='#c0c0c8', w=0.7, d=0.7, h=0.65 } = {}) {
+function buildScrapBucket({ color='#4a4f54', w=0.7, d=0.7, h=0.65 } = {}) {
   const g = new THREE.Group();
-  const bucket_m = mat(color, 0.5, 0.3, { env: 0.4 }), alum = mat('#c8c8cc', 0.25, 0.75, { env: 0.8 }), rim_m = mat('#888', 0.3, 0.5);
+  // rectangular steel stillage / pallet box container (open top, fork pockets, lifting eyes)
+  const panel  = mat(color, 0.55, 0.35, { env: 0.4 });               // sheet-metal walls (colorable)
+  const frame  = mat(shade(color, 0.82), 0.5, 0.45, { env: 0.5 });   // posts / frame / feet
+  const steelA = mat('#bcc0c6', 0.3, 0.85, { env: 0.9 });            // bright steel scrap
+  const steelB = mat('#9aa0a8', 0.35, 0.8, { env: 0.8 });            // duller scrap
 
-  // bucket body (tapered — wider at top)
-  const topR = w / 2, botR = w / 2 * 0.78;
-  const bucketBody = new THREE.Mesh(new THREE.CylinderGeometry(topR, botR, h * 0.82, 20), bucket_m); bucketBody.position.set(0, h * 0.41, 0); bucketBody.castShadow = true; bucketBody.receiveShadow = true; bucketBody.userData.colorable = true; g.add(bucketBody);
+  const footH = 0.11;
+  const wallBot = footH + 0.02, wallTop = h - 0.1;
+  const wallH = wallTop - wallBot, wallY = (wallBot + wallTop) / 2;
+  const cx = w/2 - 0.045, cz = d/2 - 0.045;                          // corner-post centres
 
-  // rim
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(topR + 0.01, 0.018, 8, 24), rim_m); rim.rotation.x = Math.PI / 2; rim.position.set(0, h * 0.82, 0); rim.castShadow = true; g.add(rim);
+  // ---- pallet base: 3 runner feet (fork tunnels run front-to-back) + deck ----
+  [-w/2 + 0.06, 0, w/2 - 0.06].forEach(fx => g.add(box(0.1, footH, d - 0.02, frame, fx, footH/2, 0)));
+  [-d/2 + 0.07, d/2 - 0.07].forEach(fz => g.add(box(w - 0.04, 0.03, 0.12, frame, 0, footH - 0.012, fz)));
+  g.add(box(w - 0.05, 0.03, d - 0.05, panel, 0, footH + 0.015, 0));   // container floor
 
-  // bottom
-  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(botR - 0.01, botR - 0.01, 0.02, 20), bucket_m); bottom.position.set(0, 0.01, 0); g.add(bottom);
+  // ---- corner posts (4) ----
+  [[cx,cz],[-cx,cz],[cx,-cz],[-cx,-cz]].forEach(([px,pz]) =>
+    g.add(box(0.07, wallTop - 0.02, 0.07, frame, px, (wallTop)/2, pz)));
 
-  // handle (arc over top)
-  const handleR = topR * 0.88;
-  const handle = new THREE.Mesh(new THREE.TorusGeometry(handleR, 0.016, 8, 18, Math.PI), rim_m); handle.rotation.x = -Math.PI / 2; handle.rotation.z = Math.PI; handle.position.set(0, h * 0.82 + handleR, 0); g.add(handle);
+  // ---- side wall panels (inset between posts) ----
+  const wThk = 0.02;
+  [d/2 - 0.012, -(d/2 - 0.012)].forEach(pz => g.add(box(w - 0.14, wallH, wThk, panel, 0, wallY, pz)));   // front/back
+  [w/2 - 0.012, -(w/2 - 0.012)].forEach(px => g.add(box(wThk, wallH, d - 0.14, panel, px, wallY, 0)));   // left/right
 
-  // scrap pieces: random small aluminum chips/curls/shards piled in bucket
-  const scrapCount = 22;
-  const seed = [0.38, 0.81, 0.14, 0.57, 0.93, 0.26, 0.72, 0.45, 0.18, 0.64, 0.33, 0.87, 0.09, 0.52, 0.77, 0.31, 0.68, 0.22, 0.55, 0.89, 0.11, 0.44];
-  for (let i = 0; i < scrapCount; i++) {
-    const s = seed[i % seed.length];
-    const s2 = seed[(i + 7) % seed.length];
-    const s3 = seed[(i + 13) % seed.length];
-    const angle = s * Math.PI * 2;
-    const r = s2 * (topR * 0.62);
-    const px = Math.cos(angle) * r, pz = Math.sin(angle) * r;
-    const py = h * 0.85 + s3 * 0.12;
-    const stype = i % 3;
+  // ---- central vertical reinforcement ribs on each face ----
+  [d/2, -(d/2)].forEach(pz => g.add(box(0.07, wallH, 0.025, frame, 0, wallY, pz + Math.sign(pz)*0.006)));
+  [w/2, -(w/2)].forEach(px => g.add(box(0.025, wallH, 0.07, frame, px + Math.sign(px)*0.006, wallY, 0)));
+
+  // ---- top & bottom rim frames tying the posts ----
+  [d/2 - 0.03, -(d/2 - 0.03)].forEach(pz => g.add(box(w, 0.05, 0.05, frame, 0, wallTop, pz)));
+  [w/2 - 0.03, -(w/2 - 0.03)].forEach(px => g.add(box(0.05, 0.05, d, frame, px, wallTop, 0)));
+  [d/2 - 0.03, -(d/2 - 0.03)].forEach(pz => g.add(box(w - 0.02, 0.045, 0.045, frame, 0, wallBot, pz)));
+  [w/2 - 0.03, -(w/2 - 0.03)].forEach(px => g.add(box(0.045, 0.045, d - 0.02, frame, px, wallBot, 0)));
+
+  // ---- lifting eyes on top of each corner post ----
+  [[cx,cz],[-cx,cz],[cx,-cz],[-cx,-cz]].forEach(([px,pz]) => {
+    g.add(box(0.045, 0.05, 0.045, frame, px, wallTop + 0.035, pz));               // stem
+    const eye = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.012, 8, 16), frame);
+    eye.position.set(px, wallTop + 0.085, pz); eye.rotation.y = Math.atan2(pz, px);
+    eye.castShadow = true; g.add(eye);
+  });
+
+  // ---- scrap fill: bright steel turnings/chips piled near the top ----
+  const seed = [0.38,0.81,0.14,0.57,0.93,0.26,0.72,0.45,0.18,0.64,0.33,0.87,0.09,0.52,0.77,0.31,0.68,0.22,0.55,0.89,0.11,0.44,0.66,0.05,0.97,0.41,0.73,0.28];
+  const fillX = w/2 - 0.12, fillZ = d/2 - 0.12, fillY = wallTop - 0.07;
+  for (let i = 0; i < 46; i++) {
+    const s = seed[i % seed.length], s2 = seed[(i+7) % seed.length], s3 = seed[(i+13) % seed.length];
+    const px = (s - 0.5) * 2 * fillX, pz = (s2 - 0.5) * 2 * fillZ, py = fillY + s3 * 0.05;
+    const m = (i % 4 === 0) ? steelB : steelA;
     let scrap;
-    if (stype === 0) {
-      // flat chip / sliver
-      scrap = new THREE.Mesh(new THREE.BoxGeometry(s * 0.07 + 0.02, 0.008, s2 * 0.05 + 0.015), alum);
-    } else if (stype === 1) {
-      // curled strip (torus segment)
-      scrap = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.006, 4, 10, Math.PI * (0.6 + s * 0.8)), alum);
-    } else {
-      // short rod / turning
-      scrap = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, s * 0.06 + 0.02, 6), alum);
-    }
+    const t = i % 3;
+    if (t === 0)      scrap = new THREE.Mesh(new THREE.TorusGeometry(0.018 + s*0.014, 0.005, 4, 8, Math.PI*(0.7 + s*0.9)), m);
+    else if (t === 1) scrap = new THREE.Mesh(new THREE.BoxGeometry(0.05 + s*0.04, 0.006, 0.012 + s2*0.012), m);
+    else              scrap = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.04 + s*0.05, 5), m);
     scrap.position.set(px, py, pz);
-    scrap.rotation.set(s * Math.PI * 2, s2 * Math.PI * 2, s3 * Math.PI * 2);
-    scrap.castShadow = true;
-    g.add(scrap);
+    scrap.rotation.set(s*Math.PI*2, s2*Math.PI*2, s3*Math.PI*2);
+    scrap.castShadow = true; g.add(scrap);
   }
 
+  // mark colorable
+  g.traverse(o => { if (o.isMesh && o.material === panel) o.userData.colorable = true; });
   return g;
 }
 
