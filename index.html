@@ -2472,7 +2472,7 @@ const FURNITURE_DEFS = [
   { id:'drum',           cat:'factory', name:'ドラム缶',           icon:'fa-circle',              w:0.58, d:0.58, h:0.88,  colorIdx:9,  build:buildDrum },
   // ---- 大型工業機械 ----
   { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:3.0,  d:2.2,  h:2.8,   colorIdx:10, build:buildCNCMachiningCenter },
-  { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:7,  build:buildIndustrialRobotLg },
+  { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:10, build:buildIndustrialRobotLg },
   { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:1.8,  d:1.4,  h:3.5,   colorIdx:6,  build:buildLargeHydraulicPress },
   { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
   { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:3.5,  d:1.5,  h:2.2,   colorIdx:8,  build:buildInjectionMolder },
@@ -5115,46 +5115,107 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   g.traverse(o => { if (o.isMesh && o.material === cream) o.userData.colorable = true; });
   return g;
 }
-function buildIndustrialRobotLg({ color='#f59e0b', w=1.2, d=1.2, h=2.4 } = {}) {
+function buildIndustrialRobotLg({ color='#e8e4dc', w=1.2, d=1.2, h=2.4 } = {}) {
   const g = new THREE.Group();
-  const body = mat(color, 0.4, 0.2, { env: 0.5 });
-  const dark = mat('#1e2428', 0.6, 0.2);
-  const steel = mat('#8a9aa8', 0.25, 0.75, { env: 1.0 });
-  const joint = mat('#2a3038', 0.4, 0.4);
-  // base pedestal
-  g.add(box(0.7, 0.18, 0.7, dark, 0, 0.09, 0));
-  g.add(box(0.58, 0.28, 0.58, mat(shade(color,0.7),0.5,0.2), 0, 0.32, 0));
-  // J1 rotation base
-  const rotBase = cyl(0.28, 0.28, 0.22, 24, body); rotBase.position.set(0, 0.57, 0); rotBase.userData.colorable=true; g.add(rotBase);
-  // Lower arm (J2)
-  const larm = box(0.18, 0.72, 0.2, body, 0.05, 1.02, 0); larm.userData.colorable=true; g.add(larm);
-  g.add(cylAt(0.14,0.14,0.22,20,joint,0,0.68,0).rotateZ(Math.PI/2)); // J2 joint
-  // Upper arm (J3)
-  const uarm = box(0.15, 0.58, 0.16, body, 0.05, 1.62, -0.05); uarm.userData.colorable=true; g.add(uarm);
-  g.add(cylAt(0.12,0.12,0.20,20,joint,0,1.38,-0.04).rotateZ(Math.PI/2)); // J3 joint
-  // Wrist block (J4-J6)
-  const wrist = box(0.18, 0.22, 0.18, dark, 0.05, 2.02, -0.08); g.add(wrist);
-  g.add(cylAt(0.09,0.09,0.14,16,joint,0.05,2.14,-0.08).rotateX(Math.PI/2));
-  // Tool flange
-  const flange = cyl(0.06, 0.06, 0.12, 16, steel); flange.position.set(0.05, 2.23, -0.08); g.add(flange);
-  // Gripper fingers
-  [[-0.04,0],[0.04,0]].forEach(([fx,fz]) => {
-    g.add(box(0.025, 0.13, 0.025, dark, 0.05+fx, 2.35, -0.08+fz));
+  // 6-axis heavy handling robot — off-white castings, charcoal joints/motors/base, black dresspack + gripper
+  const body  = mat(color, 0.45, 0.18, { env: 0.45 });               // arm castings (colorable)
+  const bodyD = mat(shade(color, 0.9), 0.45, 0.18, { env: 0.4 });    // shaded body insets
+  const dark  = mat('#2c3035', 0.5, 0.45, { env: 0.5 });             // joint hubs / base
+  const motor = mat('#34383d', 0.45, 0.5, { env: 0.5 });             // servo motor housings
+  const blk   = mat('#141619', 0.6, 0.18);                           // cable dresspack / gripper
+  const steel = mat('#9aa6b0', 0.3, 0.8, { env: 1.0 });              // flanges / wrist
+  const bolt  = mat('#50545a', 0.4, 0.7);
+  const rbox  = (bw, bh, bd, m, x, y, z) => { const me = new THREE.Mesh(roundedBoxGeom(bw, bh, bd, 0.04, 3), m); me.position.set(x, y, z); me.castShadow = true; me.receiveShadow = true; return me; };
+  // bolt ring helper around an axis-aligned circular flange
+  const boltRing = (parent, R, n, axis, px, py, pz) => {
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2, c = Math.cos(a) * R, s = Math.sin(a) * R;
+      const b = cyl(0.011, 0.011, 0.03, 6, bolt);
+      if (axis === 'y') { b.position.set(px + c, py, pz + s); }
+      else if (axis === 'z') { b.rotation.x = Math.PI/2; b.position.set(px + c, py + s, pz); }
+      else { b.rotation.z = Math.PI/2; b.position.set(px, py + c, pz + s); }
+      parent.add(b);
+    }
+  };
+
+  // ===== BASE (charcoal cast pedestal) =====
+  g.add(rbox(0.78, 0.06, 0.78, dark, 0, 0.03, 0));                   // foot plate
+  [[-0.31,-0.31],[0.31,-0.31],[-0.31,0.31],[0.31,0.31]].forEach(([bx,bz]) => {
+    g.add(cylAt(0.05, 0.05, 0.06, 12, dark, bx, 0.06, bz));
+    g.add(cylAt(0.02, 0.02, 0.05, 8, bolt, bx, 0.1, bz));
   });
-  // Cable harness along arm
-  for (let i=0; i<6; i++) {
-    g.add(box(0.04,0.04,0.04,mat('#222',0.9),0.13,0.72+i*0.1,-0.02));
-  }
-  // Control cabinet (separate box beside robot)
-  g.add(box(0.48, 1.2, 0.34, mat('#2a2f35',0.5), -0.7, 0.6, 0.2));
-  g.add(box(0.36, 0.45, 0.04, mat('#0d2040',0.3), -0.7, 0.82, 0.38));
-  ['#22c55e','#3b82f6','#ef4444'].forEach((cl,i)=>g.add(cylAt(0.018,0.018,0.025,10,mat(cl,0.3),-0.7,0.56-i*0.05,0.38).rotateX(Math.PI/2)));
-  // status LED on shoulder housing
-  g.add(cylAt(0.015,0.015,0.02,10,mat('#22c55e',0.2,0.1,{emissive:'#22c55e',emissiveIntensity:0.9}),0.14,0.78,-0.12).rotateX(Math.PI/2));
-  // teach pendant unit hanging from control cabinet
-  const tpCable = cyl(0.01,0.01,0.52,8,mat('#111',0.9)); tpCable.rotation.x=0.35; tpCable.position.set(-0.48,0.92,0.38); g.add(tpCable);
-  g.add(box(0.11,0.18,0.03,mat('#333',0.5),-0.52,0.72,0.41));
-  g.add(box(0.08,0.1,0.02,mat('#0a1828',0.2),-0.52,0.74,0.43));
+  g.add(rbox(0.6, 0.16, 0.6, dark, 0, 0.14, 0));
+  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.34, 0.34, 24), dark); ped.position.set(0, 0.39, 0); ped.castShadow = true; g.add(ped);
+  g.add(cylAt(0.28, 0.28, 0.05, 28, bolt, 0, 0.58, 0));
+  boltRing(g, 0.24, 12, 'y', 0, 0.605, 0);
+
+  // ===== J1 SWIVEL (yaw) =====
+  const j1 = new THREE.Group(); j1.position.set(0, 0.6, 0); j1.rotation.y = -0.4; g.add(j1);
+  const sw = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.31, 0.2, 24), body); sw.position.y = 0.1; sw.castShadow = true; j1.add(sw);
+  const shoulder = rbox(0.36, 0.5, 0.46, body, 0, 0.46, 0); j1.add(shoulder);   // shoulder housing
+  j1.add(rbox(0.06, 0.42, 0.4, bodyD, 0.18, 0.46, 0));                          // side rib
+  // J2 servo motor on +x side
+  j1.add(rbox(0.2, 0.26, 0.26, motor, 0.3, 0.52, -0.02));
+  j1.add(cylAt(0.075, 0.075, 0.12, 16, dark, 0.42, 0.52, -0.02).rotateZ(Math.PI/2));
+
+  // ===== J2 SHOULDER (pitch) =====
+  const j2 = new THREE.Group(); j2.position.set(0, 0.52, 0); j2.rotation.x = 0.5; j1.add(j2);
+  j2.add(cylAt(0.16, 0.16, 0.44, 20, dark, 0, 0, 0).rotateZ(Math.PI/2));        // J2 axis hub
+  boltRing(j2, 0.13, 10, 'x', 0.22, 0, 0);
+  const lowH = 0.82;
+  const lar = rbox(0.24, lowH, 0.26, body, 0, lowH/2, 0); j2.add(lar);          // lower arm
+  j2.add(rbox(0.26, lowH*0.86, 0.05, bodyD, 0, lowH/2, 0.15));
+
+  // ===== J3 ELBOW (pitch) =====
+  const j3 = new THREE.Group(); j3.position.set(0, lowH, 0); j3.rotation.x = 1.05; j2.add(j3);
+  j3.add(cylAt(0.15, 0.15, 0.42, 20, dark, 0, 0, 0).rotateZ(Math.PI/2));        // J3 axis hub
+  j3.add(rbox(0.2, 0.22, 0.24, motor, 0, 0.02, -0.24));                          // J3 motor (rear)
+  j3.add(cylAt(0.07, 0.07, 0.1, 14, dark, 0, 0.02, -0.38).rotateX(Math.PI/2));
+  const foreH = 1.0;
+  const far = rbox(0.2, foreH, 0.22, body, 0, foreH/2, 0); j3.add(far);          // forearm
+  j3.add(cylAt(0.13, 0.13, 0.1, 20, bodyD, 0, 0.14, 0).rotateX(0));
+  // counterbalance / drive rods along the top of the forearm
+  [-0.07, 0.07].forEach(rx => j3.add(cylAt(0.022, 0.022, foreH*0.78, 10, blk, rx, foreH*0.5, 0.13)));
+  [foreH*0.1, foreH*0.9].forEach(ry => j3.add(cylAt(0.03, 0.03, 0.2, 8, dark, 0, ry, 0.12).rotateZ(Math.PI/2)));
+  // black cable dresspack running along the forearm side + loop near elbow
+  j3.add(cylAt(0.03, 0.03, foreH*0.8, 8, blk, -0.12, foreH*0.45, -0.02));
+  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.028, 8, 16, Math.PI*1.3), blk); loop.position.set(-0.12, 0.0, -0.05); loop.rotation.y = Math.PI/2; j3.add(loop);
+
+  // ===== J4 WRIST ROLL (along forearm axis) =====
+  const j4 = new THREE.Group(); j4.position.set(0, foreH, 0); j4.rotation.y = 0; j3.add(j4);
+  const wr = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.26, 20), body); wr.position.y = 0.13; wr.castShadow = true; j4.add(wr);
+  boltRing(j4, 0.1, 10, 'y', 0, 0.26, 0);
+
+  // ===== J5 WRIST BEND (droop tool downward) =====
+  const j5 = new THREE.Group(); j5.position.set(0, 0.26, 0); j5.rotation.x = 1.5; j4.add(j5);
+  j5.add(cylAt(0.1, 0.1, 0.24, 18, dark, 0, 0, 0).rotateZ(Math.PI/2));          // J5 hub
+  j5.add(rbox(0.18, 0.2, 0.2, body, 0, 0.12, 0));                                // wrist housing
+  // ===== J6 TOOL FLANGE =====
+  const j6 = new THREE.Group(); j6.position.set(0, 0.22, 0); j5.add(j6);
+  const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 20), steel); flange.position.y = 0.03; flange.castShadow = true; j6.add(flange);
+  boltRing(j6, 0.06, 8, 'y', 0, 0.05, 0);
+
+  // ===== END EFFECTOR (black multi-jaw gripper) =====
+  const grip = new THREE.Group(); grip.position.set(0, 0.06, 0); j6.add(grip);
+  grip.add(rbox(0.22, 0.05, 0.22, steel, 0, 0.025, 0));                          // adapter plate
+  grip.add(rbox(0.26, 0.18, 0.24, blk, 0, 0.14, 0));                             // gripper body
+  grip.add(rbox(0.28, 0.06, 0.1, blk, 0, 0.24, 0));                              // cross bar
+  // two clamp fingers angling down & inward
+  [[-1, -0.11], [1, 0.11]].forEach(([sgn, fx]) => {
+    const fG = new THREE.Group(); fG.position.set(fx, 0.22, 0); fG.rotation.z = sgn * 0.25; grip.add(fG);
+    fG.add(rbox(0.05, 0.26, 0.16, blk, 0, 0.13, 0));                             // finger arm
+    fG.add(rbox(0.06, 0.06, 0.2, dark, 0, 0.27, 0));                             // finger tip pad
+  });
+
+  // ===== shoulder cable dresspack (base → shoulder, attached to swivel) =====
+  const c1 = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.032, 8, 18, Math.PI*1.1), blk); c1.position.set(-0.2, 0.5, -0.12); c1.rotation.set(0, Math.PI/2, 0.3); j1.add(c1);
+  j1.add(cylAt(0.032, 0.032, 0.4, 8, blk, -0.26, 0.22, -0.05));
+
+  // status light on shoulder
+  j1.add(cylAt(0.02, 0.02, 0.03, 10, mat('#22c55e', 0.2, 0.1, { emissive:'#22c55e', emissiveIntensity:0.9 }), -0.17, 0.6, 0.18).rotateX(Math.PI/2));
+
+  // mark body castings colorable
+  g.traverse(o => { if (o.isMesh && o.material === body) o.userData.colorable = true; });
   // Respect w/d/h: geometry authored at 1.2×1.2×2.4 → scale proportionally
   g.scale.set(w / 1.2, h / 2.4, d / 1.2);
   return g;
