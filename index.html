@@ -2785,64 +2785,202 @@ function buildRug({ color='#3f5d7a', w=2.0, d=1.5 } = {}) {
   return g;
 }
 
-function buildWorkbench(color) {
+function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.9 } = {}) {
   const g = new THREE.Group();
-  const metal = mat('#7a8490', 0.3, 0.7);
-  const top = box(1.5, 0.06, 0.75, mat('#6b7280', 0.4, 0.5), 0, 0.87, 0);
+  const steel = mat('#5a6474', 0.28, 0.72);
+  const darkM = mat('#3a4252', 0.32, 0.65);
+
+  // Thick steel work surface
+  const top = box(w, 0.07, d, mat(color, 0.35, 0.5), 0, h - 0.035, 0);
   top.userData.colorable = true; g.add(top);
-  // legs
-  [[-0.67,-0.32],[-0.67,0.32],[0.67,-0.32],[0.67,0.32]].forEach(([x,z]) => {
-    const leg = box(0.06, 0.88, 0.06, metal, x, 0.44, z); g.add(leg);
+
+  // 4 square-tube legs with leveling feet
+  const lx = w / 2 - 0.06, lz = d / 2 - 0.06;
+  [[lx, lz], [lx, -lz], [-lx, lz], [-lx, -lz]].forEach(([x, z]) => {
+    g.add(box(0.065, h - 0.07, 0.065, steel, x, (h - 0.07) / 2, z));
+    const foot = cyl(0.042, 0.05, 0.04, 8, darkM); foot.position.set(x, 0.02, z); g.add(foot);
   });
-  // lower shelf
-  const shelf = box(1.38, 0.04, 0.63, mat('#5a6370', 0.5, 0.4), 0, 0.3, 0); g.add(shelf);
-  // vise
-  const vise = box(0.18, 0.12, 0.12, mat('#4a5260', 0.3, 0.7), 0.55, 0.93, 0.34); g.add(vise);
-  const vise2 = box(0.06, 0.1, 0.18, mat('#3a4250', 0.3, 0.8), 0.55, 0.93, 0.37); g.add(vise2);
+
+  // Aprons (rails directly under tabletop, front/back/sides)
+  const aY = h - 0.07 - 0.05;
+  g.add(box(w - 0.12, 0.09, 0.05, steel, 0, aY, -d / 2 + 0.025));
+  g.add(box(w - 0.12, 0.09, 0.05, steel, 0, aY,  d / 2 - 0.025));
+  g.add(box(0.05, 0.09, d - 0.12, steel, -w / 2 + 0.025, aY, 0));
+  g.add(box(0.05, 0.09, d - 0.12, steel,  w / 2 - 0.025, aY, 0));
+
+  // Lower cross-stretchers
+  const sY = 0.22;
+  g.add(box(w - 0.12, 0.05, 0.05, steel, 0, sY, -lz));
+  g.add(box(w - 0.12, 0.05, 0.05, steel, 0, sY,  lz));
+  g.add(box(0.05, 0.05, d - 0.12, steel, -lx, sY, 0));
+  g.add(box(0.05, 0.05, d - 0.12, steel,  lx, sY, 0));
+
+  // Lower shelf
+  g.add(box(w - 0.16, 0.04, d - 0.16, mat(shade(color, 0.72), 0.55, 0.35), 0, sY + 0.045, 0));
+
+  // Back pegboard panel
+  const pbH = 0.62, pbZ = d / 2 - 0.011;
+  const pbY = h + pbH / 2 - 0.02;
+  g.add(box(w - 0.1, pbH, 0.022, mat('#8a9aaa', 0.65, 0.15), 0, pbY, pbZ));
+  for (let px = -(w / 2 - 0.16); px <= (w / 2 - 0.16); px += 0.095) {
+    for (let py = h + 0.06; py <= h + pbH - 0.09; py += 0.095) {
+      g.add(box(0.018, 0.018, 0.009, mat('#2a3038', 0.9, 0), px, py, pbZ + 0.012));
+    }
+  }
+  [-0.45, -0.15, 0.18, 0.42].forEach((px, i) => {
+    g.add(box(0.014, 0.038, 0.09, mat('#b8c0ca', 0.22, 0.88), px, h + 0.1 + i * 0.09, pbZ + 0.055));
+  });
+
+  // Machinist bench vise (front-left corner)
+  const vx = -w / 2 + 0.22, vz = -d / 2 + 0.01;
+  const vm = mat('#2c3344', 0.32, 0.72);
+  g.add(box(0.2, 0.04, 0.14, vm, vx, h - 0.02, vz + 0.07));
+  g.add(box(0.2, 0.11, 0.04, vm, vx, h + 0.055, vz + 0.02));
+  g.add(box(0.2, 0.11, 0.04, vm, vx, h + 0.055, vz + 0.11));
+  g.add(box(0.18, 0.09, 0.008, mat('#5a6474', 0.38, 0.62), vx, h + 0.055, vz + 0.024));
+  g.add(box(0.18, 0.09, 0.008, mat('#5a6474', 0.38, 0.62), vx, h + 0.055, vz + 0.106));
+  const screw = cyl(0.016, 0.016, 0.14, 10, mat('#8a94a2', 0.22, 0.84));
+  screw.rotation.x = Math.PI / 2; screw.position.set(vx, h + 0.033, vz + 0.07); g.add(screw);
+  const tbar = cyl(0.012, 0.012, 0.24, 8, mat('#6a7482', 0.28, 0.72));
+  tbar.rotation.z = Math.PI / 2; tbar.position.set(vx, h + 0.033, vz - 0.04); g.add(tbar);
+  [-0.1, 0.1].forEach(dx => {
+    const knb = cyl(0.022, 0.022, 0.04, 8, mat('#5a6474', 0.3, 0.7));
+    knb.rotation.z = Math.PI / 2; knb.position.set(vx + dx, h + 0.033, vz - 0.04); g.add(knb);
+  });
+
   return g;
 }
 
-function buildToolCabinet(color) {
+function buildToolCabinet({ color='#d4690a', w=0.7, d=0.45, h=1.12 } = {}) {
   const g = new THREE.Group();
-  const body = box(0.7, 1.1, 0.45, mat(color, 0.35, 0.6), 0, 0.55, 0); body.userData.colorable = true; g.add(body);
-  const top = box(0.72, 0.04, 0.47, mat('#333a42', 0.2, 0.8), 0, 1.12, 0); g.add(top);
-  // drawer fronts
-  for (let i = 0; i < 5; i++) {
-    const dr = box(0.62, 0.16, 0.03, mat(color, 0.4, 0.5), 0, 0.18 + i*0.18, 0.24); dr.userData.colorable = true; g.add(dr);
-    const hdl = box(0.18, 0.03, 0.025, mat('#888fa0', 0.2, 0.9), 0, 0.18 + i*0.18, 0.258); g.add(hdl);
-  }
-  // wheels
-  [[-0.28,0.18],[0.28,0.18],[-0.28,-0.18],[0.28,-0.18]].forEach(([x,z]) => {
-    const w = cyl(0.045, 0.045, 0.04, 10, mat('#222', 0.9, 0)); w.rotation.x = Math.PI/2; w.position.set(x, 0.05, z); g.add(w);
-  });
-  return g;
-}
+  const darkM = mat('#28303a', 0.32, 0.72);
+  const chrM  = mat('#b0bac8', 0.14, 0.88);
 
-function buildConveyor(color) {
-  const g = new THREE.Group();
-  const frame = mat('#5a6370', 0.3, 0.7);
-  const belt = mat('#222831', 0.85, 0.1);
-  // main frame
-  [-0.22, 0.22].forEach(z => {
-    const side = box(2.4, 0.06, 0.06, frame, 0, 0.75, z); g.add(side);
+  // Caster wheels (support cabinet from below)
+  const castR = 0.052;
+  const bodyBase = castR * 2 + 0.05; // cabinet bottom height ≈ 0.154
+  const bodyH = h - bodyBase;
+
+  [[-w/2+0.1, d/2-0.08], [w/2-0.1, d/2-0.08],
+   [-w/2+0.1, -d/2+0.08], [w/2-0.1, -d/2+0.08]].forEach(([cx, cz]) => {
+    g.add(box(0.038, 0.05, 0.038, darkM, cx, castR * 2 + 0.025, cz));  // mounting bracket
+    const tire = cyl(castR, castR, 0.036, 14, mat('#181c22', 0.9, 0.05));
+    tire.rotation.x = Math.PI / 2; tire.position.set(cx, castR, cz); g.add(tire);
+    const hub = cyl(castR * 0.46, castR * 0.46, 0.038, 10, mat('#8a94a8', 0.22, 0.78));
+    hub.rotation.x = Math.PI / 2; hub.position.set(cx, castR, cz); g.add(hub);
+    for (let a = 0; a < 4; a++) {
+      const ba = a * Math.PI / 2;
+      const blt = cyl(0.005, 0.005, 0.04, 6, darkM);
+      blt.rotation.x = Math.PI / 2;
+      blt.position.set(cx + Math.cos(ba) * 0.016, castR + Math.sin(ba) * 0.016, cz);
+      g.add(blt);
+    }
   });
-  // belt surface
-  const beltTop = box(2.36, 0.04, 0.38, belt, 0, 0.78, 0); beltTop.userData.colorable = true; g.add(beltTop);
-  // belt lines
-  for (let i = -1.0; i <= 1.0; i += 0.2) {
-    const line = box(0.02, 0.005, 0.38, mat('#3a3f47', 0.9, 0), i, 0.802, 0); g.add(line);
-  }
-  // rollers at ends
-  [-1.15, 1.15].forEach(x => {
-    const roll = cyl(0.07, 0.07, 0.5, 12, mat('#7a8490', 0.3, 0.6)); roll.rotation.z = Math.PI/2; roll.position.set(x, 0.75, 0); g.add(roll);
-  });
-  // legs
-  [[-0.9,0],[0.9,0]].forEach(([x]) => {
-    [-0.18, 0.18].forEach(z => {
-      const leg = box(0.05, 0.72, 0.05, frame, x, 0.36, z); g.add(leg);
-      const foot = box(0.12, 0.04, 0.12, frame, x, 0.02, z); g.add(foot);
+
+  // Cabinet body
+  const bCY = bodyBase + bodyH / 2;
+  const body = box(w, bodyH, d, mat(color, 0.35, 0.55), 0, bCY, 0);
+  body.userData.colorable = true; g.add(body);
+
+  // Top rubber mat
+  g.add(box(w - 0.04, 0.026, d - 0.04, mat('#1a1e26', 0.88, 0.04), 0, bodyBase + bodyH + 0.013, 0));
+
+  // 7 drawers with recessed panels and bar handles
+  const numDr = 7;
+  const drH = (bodyH - 0.06) / numDr;
+  const drGap = 0.011;
+  for (let i = 0; i < numDr; i++) {
+    const dy = bodyBase + 0.03 + drH * (i + 0.5);
+    const drFront = box(w - 0.04, drH - drGap, 0.03, mat(shade(color, 1.06), 0.38, 0.52), 0, dy, d / 2 + 0.001);
+    drFront.userData.colorable = true; g.add(drFront);
+    // Recessed inset
+    g.add(box(w - 0.1, drH - drGap - 0.03, 0.01, mat(shade(color, 0.84), 0.44, 0.48), 0, dy, d / 2 + 0.008));
+    // Bar handle
+    const bar = cyl(0.007, 0.007, w - 0.22, 10, chrM);
+    bar.rotation.z = Math.PI / 2; bar.position.set(0, dy, d / 2 + 0.03); g.add(bar);
+    // Handle bracket posts + end knobs
+    [-(w / 2 - 0.15), (w / 2 - 0.15)].forEach(hx => {
+      g.add(box(0.01, 0.016, 0.022, chrM, hx, dy, d / 2 + 0.021));
+      const knb = cyl(0.011, 0.011, 0.01, 8, chrM);
+      knb.rotation.z = Math.PI / 2; knb.position.set(hx, dy, d / 2 + 0.031); g.add(knb);
     });
+  }
+
+  // Vertical lock bar (right side)
+  g.add(box(0.015, bodyH - 0.06, 0.015, chrM, w / 2 - 0.015, bCY, d / 2 + 0.008));
+  g.add(box(0.022, 0.036, 0.022, darkM, w / 2 - 0.015, bodyBase + bodyH * 0.52, d / 2 + 0.018));
+
+  return g;
+}
+
+function buildConveyor({ color='#1e2530', w=2.4, d=0.5, h=0.82 } = {}) {
+  const g = new THREE.Group();
+  const framM = mat('#5a6474', 0.3, 0.68);
+  const rollM = mat('#8a9ab0', 0.2, 0.78);
+  const motM  = mat('#2a3240', 0.42, 0.45);
+
+  const beltW = 0.38;
+  const fZ    = 0.22;          // side frame center Z (±)
+  const topY  = h;
+  const webH  = 0.2;
+  const webY  = topY - webH / 2 - 0.008;
+
+  // Side C-channel frames: web + top flange + bottom flange
+  [-fZ, fZ].forEach(z => {
+    g.add(box(w, webH, 0.024, framM, 0, webY, z));
+    g.add(box(w, 0.022, 0.072, framM, 0, topY - 0.011, z));
+    g.add(box(w, 0.022, 0.072, framM, 0, webY - webH / 2 + 0.011, z));
   });
+
+  // Cross members connecting left/right frames
+  for (let x = -w / 2 + 0.48; x < w / 2; x += 0.48) {
+    g.add(box(0.024, 0.024, beltW + 0.06, framM, x, webY - 0.04, 0));
+  }
+
+  // Head drum (drive end, +x) and tail drum (-x)
+  const headX = w / 2 - 0.08, tailX = -w / 2 + 0.08;
+  [headX, tailX].forEach(x => {
+    const drum = cyl(0.078, 0.078, beltW + 0.055, 18, rollM);
+    drum.rotation.z = Math.PI / 2; drum.position.set(x, topY - 0.01, 0); g.add(drum);
+  });
+
+  // Idler rollers every 0.28m between drums
+  for (let x = tailX + 0.3; x < headX - 0.12; x += 0.28) {
+    const rol = cyl(0.036, 0.036, beltW + 0.02, 10, rollM);
+    rol.rotation.z = Math.PI / 2; rol.position.set(x, topY - 0.044, 0); g.add(rol);
+  }
+
+  // Belt surface (colorable)
+  const belt = box(w - 0.16, 0.016, beltW, mat(color, 0.88, 0.06), 0, topY + 0.003, 0);
+  belt.userData.colorable = true; g.add(belt);
+  // Belt cleats (grip ribs)
+  for (let x = tailX + 0.22; x < headX - 0.05; x += 0.22) {
+    g.add(box(0.015, 0.018, beltW - 0.02, mat('#141820', 0.94, 0), x, topY + 0.016, 0));
+  }
+
+  // Drive motor + gearbox at head end
+  const mX = headX + 0.18;
+  g.add(box(0.2, 0.16, 0.16, motM, mX, webY, 0));
+  g.add(box(0.09, 0.12, 0.11, mat('#333d4a', 0.38, 0.5), mX - 0.145, webY, 0));
+  for (let fi = -0.055; fi <= 0.055; fi += 0.022) {
+    g.add(plainBox(0.2, 0.005, 0.018, mat('#38445a', 0.32, 0.5), mX, webY + fi, 0.085));
+  }
+  g.add(box(0.05, 0.04, 0.04, rollM, mX - 0.19, webY, 0));
+
+  // Support legs — 3 positions with cross-bracing
+  const frameBot = webY - webH / 2 - 0.01;
+  const legH = frameBot - 0.03;
+  const legCY = 0.03 + legH / 2;
+  [-w * 0.35, 0, w * 0.35].forEach(lx => {
+    [-fZ + 0.01, fZ - 0.01].forEach(lz => {
+      g.add(box(0.05, legH, 0.05, framM, lx, legCY, lz));
+      const ft = cyl(0.042, 0.05, 0.036, 8, mat('#38424e', 0.4, 0.45));
+      ft.position.set(lx, 0.018, lz); g.add(ft);
+    });
+    // Horizontal cross-brace between two legs
+    g.add(box(0.022, 0.022, fZ * 2 - 0.02, framM, lx, legCY * 0.68, 0));
+  });
+
   return g;
 }
 
@@ -2897,27 +3035,70 @@ function buildCNCMachine(color) {
   return g;
 }
 
-function buildPalletRack(color) {
+function buildPalletRack({ color='#e06010', w=1.7, d=0.5, h=2.46 } = {}) {
   const g = new THREE.Group();
-  const steel = mat('#8a9aaa', 0.3, 0.6);
-  const shelfMat = mat(color, 0.5, 0.3);
-  // uprights
-  [-0.8, 0.8].forEach(x => {
-    const up = box(0.05, 2.4, 0.06, steel, x, 1.2, 0); g.add(up);
-    // diagonal braces
-    for (let y = 0.3; y < 2.2; y += 0.8) {
-      const br = box(0.03, 0.58, 0.5, steel, x, y + 0.29, 0); g.add(br);
+  const steelM = mat('#7a8898', 0.28, 0.68);
+  const beamM  = mat(color, 0.38, 0.45);
+
+  const upW = 0.07;
+  const lx  = w / 2 - upW / 2;   // ±X of left/right post pairs
+  const fz  = -d / 2 + upW / 2;  // front Z
+  const bz  =  d / 2 - upW / 2;  // back Z
+  const innerW = w - upW;         // clear span between post faces
+
+  // 4 upright posts (front+back on each side)
+  [[-lx, fz], [-lx, bz], [lx, fz], [lx, bz]].forEach(([x, z]) => {
+    g.add(box(upW, h, upW, steelM, x, h / 2, z));
+  });
+
+  // X-bracing within each side frame (left frame and right frame)
+  const frameD = bz - fz;
+  const nSect  = 3;
+  const sH     = h / nSect;
+  const diagLen = Math.sqrt(frameD * frameD + sH * sH);
+  const angle   = Math.atan2(frameD, sH);
+
+  [-lx, lx].forEach(x => {
+    for (let s = 0; s < nSect; s++) {
+      const cy = s * sH + sH / 2;
+      const b1 = box(0.022, diagLen, 0.022, steelM, x, cy, 0);
+      b1.rotation.x = angle; g.add(b1);
+      const b2 = box(0.022, diagLen, 0.022, steelM, x, cy, 0);
+      b2.rotation.x = -angle; g.add(b2);
     }
   });
-  // shelf beams + boards at 3 levels
-  [0.42, 1.22, 2.02].forEach(y => {
-    [-0.8, 0.8].forEach(x => {
-      const beam = box(0.05, 0.06, 0.46, mat('#6a7a8a', 0.3, 0.5), x, y, 0); g.add(beam);
+
+  // Horizontal top ties connecting left/right and front/back
+  [fz, bz].forEach(z => g.add(box(w - upW, 0.04, 0.04, steelM, 0, h - 0.02, z)));
+  [-lx, lx].forEach(x => g.add(box(0.04, 0.04, d - upW, steelM, x, h - 0.02, 0)));
+
+  // Step beams + wire decking at 3 storage levels
+  [0.45, 1.24, 2.02].forEach(sy => {
+    [fz, bz].forEach(z => {
+      // C-section step beam: web face + top lip
+      const bw = box(innerW, 0.1, 0.022, beamM, 0, sy + 0.05, z);
+      bw.userData.colorable = true; g.add(bw);
+      g.add(box(innerW, 0.018, 0.052, beamM, 0, sy + 0.1, z));
+      // Connector hook plates at each end
+      [-innerW / 2, innerW / 2].forEach(bx => {
+        g.add(box(0.028, 0.088, 0.026, mat('#4a5868', 0.3, 0.68), bx, sy + 0.044, z));
+      });
     });
-    const board = box(1.52, 0.04, 0.44, shelfMat, 0, y + 0.05, 0); board.userData.colorable = true; g.add(board);
-    // pallet
-    const pallet = box(1.1, 0.1, 0.38, mat('#b8985c', 0.8, 0), 0, y + 0.12, 0); g.add(pallet);
+
+    // Wire deck (thin slab + longitudinal wires)
+    const deckY = sy + 0.108;
+    g.add(box(innerW, 0.01, d - upW, mat('#7a8898', 0.52, 0.42), 0, deckY, 0));
+    for (let wx = -innerW / 2 + 0.08; wx < innerW / 2; wx += 0.1) {
+      g.add(plainBox(0.007, 0.013, d - upW, mat('#5a6878', 0.45, 0.5), wx, deckY + 0.009, 0));
+    }
+    for (let wz = fz + 0.05; wz < bz; wz += 0.07) {
+      g.add(plainBox(innerW, 0.013, 0.007, mat('#5a6878', 0.45, 0.5), 0, deckY + 0.009, wz));
+    }
+
+    // Pallet suggestion (semi-transparent wood-colored block)
+    g.add(box(innerW - 0.08, 0.1, d - upW - 0.06, mat('#b89858', 0.82, 0), 0, deckY + 0.06, 0));
   });
+
   return g;
 }
 
