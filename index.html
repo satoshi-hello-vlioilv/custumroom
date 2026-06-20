@@ -870,7 +870,7 @@ const PART_H    = 2.4;   // interior partition height
 const COLORS = [
   '#c8a06a','#f3ece0','#5b5048','#b9714a','#5b86b8',
   '#6f9e74','#b25c78','#8a6fb0','#8a5a2b','#3f5d7a',
-  '#e8e2d6','#c2b6a3'
+  '#e8e2d6','#c2b6a3','#f5c020'
 ];
 
 // ============================================================ APP STATE
@@ -2463,7 +2463,7 @@ const FURNITURE_DEFS = [
   { id:'ultrasonic', cat:'lab',     name:'超音波洗浄機',      icon:'fa-water',             w:0.35, d:0.28, h:0.28, colorIdx:10, build:buildUltrasonicCleaner, stack:true },
   { id:'vacpump',    cat:'lab',     name:'真空ポンプ',        icon:'fa-pump-soap',         w:0.4,  d:0.3,  h:0.4,  colorIdx:6,  build:buildVacuumPump,  stack:true },
   // ---- factory heavy equipment ----
-  { id:'forklift',   cat:'factory', name:'フォークリフト',   icon:'fa-truck-moving',      w:1.1,  d:2.0,  h:2.0,  colorIdx:7,  build:buildForklift },
+  { id:'forklift',   cat:'factory', name:'フォークリフト',   icon:'fa-truck-moving',      w:1.1,  d:2.0,  h:2.0,  colorIdx:12, build:buildForklift },
   { id:'alumcoil',   cat:'factory', name:'アルミコイル',     icon:'fa-circle',            w:1.0,  d:0.8,  h:0.8,  colorIdx:10, build:buildAluminumCoil },
   { id:'scrpbucket', cat:'factory', name:'屑バケット',       icon:'fa-trash',             w:0.7,  d:0.7,  h:0.65, colorIdx:10, build:buildScrapBucket },
   { id:'tensile',    cat:'lab',     name:'引張試験機',       icon:'fa-arrows-up-down',    w:0.8,  d:0.7,  h:2.0,  colorIdx:10, build:buildTensileTestMachine },
@@ -5491,128 +5491,176 @@ function buildVacuumPump({ color='#4a4a4a', w=0.4, d=0.3, h=0.4 } = {}) {
   return g;
 }
 
-function buildForklift({ color='#f0a020', w=1.1, d=2.0, h=2.0 } = {}) {
-  // Front of the machine faces -z; forks and mast are at the front, counterweight at the rear (+z).
+function buildForklift({ color='#f5c020', w=1.1, d=2.0, h=2.0 } = {}) {
+  // Convention: front (-z, forks side) → rear (+z, counterweight side)
   const g = new THREE.Group();
-  const body_m   = mat(color, 0.5, 0.12);                       // yellow bodywork (colorable)
-  const charcoal = mat('#3a3d42', 0.55, 0.32, { env: 0.45 });   // mast / cage / hood / carriage
-  const black    = mat('#181a1c', 0.75, 0.1);                   // tyres, seat, steering
-  const metal    = mat('#8b9197', 0.3, 0.72, { env: 0.65 });    // hubs, inner rails
-  const chrome   = mat('#c4ccd2', 0.16, 0.88, { env: 0.95 });   // hydraulic cylinders
-  const emis = (c, i=0.7) => { const m = mat(c, 0.3, 0.1); m.emissive = new THREE.Color(c); m.emissiveIntensity = i; return m; };
 
-  const frontZ = -d * 0.44;   // mast plane
-  const wW = 0.18;            // tyre width
+  // ---------- materials ----------
+  const bodyM  = mat(color, 0.44, 0.10);
+  const cwM    = mat(shade(color, 0.84), 0.50, 0.12);
+  const darkM  = mat('#2c2e33', 0.58, 0.30, { env: 0.42 });
+  const hubM   = mat('#72787e', 0.26, 0.72, { env: 0.80 });
+  const chromeM= mat('#c0c8d0', 0.12, 0.92, { env: 1.0 });
+  const blackM = mat('#181a1e', 0.84, 0.04);
+  const tyreTex = rubberTex.clone(); tyreTex.repeat.set(10, 2); tyreTex.needsUpdate = true;
+  const tyreM  = new THREE.MeshStandardMaterial({ color: 0x1a1b1e, roughness: 0.90, metalness: 0.02, map: tyreTex, envMapIntensity: 0.1 });
+  const stepTex = checkerTex.clone(); stepTex.repeat.set(3, 2); stepTex.needsUpdate = true;
+  const stepM  = new THREE.MeshStandardMaterial({ color: 0x788088, roughness: 0.38, metalness: 0.45, map: stepTex, envMapIntensity: 0.6 });
+  const glow   = (c, i=0.55) => { const m = mat(c, 0.30, 0.06); m.emissive = new THREE.Color(c); m.emissiveIntensity = i; return m; };
 
-  // ---- chassis / engine compartment (yellow lower body) ----
-  const chassis = new THREE.Mesh(roundedBoxGeom(w, 0.46, d * 0.66, 0.05, 4), body_m);
-  chassis.position.set(0, 0.42, d * 0.06); chassis.castShadow = true; chassis.userData.colorable = true; g.add(chassis);
-
-  // dark engine hood rising behind the seat
-  const hood = new THREE.Mesh(roundedBoxGeom(w * 0.9, 0.34, d * 0.32, 0.05, 4), charcoal);
-  hood.position.set(0, 0.66, d * 0.24); hood.castShadow = true; g.add(hood);
-
-  // counterweight (rounded yellow rear mass)
-  const cw = new THREE.Mesh(roundedBoxGeom(w, 0.62, d * 0.2, 0.07, 5), body_m);
-  cw.position.set(0, 0.44, d * 0.42); cw.castShadow = true; cw.userData.colorable = true; g.add(cw);
-
-  // ---- operator station ----
-  // floor / step plate
-  g.add(box(w * 0.78, 0.04, d * 0.26, charcoal, 0, 0.50, -d * 0.02));
-  // dashboard cowl in front of the operator
-  const dash = new THREE.Mesh(roundedBoxGeom(w * 0.66, 0.26, 0.2, 0.04, 4), charcoal);
-  dash.position.set(0, 0.76, -d * 0.13); dash.castShadow = true; g.add(dash);
-  // steering column + wheel
-  const col = cylAt(0.028, 0.032, 0.32, 10, charcoal, 0, 0.93, -d * 0.11); col.rotation.x = -0.5; g.add(col);
-  const steering = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.02, 10, 24), black);
-  steering.position.set(0, 1.07, -d * 0.045); steering.rotation.x = Math.PI * 0.42; g.add(steering);
-  g.add(cylAt(0.03, 0.03, 0.04, 10, black, 0, 1.06, -d * 0.05).rotateX(Math.PI * 0.42));
-  // seat base + reclined backrest (black)
-  const seatBase = new THREE.Mesh(roundedBoxGeom(w * 0.5, 0.1, d * 0.2, 0.04, 4), black);
-  seatBase.position.set(0, 0.83, d * 0.13); g.add(seatBase);
-  const seatBack = new THREE.Mesh(roundedBoxGeom(w * 0.5, 0.4, 0.1, 0.04, 4), black);
-  seatBack.position.set(0, 1.05, d * 0.235); seatBack.rotation.x = -0.14; g.add(seatBack);
-
-  // ---- overhead guard (ROPS cage) ----
-  const roofY = h * 0.93;                 // ~1.86
-  const postR = 0.028;
-  const cageZF = -d * 0.14, cageZB = d * 0.27;
-  const cageX = w / 2 - 0.05;
-  [[-cageX, cageZF], [cageX, cageZF], [-cageX, cageZB], [cageX, cageZB]].forEach(([px, pz]) => {
-    const post = cylAt(postR, postR, roofY - 0.5, 8, charcoal, px, 0.5 + (roofY - 0.5) / 2, pz);
-    post.castShadow = true; g.add(post);
-  });
-  // roof: two side rails + cross slats
-  [-cageX, cageX].forEach(rx => g.add(cylAt(0.022, 0.022, (cageZB - cageZF) + 0.06, 8, charcoal, rx, roofY, (cageZF + cageZB) / 2).rotateX(Math.PI / 2)));
-  for (let zz = cageZF; zz <= cageZB + 0.001; zz += (cageZB - cageZF) / 5)
-    g.add(cylAt(0.02, 0.02, w - 0.08, 8, charcoal, 0, roofY, zz).rotateZ(Math.PI / 2));
-
-  // ---- mast assembly (front) ----
+  // ---------- key z positions ----------
+  const mZ   = -d * 0.44;   // mast / carriage front face
+  const fAZ  = -d * 0.15;   // front axle
+  const rAZ  =  d * 0.36;   // rear axle
+  const cwCZ =  d * 0.41;   // counterweight centre
   const mastH = h * 0.92;
-  [-w * 0.3, w * 0.3].forEach(mx => {
-    const rail = new THREE.Mesh(roundedBoxGeom(0.09, mastH, 0.1, 0.02, 3), charcoal);
-    rail.position.set(mx, mastH / 2, frontZ); rail.castShadow = true; g.add(rail);
-    const inner = new THREE.Mesh(roundedBoxGeom(0.05, mastH * 0.94, 0.06, 0.015, 3), metal);
-    inner.position.set(mx, mastH * 0.5, frontZ - 0.06); g.add(inner);
-  });
-  // top cross-beam tying the rails
-  g.add(box(w * 0.72, 0.08, 0.1, charcoal, 0, mastH + 0.01, frontZ));
-  // top sheave + lifting eye
-  const sheave = cylAt(0.06, 0.06, 0.05, 16, metal, 0, mastH * 0.97, frontZ - 0.05); sheave.rotation.z = Math.PI / 2; g.add(sheave);
-  const eye = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.016, 8, 18), metal);
-  eye.position.set(0, mastH + 0.11, frontZ); g.add(eye);
-  // central lift cylinder (chrome)
-  g.add(cylAt(0.045, 0.045, mastH * 0.78, 12, chrome, 0, mastH * 0.4, frontZ + 0.02));
-  // lift chains running down each side of the cylinder
-  [-0.045, 0.045].forEach(cx => g.add(box(0.02, mastH * 0.5, 0.018, mat('#26282b', 0.6, 0.6), cx, mastH * 0.62, frontZ - 0.055)));
 
-  // ---- carriage + fork assembly (lifts as a unit) ----
+  // ---------- BODY ----------
+  // Main lower body sill — continuous from just behind mast to rear
+  const sillCZ = (fAZ - 0.04 + rAZ * 1.08) / 2;
+  const sillLen = rAZ * 1.08 - (fAZ - 0.04) + 0.1;
+  const sill = new THREE.Mesh(roundedBoxGeom(w * 0.96, 0.50, sillLen, 0.06, 4), bodyM);
+  sill.position.set(0, 0.25, sillCZ); sill.castShadow = true; sill.userData.colorable = true; g.add(sill);
+
+  // Side body panels (slightly wider, flush with fender arches)
+  [-1, 1].forEach(s => {
+    const sp = new THREE.Mesh(roundedBoxGeom(0.07, 0.38, sillLen * 0.88, 0.04, 3), bodyM);
+    sp.position.set(s * (w * 0.48 + 0.035), 0.19, sillCZ); sp.castShadow = true; sp.userData.colorable = true; g.add(sp);
+  });
+
+  // Front chin extension (below mast)
+  const fext = new THREE.Mesh(roundedBoxGeom(w * 0.84, 0.40, 0.30, 0.05, 3), bodyM);
+  fext.position.set(0, 0.20, fAZ - 0.21); fext.castShadow = true; fext.userData.colorable = true; g.add(fext);
+
+  // Engine hood / bonnet (hump rising from cab-level to counterweight)
+  const hoodFZ = fAZ + 0.06, hoodBZ = rAZ + 0.02;
+  const hoodCZ = (hoodFZ + hoodBZ) / 2, hoodLen = hoodBZ - hoodFZ;
+  const hood = new THREE.Mesh(roundedBoxGeom(w * 0.90, 0.46, hoodLen, 0.07, 4), bodyM);
+  hood.position.set(0, 0.50 + 0.23, hoodCZ); hood.castShadow = true; hood.userData.colorable = true; g.add(hood);
+
+  // Counterweight — large rounded rear mass
+  const cwH = 0.90;
+  const cw = new THREE.Mesh(roundedBoxGeom(w * 0.98, cwH, d * 0.22, 0.10, 5), cwM);
+  cw.position.set(0, cwH / 2, cwCZ); cw.castShadow = true; cw.userData.colorable = true; g.add(cw);
+
+  // Panel accent lines on sides
+  [-w / 2 + 0.01, w / 2 - 0.01].forEach(px => g.add(box(0.012, 0.018, sillLen * 0.80, mat(shade(color, 0.72), 0.55, 0.08), px, 0.44, sillCZ)));
+
+  // ---------- CAB AREA ----------
+  // Checker-plate operator floor
+  const cabFloor = new THREE.Mesh(new THREE.BoxGeometry(w * 0.74, 0.028, d * 0.22), stepM);
+  cabFloor.position.set(0, 0.50 + 0.014, fAZ + 0.04); g.add(cabFloor);
+
+  // Entry step (right side, checker plate)
+  const step = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.028, 0.26), stepM);
+  step.position.set(w / 2 + 0.01, 0.32 + 0.014, 0.02); g.add(step);
+  [-0.08, 0.08].forEach(sz => g.add(box(0.022, 0.20, 0.022, darkM, w / 2 + 0.01, 0.22, sz)));
+
+  // Dashboard (dark, instrument cowl)
+  const dashY = 0.50 + 0.17;
+  const dash = new THREE.Mesh(roundedBoxGeom(w * 0.64, 0.32, 0.18, 0.04, 4), darkM);
+  dash.position.set(0, dashY, fAZ + 0.08); dash.castShadow = true; g.add(dash);
+  g.add(plainBox(w * 0.40, 0.16, 0.01, mat('#0d1520', 0.2, 0.1), 0, dashY + 0.04, fAZ + 0.17));
+
+  // Steering column & wheel
+  g.add(cylAt(0.026, 0.030, 0.25, 10, darkM, 0, 0.50 + 0.46, fAZ + 0.19).rotateX(-0.52));
+  const sw = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.022, 10, 26), blackM);
+  sw.position.set(0, 0.50 + 0.60, fAZ + 0.30); sw.rotation.x = Math.PI * 0.42; g.add(sw);
+  g.add(cylAt(0.014, 0.014, 0.22, 6, darkM, 0, 0.50 + 0.60, fAZ + 0.30).rotateX(Math.PI * 0.42));
+
+  // Seat
+  const sB = new THREE.Mesh(roundedBoxGeom(w * 0.50, 0.10, d * 0.18, 0.04, 4), blackM);
+  sB.position.set(0, 0.50 + 0.47, fAZ + 0.34); g.add(sB);
+  const sBk = new THREE.Mesh(roundedBoxGeom(w * 0.50, 0.44, 0.12, 0.04, 4), blackM);
+  sBk.position.set(0, 0.50 + 0.72, fAZ + 0.46); sBk.rotation.x = -0.18; g.add(sBk);
+
+  // ---------- MAST ----------
+  const mXP = w * 0.30;
+  [-mXP, mXP].forEach(mx => {
+    const outerR = new THREE.Mesh(roundedBoxGeom(0.092, mastH, 0.10, 0.022, 3), darkM);
+    outerR.position.set(mx, mastH / 2, mZ); outerR.castShadow = true; g.add(outerR);
+    const innerR = new THREE.Mesh(roundedBoxGeom(0.055, mastH * 0.94, 0.065, 0.015, 3), hubM);
+    innerR.position.set(mx, mastH * 0.50, mZ - 0.062); g.add(innerR);
+    const tc = cylAt(0.030, 0.030, d * 0.40, 10, chromeM, mx * 0.55, 0.36, mZ + d * 0.14);
+    tc.rotation.x = -0.27; g.add(tc);
+  });
+  g.add(box(mXP * 2 - 0.04, 0.066, 0.09, darkM, 0, 0.18, mZ));
+  g.add(box(mXP * 2 - 0.04, 0.060, 0.09, darkM, 0, mastH + 0.01, mZ));
+  g.add(cylAt(0.046, 0.046, mastH * 0.80, 14, chromeM, 0, mastH * 0.41, mZ + 0.02));
+  [-0.05, 0.05].forEach(cx => g.add(box(0.016, mastH * 0.52, 0.015, mat('#1e2024', 0.70, 0.66), cx, mastH * 0.64, mZ - 0.052)));
+  const sheave = cylAt(0.066, 0.066, 0.055, 18, hubM, 0, mastH * 0.96, mZ - 0.038);
+  sheave.rotation.z = Math.PI / 2; g.add(sheave);
+
+  // ---------- CARRIAGE + FORK ASSEMBLY ----------
   const forkAss = new THREE.Group(); g.add(forkAss);
-  // carriage plate hugging the mast
-  const carriage = new THREE.Mesh(roundedBoxGeom(w * 0.66, 0.5, 0.06, 0.02, 3), charcoal);
-  carriage.position.set(0, 0.52, frontZ - 0.085); carriage.castShadow = true; forkAss.add(carriage);
-  // load backrest grid above the carriage
-  const lbrBot = 0.55, lbrTop = 1.05;
-  [lbrBot, lbrTop].forEach(by => forkAss.add(box(w * 0.7, 0.035, 0.035, charcoal, 0, by, frontZ - 0.085)));
-  for (let bx = -w * 0.3; bx <= w * 0.3 + 0.001; bx += w * 0.15)
-    forkAss.add(box(0.03, lbrTop - lbrBot, 0.03, charcoal, bx, (lbrBot + lbrTop) / 2, frontZ - 0.085));
-  // fork tines (yellow, L-shaped) — vertical heel on the carriage + long forward blade
-  const tineLen = d * 0.62, tineY = 0.18;
-  [-w * 0.2, w * 0.2].forEach(fx => {
-    const heel = box(0.07, 0.46, 0.05, body_m, fx, 0.4, frontZ - 0.115); heel.castShadow = true; heel.userData.colorable = true; forkAss.add(heel);
-    const tine = box(0.08, 0.05, tineLen, body_m, fx, tineY, frontZ - 0.115 - tineLen / 2); tine.castShadow = true; tine.userData.colorable = true; forkAss.add(tine);
-    // tapered tip
-    const tip = box(0.08, 0.02, 0.16, body_m, fx, tineY - 0.012, frontZ - 0.115 - tineLen - 0.06); tip.userData.colorable = true; forkAss.add(tip);
+  const carriageH = 0.55;
+  const carriageMesh = new THREE.Mesh(roundedBoxGeom(w * 0.70, carriageH, 0.068, 0.022, 3), darkM);
+  carriageMesh.position.set(0, carriageH / 2 + 0.16, mZ - 0.092); carriageMesh.castShadow = true; forkAss.add(carriageMesh);
+  const lbBot = carriageH + 0.21, lbTop = lbBot + 0.56;
+  [lbBot, lbTop].forEach(by => forkAss.add(box(w * 0.68, 0.034, 0.036, darkM, 0, by, mZ - 0.085)));
+  for (let bx = -w * 0.28; bx <= w * 0.28 + 0.001; bx += w * 0.14)
+    forkAss.add(box(0.026, lbTop - lbBot, 0.026, darkM, bx, (lbBot + lbTop) / 2, mZ - 0.085));
+  const tLen = d * 0.64;
+  [-w * 0.21, w * 0.21].forEach(fx => {
+    const heel = box(0.07, 0.44, 0.055, bodyM, fx, 0.37, mZ - 0.116); heel.castShadow = true; heel.userData.colorable = true; forkAss.add(heel);
+    const tine = box(0.082, 0.050, tLen, bodyM, fx, 0.164, mZ - 0.116 - tLen / 2); tine.castShadow = true; tine.userData.colorable = true; forkAss.add(tine);
+    const tip = box(0.082, 0.020, 0.16, bodyM, fx, 0.152, mZ - 0.116 - tLen - 0.07); tip.userData.colorable = true; forkAss.add(tip);
   });
 
-  // ---- wheels: large front drive, small rear steer ----
-  const wRF = 0.30, wRR = 0.20, frontWZ = -d * 0.15, rearWZ = d * 0.36;
-  // front (outboard, large)
+  // ---------- WHEELS ----------
+  const wRF = 0.30, wWF = 0.20, wRR = 0.19, wWR = 0.16;
   [-1, 1].forEach(s => {
-    const wx = s * (w / 2 + wW / 2 - 0.03);
-    const tire = cylAt(wRF, wRF, wW, 24, black, wx, wRF, frontWZ); tire.rotation.z = Math.PI / 2; tire.castShadow = true; g.add(tire);
-    const hub = cylAt(wRF * 0.42, wRF * 0.42, wW + 0.02, 14, metal, wx, wRF, frontWZ); hub.rotation.z = Math.PI / 2; g.add(hub);
-    // yellow fender arching over the front wheel
-    const fender = new THREE.Mesh(roundedBoxGeom(wW + 0.08, 0.05, wRF * 1.7, 0.03, 3), body_m);
-    fender.position.set(wx, wRF + 0.12, frontWZ); fender.userData.colorable = true; g.add(fender);
+    const ftX = s * (w / 2 + wWF / 2 + 0.01);
+    const fTyre = new THREE.Mesh(new THREE.CylinderGeometry(wRF, wRF, wWF, 30), tyreM);
+    fTyre.rotation.z = Math.PI / 2; fTyre.position.set(ftX, wRF, fAZ); fTyre.castShadow = true; g.add(fTyre);
+    const fHub = cylAt(wRF * 0.40, wRF * 0.40, wWF + 0.025, 16, hubM, ftX, wRF, fAZ); fHub.rotation.z = Math.PI / 2; g.add(fHub);
+    for (let a = 0; a < 5; a++) {
+      const ang = (a / 5) * Math.PI * 2;
+      const bolt = cylAt(0.017, 0.017, 0.04, 6, mat('#545860', 0.45, 0.56), ftX + s * (wWF / 2 + 0.018), wRF + Math.sin(ang) * wRF * 0.26, fAZ + Math.cos(ang) * wRF * 0.26);
+      bolt.rotation.z = Math.PI / 2; g.add(bolt);
+    }
+    const fender = new THREE.Mesh(roundedBoxGeom(wWF + 0.12, 0.056, wRF * 1.80, 0.04, 3), bodyM);
+    fender.position.set(ftX, wRF + 0.17, fAZ); fender.userData.colorable = true; g.add(fender);
+
+    const rtX = s * (w / 2 - 0.05);
+    const rTyre = new THREE.Mesh(new THREE.CylinderGeometry(wRR, wRR, wWR, 24), tyreM);
+    rTyre.rotation.z = Math.PI / 2; rTyre.position.set(rtX, wRR, rAZ); rTyre.castShadow = true; g.add(rTyre);
+    const rHub = cylAt(wRR * 0.42, wRR * 0.42, wWR + 0.02, 12, hubM, rtX, wRR, rAZ); rHub.rotation.z = Math.PI / 2; g.add(rHub);
   });
-  // rear (tucked under body, small)
+
+  // ---------- ROPS CAGE ----------
+  const roofY = h * 0.92;
+  const cZF = fAZ, cZB = rAZ - 0.06;
+  const cX = w / 2 - 0.05;
+  const postBaseY = 0.50 + 0.02, postH = roofY - postBaseY;
+  [[-cX, cZF], [cX, cZF], [-cX, cZB], [cX, cZB]].forEach(([px, pz]) =>
+    g.add(cylAt(0.028, 0.028, postH, 8, darkM, px, postBaseY + postH / 2, pz)));
+  const roofLen = cZB - cZF + 0.06;
+  const roofPanel = new THREE.Mesh(roundedBoxGeom(w - 0.01, 0.050, roofLen, 0.025, 3), darkM);
+  roofPanel.position.set(0, roofY, (cZF + cZB) / 2); roofPanel.castShadow = true; g.add(roofPanel);
+  [[cZF, w - 0.08], [cZB, w - 0.08]].forEach(([rz, rw]) =>
+    g.add(cylAt(0.022, 0.022, rw, 8, darkM, 0, roofY - 0.025, rz).rotateZ(Math.PI / 2)));
+
+  // ---------- LIGHTS ----------
+  [-w * 0.27, w * 0.27].forEach(lx => {
+    g.add(box(0.11, 0.08, 0.026, darkM, lx, 0.40, mZ - 0.008));
+    const lens = new THREE.Mesh(roundedBoxGeom(0.084, 0.054, 0.018, 0.012, 3), glow('#fffbe0', 0.58));
+    lens.position.set(lx, 0.40, mZ - 0.022); g.add(lens);
+  });
   [-1, 1].forEach(s => {
-    const wx = s * (w / 2 - 0.05);
-    const tire = cylAt(wRR, wRR, wW * 0.82, 20, black, wx, wRR, rearWZ); tire.rotation.z = Math.PI / 2; tire.castShadow = true; g.add(tire);
-    const hub = cylAt(wRR * 0.42, wRR * 0.42, wW * 0.82 + 0.02, 12, metal, wx, wRR, rearWZ); hub.rotation.z = Math.PI / 2; g.add(hub);
+    const a = new THREE.Mesh(roundedBoxGeom(0.048, 0.038, 0.040, 0.01, 3), glow('#ff8c00', 0.56));
+    a.position.set(s * (w / 2 + 0.015), 0.30, fAZ + 0.16); g.add(a);
   });
+  const tail = new THREE.Mesh(roundedBoxGeom(0.16, 0.06, 0.026, 0.01, 3), glow('#cc1818', 0.52));
+  tail.position.set(0, cwH * 0.76, cwCZ + d * 0.11 - 0.01); g.add(tail);
 
-  // ---- lights ----
-  // front work light (white) + amber indicator on the cage
-  g.add(cylAt(0.05, 0.05, 0.04, 12, emis('#fff4cc', 0.6), -w * 0.24, roofY - 0.22, cageZF + 0.02).rotateX(Math.PI / 2));
-  g.add(box(0.07, 0.06, 0.05, emis('#ff7a18', 0.5), w * 0.04, roofY - 0.2, cageZF + 0.03));
-  // rear red tail light
-  g.add(box(0.06, 0.06, 0.04, emis('#cc1414', 0.5), w * 0.42, roofY - 0.24, cageZB - 0.02));
+  // ---------- SIDE MIRROR ----------
+  g.add(cylAt(0.013, 0.013, 0.22, 6, darkM, -w / 2 - 0.04, roofY - 0.22, cZF + 0.02).rotateZ(0.58));
+  g.add(box(0.06, 0.10, 0.022, mat('#181a1c', 0.18, 0.55), -w / 2 - 0.14, roofY - 0.27, cZF + 0.02));
 
-  // ---- side mirror on a stalk ----
-  const stalk = cylAt(0.012, 0.012, 0.18, 6, charcoal, -w * 0.46, 1.5, -d * 0.1); stalk.rotation.z = 0.55; g.add(stalk);
-  g.add(box(0.04, 0.1, 0.02, mat('#202225', 0.2, 0.6), -w * 0.54, 1.57, -d * 0.1));
+  // Amber beacon (roof)
+  g.add(cylAt(0.038, 0.038, 0.040, 12, darkM, w * 0.24, roofY + 0.022, (cZF + cZB) / 2));
+  g.add(cylAt(0.036, 0.030, 0.062, 12, glow('#ff8c00', 0.48), w * 0.24, roofY + 0.063, (cZF + cZB) / 2));
 
   g.userData.parts = { forkAss };
   return g;
