@@ -2471,7 +2471,7 @@ const FURNITURE_DEFS = [
   { id:'resinpallet',cat:'factory', name:'樹脂パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:9,  build:buildResinPallet },
   { id:'drum',           cat:'factory', name:'ドラム缶',           icon:'fa-circle',              w:0.58, d:0.58, h:0.88,  colorIdx:9,  build:buildDrum },
   // ---- 大型工業機械 ----
-  { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:3.0,  d:2.2,  h:2.8,   colorIdx:8,  build:buildCNCMachiningCenter },
+  { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:3.0,  d:2.2,  h:2.8,   colorIdx:10, build:buildCNCMachiningCenter },
   { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:7,  build:buildIndustrialRobotLg },
   { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:1.8,  d:1.4,  h:3.5,   colorIdx:6,  build:buildLargeHydraulicPress },
   { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
@@ -4952,53 +4952,167 @@ function buildBenchGrinder({ color='#4f7a52', w=0.7, d=0.45, h=1.25 } = {}) {
   return g;
 }
 // ===== 大型工業機械 =====
-function buildCNCMachiningCenter({ color='#3c5a7a', w=3.0, d=2.2, h=2.8 } = {}) {
+function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) {
   const g = new THREE.Group();
-  const body = mat(color, 0.45, 0.3, { env: 0.5 });
-  const steel = mat('#8a9aa8', 0.25, 0.75, { env: 1.0 });
-  const dark = mat('#1e2428', 0.6, 0.2);
-  const glass = new THREE.MeshStandardMaterial({ color: 0x88bbdd, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.35 });
-  const yellow = mat('#f5c518', 0.5, 0.1);
-  // base cabinet
-  const base = box(w, 0.18, d, dark, 0, 0.09, 0); g.add(base);
-  // main machine body
-  const main = box(w, h - 0.18, d, body, 0, (h - 0.18)/2 + 0.18, 0); main.userData.colorable = true; g.add(main);
-  // front viewing window (large door with glass)
-  g.add(plainBox(w * 0.62, h * 0.48, 0.06, body, 0, h * 0.42, d/2 - 0.02));
-  const win = plainBox(w * 0.52, h * 0.36, 0.05, glass, 0, h * 0.44, d/2);
-  win.userData.fadeNormal = new THREE.Vector3(0, 0, 1); win.castShadow = false; g.add(win);
-  // spindle head on gantry
-  const gantry = box(w - 0.2, 0.12, 0.12, steel, 0, h * 0.78, -0.1); g.add(gantry);
-  const spindle_head = box(0.5, 0.45, 0.4, dark, 0, h * 0.62, -0.2); g.add(spindle_head);
-  const spindle = cyl(0.06, 0.04, 0.35, 18, steel); spindle.position.set(0, h * 0.44, -0.2); g.add(spindle);
-  const toolholder = cyl(0.04, 0.025, 0.2, 14, mat('#d4af37', 0.3, 0.7)); toolholder.position.set(0, h * 0.34, -0.2); g.add(toolholder);
-  // worktable
-  const table = box(w - 0.5, 0.08, d - 0.6, steel, 0, 0.55, 0); g.add(table);
-  for (let tx = -(w-0.5)/2 + 0.1; tx < (w-0.5)/2; tx += 0.16) {
-    g.add(box(0.02, 0.04, d - 0.65, dark, tx, 0.6, 0));
-  }
-  // coolant tank + chip conveyor hint
-  g.add(box(0.35, 0.55, 0.35, dark, -w/2 + 0.22, 0.46, d/2 - 0.22));
-  g.add(box(0.15, 0.08, 0.5, mat('#4a5560',0.6), -w/2 + 0.22, 0.12, d/2 - 0.05));
-  // CNC control panel (pendant)
-  const panel = box(0.32, 0.52, 0.08, mat('#111417', 0.5)); panel.position.set(w/2 - 0.1, h * 0.52, d/2 - 0.04); g.add(panel);
-  g.add(box(0.22, 0.30, 0.03, mat('#1a3050',0.3), w/2 - 0.1, h * 0.54, d/2));
-  ['#22c55e','#ef4444','#f59e0b'].forEach((cl, i) => g.add(cylAt(0.022,0.022,0.025,10,mat(cl,0.3),w/2 - 0.1, h*0.4 - i*0.055, d/2+0.01).rotateX(Math.PI/2)));
-  // safety warning stripe
-  g.add(box(w, 0.06, 0.01, yellow, 0, 0.18, d/2)); g.add(box(w, 0.06, 0.01, yellow, 0, 0.18, -d/2));
-  // exhaust duct on top
-  g.add(box(0.2, 0.35, 0.2, dark, 0, h + 0.17, 0));
-  g.add(box(0.14, 0.12, 0.14, mat('#606870',0.4,0.5), 0, h + 0.35, 0));
-  // ATC (automatic tool changer) carousel — recessed in left side
-  g.add(box(0.28, 0.32, 0.28, dark, -w/2 + 0.18, h*0.64, -0.12));
-  for (let i = 0; i < 8; i++) {
-    const a = i * Math.PI * 2 / 8;
-    g.add(cylAt(0.018,0.012,0.1,8,mat('#c8a030',0.3,0.8),-w/2+0.18+Math.sin(a)*0.09,h*0.64,-0.12+Math.cos(a)*0.09).rotateX(Math.PI/2));
-  }
-  // tri-color status stack light on top-right corner
-  [[h+0.08,'#22c55e'],[h+0.14,'#f59e0b'],[h+0.20,'#ef4444']].forEach(([sy,sc])=>{
-    g.add(cylAt(0.032,0.032,0.06,12,mat(sc,0.2,0.1,{emissive:sc,emissiveIntensity:0.7}),w/2-0.18,sy,d/2-0.18));
+  // ---- materials (off-white sheet-metal body + charcoal base, per VC-850 reference) ----
+  const cream  = mat(color, 0.5, 0.06, { env: 0.3 });               // body panels (colorable)
+  const creamD = mat(shade(color, 0.9), 0.5, 0.06);                 // shaded panel insets
+  const charc  = mat('#34383c', 0.6, 0.2);                          // base plinth
+  const charc2 = mat('#272a2d', 0.65, 0.15);                        // recessed access panels
+  const grayC  = mat('#565c62', 0.5, 0.4, { env: 0.4 });            // machine castings / columns
+  const grayL  = mat('#787f87', 0.45, 0.45, { env: 0.4 });          // lighter cast parts
+  const steel  = mat('#9aa6b0', 0.25, 0.8, { env: 1.0 });           // table / spindle
+  const dark   = mat('#15181b', 0.55, 0.25);                        // screens, handles, hoses
+  const glass  = new THREE.MeshStandardMaterial({ color: 0x9fb8c8, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.4 });
+  const yellow = mat('#f2c200', 0.5, 0.1);
+  const chrome = mat('#cdd4da', 0.15, 0.95, { env: 1.2 });
+  const screenMat = new THREE.MeshStandardMaterial({ color: 0x0c1620, roughness: 0.2, metalness: 0.1, emissive: new THREE.Color('#0a1e2c'), emissiveIntensity: 0.4 });
+
+  // ---- key layout dimensions ----
+  const baseH = 0.78, encTop = 2.0;
+  const encH = encTop - baseH, encY = baseH + encH / 2;             // cream cabinet band
+  const leftW = 1.0, rightW = 1.1;
+  const leftX = -w/2 + leftW/2, rightX = w/2 - rightW/2;
+  const openL = -w/2 + leftW, openR = w/2 - rightW;                 // central work opening
+  const openW = openR - openL, openCx = (openL + openR) / 2;
+  const fz = d/2;                                                   // front face plane
+  const openTopY = 1.6;                                             // top of work opening
+
+  // ---- base plinth (charcoal) ----
+  g.add(box(w, baseH, d, charc, 0, baseH/2, 0));
+  g.add(box(w*0.96, 0.1, 0.02, charc2, 0, 0.07, fz + 0.004));       // toe kick recess
+  [-w*0.27, w*0.27].forEach(px => g.add(box(0.5, 0.42, 0.02, charc2, px, 0.42, fz + 0.005)));
+  [-w*0.27, w*0.27].forEach(px => g.add(cylAt(0.012,0.012,0.02,8, grayL, px, 0.62, fz+0.012).rotateX(Math.PI/2)));
+
+  // ---- cream cabinets (left enclosure + right electrical cabinet) ----
+  g.add(box(leftW, encH, d, cream, leftX, encY, 0));               // left enclosure
+  g.add(box(rightW, encH, d, cream, rightX, encY, 0));             // right cabinet
+  g.add(box(openW, encTop - openTopY, d, cream, openCx, (openTopY + encTop)/2, 0)); // top band over opening
+  g.add(box(w, 0.05, 0.01, yellow, 0, baseH + 0.03, fz + 0.006));  // warning stripe at base of cabinets
+
+  // ---- left enclosure front detail: nameplate, window, warning labels, handle ----
+  // nameplate (VC-850) via canvas texture
+  const nameCv = document.createElement('canvas'); nameCv.width = 384; nameCv.height = 128;
+  const nctx = nameCv.getContext('2d');
+  nctx.fillStyle = '#e8e2d6'; nctx.fillRect(0,0,384,128);
+  nctx.fillStyle = '#1c1c1c'; nctx.font = 'bold 76px Arial'; nctx.fillText('VC-850', 14, 70);
+  nctx.font = 'bold 26px Arial'; nctx.fillStyle = '#3a3a3a'; nctx.fillText('CNC MACHINING CENTER', 16, 108);
+  const nameTex = new THREE.CanvasTexture(nameCv); nameTex.anisotropy = 4;
+  const namePlane = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.24), new THREE.MeshBasicMaterial({ map: nameTex }));
+  namePlane.position.set(leftX - 0.1, encY + 0.40, fz + 0.012); g.add(namePlane);
+  // viewing window (dark frame + glass)
+  g.add(box(0.36, 0.30, 0.03, dark, leftX - 0.2, encY + 0.02, fz + 0.006));
+  const lwin = plainBox(0.30, 0.24, 0.01, glass, leftX - 0.2, encY + 0.02, fz + 0.02);
+  lwin.castShadow = false; g.add(lwin);
+  // warning label cluster (orange stickers with header bar)
+  [0.16, -0.02, -0.20].forEach((ly, i) => {
+    g.add(box(0.16, 0.14, 0.008, mat('#f0f0ea',0.6), leftX + 0.32, encY + ly, fz + 0.006));
+    g.add(box(0.16, 0.03, 0.009, mat('#e08a10',0.5), leftX + 0.32, encY + ly + 0.055, fz + 0.007));
   });
+
+  // ---- door handles (black vertical tubes) ----
+  const addHandle = (hx) => {
+    g.add(cylAt(0.018, 0.018, 0.66, 12, dark, hx, encY - 0.02, fz + 0.07).rotateX(0));
+    [0.32, -0.32].forEach(o => g.add(box(0.04, 0.05, 0.07, dark, hx, encY - 0.02 + o, fz + 0.04)));
+  };
+  addHandle(openL - 0.08);     // on left door, beside opening
+  addHandle(openR + 0.10);     // on the door before the control panel
+
+  // ---- central work enclosure interior ----
+  g.add(box(openW, openTopY - baseH, 0.08, charc, openCx, (baseH + openTopY)/2, -d/2 + 0.05)); // back wall
+  g.add(box(0.07, openTopY - baseH, d - 0.18, grayC, openL + 0.035, (baseH + openTopY)/2, 0)); // left inner column
+  g.add(box(0.07, openTopY - baseH, d - 0.18, grayC, openR - 0.035, (baseH + openTopY)/2, 0)); // right inner column
+
+  // worktable (T-slotted steel) on cross slide
+  const tableY = 0.96, tblW = openW - 0.16, tblD = d - 0.55;
+  g.add(box(tblW + 0.22, 0.14, tblD - 0.1, grayL, openCx, tableY - 0.11, 0.04)); // saddle / cross slide
+  g.add(box(tblW, 0.1, tblD, steel, openCx, tableY, 0.04));                       // table top
+  for (let tx = -tblW/2 + 0.09; tx < tblW/2 - 0.02; tx += 0.13)
+    g.add(box(0.022, 0.045, tblD - 0.04, dark, openCx + tx, tableY + 0.055, 0.04)); // T-slots
+  // machine vise on the table
+  const viseY = tableY + 0.05;
+  g.add(box(0.46, 0.13, 0.30, grayL, openCx, viseY + 0.065, 0.04));               // vise base
+  g.add(box(0.12, 0.18, 0.32, grayC, openCx - 0.15, viseY + 0.13, 0.04));          // fixed jaw
+  g.add(box(0.12, 0.18, 0.32, grayC, openCx + 0.07, viseY + 0.13, 0.04));          // movable jaw
+  g.add(box(0.14, 0.10, 0.20, steel, openCx - 0.04, viseY + 0.155, 0.04));         // workpiece
+
+  // spindle head (Z-axis) + cross rail
+  const headY = 1.42;
+  g.add(box(openW - 0.16, 0.20, 0.42, grayC, openCx, openTopY - 0.02, -d/2 + 0.34)); // Z-slide on column
+  g.add(box(0.52, 0.46, 0.46, grayL, openCx, headY, -0.02));                          // spindle head box
+  g.add(box(0.30, 0.12, 0.30, dark, openCx, headY - 0.27, -0.02));                    // spindle housing nose
+  g.add(cylAt(0.085, 0.07, 0.16, 18, steel, openCx, headY - 0.40, -0.02));            // spindle nose
+  g.add(cylAt(0.07, 0.038, 0.13, 16, chrome, openCx, headY - 0.53, -0.02));           // tool taper holder
+  g.add(cylAt(0.022, 0.012, 0.13, 12, dark, openCx, headY - 0.65, -0.02));            // cutting tool
+  // blue coolant hoses with orange nozzles, arcing toward the tool
+  const coolant = mat('#2a6fc0', 0.5, 0.25), nozzle = mat('#e0601a', 0.5, 0.2);
+  [-0.14, 0.14].forEach(cx => {
+    for (let s = 0; s < 6; s++)
+      g.add(box(0.04, 0.045, 0.045, coolant, openCx + cx - cx*0.12*s, headY - 0.14 - s*0.06, -0.02 + 0.04 + s*0.012));
+    g.add(box(0.03, 0.03, 0.06, nozzle, openCx + cx*0.3, headY - 0.52, 0.06));
+  });
+
+  // ---- top spindle-drive column housing (gray, rear-center) ----
+  g.add(box(0.92, 0.62, 0.72, grayC, openCx, encTop + 0.27, -0.18));
+  g.add(box(0.6, 0.22, 0.56, grayL, openCx, encTop + 0.66, -0.18));   // top cap
+
+  // ---- ATC tool carousel (dark drum with yellow tool pockets) ----
+  const atc = new THREE.Group(); atc.position.set(openR + 0.42, encTop + 0.18, -0.05); atc.rotation.x = -0.5;
+  atc.add(cyl(0.38, 0.38, 0.12, 30, dark));
+  atc.add(cyl(0.12, 0.12, 0.16, 16, grayL));
+  for (let i = 0; i < 18; i++) {
+    const a = i / 18 * Math.PI * 2;
+    atc.add(cylAt(0.03, 0.03, 0.1, 8, yellow, Math.cos(a) * 0.32, 0, Math.sin(a) * 0.32));
+  }
+  g.add(atc);
+
+  // ---- tri-color signal stack light on chrome pole (top-right) ----
+  const lx = w/2 - 0.28, lz = d/2 - 0.32;
+  g.add(cylAt(0.022, 0.022, 0.46, 12, chrome, lx, encTop + 0.23, lz));
+  let ly = encTop + 0.5;
+  [['#ef4444', 0.9], ['#f5b800', 0.85], ['#22c55e', 0.85]].forEach(([c, ei]) => {
+    g.add(cylAt(0.05, 0.05, 0.12, 16, mat(c, 0.3, 0.1, { emissive: c, emissiveIntensity: ei }), lx, ly, lz));
+    ly += 0.13;
+  });
+  g.add(cylAt(0.04, 0.04, 0.04, 12, dark, lx, ly + 0.01, lz));        // top cap
+
+  // ---- CNC control panel (right side, angled toward operator) ----
+  const pan = new THREE.Group(); pan.position.set(rightX - 0.05, encY + 0.06, fz + 0.05); pan.rotation.y = -0.16; g.add(pan);
+  pan.add(box(0.92, 1.06, 0.09, dark, 0, 0, 0));                      // panel housing
+  pan.add(box(0.84, 0.98, 0.02, mat('#23272c', 0.5), 0, 0, 0.055));   // bezel
+  // display screen (canvas texture: X/Y/Z readout)
+  const sCv = document.createElement('canvas'); sCv.width = 256; sCv.height = 192;
+  const sctx = sCv.getContext('2d');
+  sctx.fillStyle = '#0a161e'; sctx.fillRect(0, 0, 256, 192);
+  sctx.fillStyle = '#163a2a'; sctx.fillRect(8, 8, 240, 30);
+  sctx.fillStyle = '#7fd6a8'; sctx.font = '16px monospace'; sctx.fillText('VC-850  AUTO', 16, 30);
+  sctx.font = 'bold 28px monospace'; sctx.fillStyle = '#bdeed0';
+  sctx.fillText('X  123.456', 18, 88);
+  sctx.fillText('Y  654.321', 18, 126);
+  sctx.fillText('Z  -98.765', 18, 164);
+  const sTex = new THREE.CanvasTexture(sCv); sTex.anisotropy = 4;
+  const scrFace = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.37), new THREE.MeshBasicMaterial({ map: sTex }));
+  scrFace.position.set(-0.07, 0.27, 0.066); pan.add(scrFace);
+  pan.add(box(0.54, 0.41, 0.02, screenMat, -0.07, 0.27, 0.05));       // screen housing
+  // soft-key buttons flanking screen
+  for (let i = 0; i < 7; i++) pan.add(box(0.04, 0.03, 0.015, mat('#cfcbc3',0.6), -0.30 + i*0.075, 0.045, 0.065));
+  // keypad grid
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 7; c++)
+    pan.add(box(0.045, 0.045, 0.015, mat('#d4d0c8', 0.6), -0.30 + c*0.075, -0.04 - r*0.062, 0.065));
+  // bottom control row: E-stop, start/stop, handwheel (MPG)
+  pan.add(cylAt(0.045, 0.045, 0.035, 16, mat('#ef4444',0.4,0.1,{emissive:'#aa0000',emissiveIntensity:0.4}), -0.30, -0.40, 0.07).rotateX(Math.PI/2));
+  pan.add(cylAt(0.03, 0.03, 0.03, 14, mat('#22c55e',0.4), -0.16, -0.38, 0.07).rotateX(Math.PI/2));
+  pan.add(cylAt(0.03, 0.03, 0.03, 14, mat('#f59e0b',0.4), -0.16, -0.46, 0.07).rotateX(Math.PI/2));
+  const mpg = cyl(0.085, 0.085, 0.04, 22, mat('#2a2e33', 0.45)); mpg.rotation.x = Math.PI/2; mpg.position.set(0.22, -0.40, 0.075); pan.add(mpg);
+  pan.add(box(0.03, 0.03, 0.045, chrome, 0.22, -0.32, 0.1));          // handwheel knob
+
+  // ---- handheld pendant on cable (right) ----
+  const pcable = cyl(0.012, 0.012, 0.42, 8, dark); pcable.position.set(rightX + 0.32, encY - 0.36, fz + 0.04); g.add(pcable);
+  g.add(box(0.1, 0.2, 0.05, mat('#2a2e33', 0.5), rightX + 0.34, encY - 0.66, fz + 0.07));
+  g.add(box(0.07, 0.07, 0.01, screenMat, rightX + 0.34, encY - 0.61, fz + 0.1));
+
+  // ---- mark body panels colorable ----
+  g.traverse(o => { if (o.isMesh && o.material === cream) o.userData.colorable = true; });
   return g;
 }
 function buildIndustrialRobotLg({ color='#f59e0b', w=1.2, d=1.2, h=2.4 } = {}) {
