@@ -2692,11 +2692,18 @@ function buildWardrobe({ color='#f3ece0', w=1.8, d=0.6, h=2.1 } = {}) {
   const g = new THREE.Group(); const wood = mat(color, 0.65), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
   const body = box(w, h, d, wood, 0, h/2, 0); body.userData.colorable = true; g.add(body);
   const dw = w/2 - 0.015;
-  [-dw/2-0.01, dw/2+0.01].forEach(dx => {
-    const door = box(dw, h-0.1, 0.03, mat('#fbf7ef', 0.6), dx, h/2, d/2+0.005); door.userData.colorable = true; g.add(door);
-    const hdl = cyl(0.01,0.01,0.16,10,metal); hdl.rotation.x = Math.PI/2; hdl.position.set(dx + (dx>0?-dw/2+0.07:dw/2-0.07), h/2, d/2+0.03); g.add(hdl);
-  });
+  // left door: pivot at left hinge edge
+  const pivL = new THREE.Group(); pivL.position.set(-dw-0.01, h/2, d/2+0.005);
+  const dL = box(dw, h-0.1, 0.03, mat('#fbf7ef', 0.6), dw/2, 0, 0); dL.userData.colorable = true; pivL.add(dL);
+  const hdlL = cyl(0.01,0.01,0.16,10,metal); hdlL.rotation.x = Math.PI/2; hdlL.position.set(dw-0.07, 0, 0.025); pivL.add(hdlL);
+  g.add(pivL);
+  // right door: pivot at right hinge edge
+  const pivR = new THREE.Group(); pivR.position.set(dw+0.01, h/2, d/2+0.005);
+  const dR = box(dw, h-0.1, 0.03, mat('#fbf7ef', 0.6), -dw/2, 0, 0); dR.userData.colorable = true; pivR.add(dR);
+  const hdlR = cyl(0.01,0.01,0.16,10,metal); hdlR.rotation.x = Math.PI/2; hdlR.position.set(-dw+0.07, 0, 0.025); pivR.add(hdlR);
+  g.add(pivR);
   g.add(box(w+0.04, 0.05, d+0.04, wood, 0, h-0.025, 0));
+  g.userData.parts = { doorL: pivL, doorR: pivR };
   return g;
 }
 function buildBookshelf({ color='#c8a06a', w=1.0, d=0.3, h=1.8 } = {}) {
@@ -2947,11 +2954,11 @@ function buildConveyor({ color='#1e2530', w=2.4, d=0.5, h=0.82 } = {}) {
     g.add(box(0.024, 0.024, beltW + 0.06, framM, x, webY - 0.04, 0));
   }
 
-  // Head drum (drive end, +x) and tail drum (-x)
+  // Head drum (drive end, +x) and tail drum (-x) — saved for spin animation
   const headX = w / 2 - 0.08, tailX = -w / 2 + 0.08;
-  [headX, tailX].forEach(x => {
+  const convDrums = [headX, tailX].map(x => {
     const drum = cyl(0.078, 0.078, beltW + 0.055, 18, rollM);
-    drum.rotation.z = Math.PI / 2; drum.position.set(x, topY - 0.01, 0); g.add(drum);
+    drum.rotation.z = Math.PI / 2; drum.position.set(x, topY - 0.01, 0); g.add(drum); return drum;
   });
 
   // Idler rollers every 0.28m between drums
@@ -2991,6 +2998,7 @@ function buildConveyor({ color='#1e2530', w=2.4, d=0.5, h=0.82 } = {}) {
     g.add(box(0.022, 0.022, fZ * 2 - 0.02, framM, lx, legCY * 0.68, 0));
   });
 
+  g.userData.parts = { drumH: convDrums[0], drumT: convDrums[1] };
   return g;
 }
 
@@ -3289,11 +3297,12 @@ function buildCloset({ color='#f3ece0', w=1.6, d=0.6, h=2.2 } = {}) {
   const g = new THREE.Group(); const wood = mat(color, 0.65), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
   const body = box(w, h, d, wood, 0, h/2, 0); body.userData.colorable = true; g.add(body);
   g.add(box(w+0.06, 0.08, d+0.04, mat(shade(color,0.85), 0.6), 0, h-0.04, 0)); // top frame
-  // two sliding doors, offset in depth and shade
+  // two sliding doors, offset in depth and shade — stored for animation
   const dw = w/2 - 0.02;
-  const left = box(dw, h-0.16, 0.04, mat(shade(color,1.05), 0.6), -dw/2, h/2-0.04, d/2-0.01); left.userData.colorable = true; g.add(left);
-  const right = box(dw, h-0.16, 0.04, mat(shade(color,0.88), 0.6), dw/2, h/2-0.04, d/2+0.025); right.userData.colorable = true; g.add(right);
+  const slideL = box(dw, h-0.16, 0.04, mat(shade(color,1.05), 0.6), -dw/2, h/2-0.04, d/2-0.01); slideL.userData.colorable = true; g.add(slideL);
+  const slideR = box(dw, h-0.16, 0.04, mat(shade(color,0.88), 0.6), dw/2, h/2-0.04, d/2+0.025); slideR.userData.colorable = true; g.add(slideR);
   [[-dw/2,d/2+0.01],[dw/2,d/2+0.045]].forEach(([dx,dz],i)=>{ const hd=cyl(0.01,0.01,0.5,10,metal); hd.position.set(dx + (i?-dw/2+0.06:dw/2-0.06), h/2, dz); g.add(hd); });
+  g.userData.parts = { slideL, slideR, slideRange: dw * 0.82 };
   return g;
 }
 function buildCupboard({ color='#f3ece0', w=0.9, d=0.45, h=1.9 } = {}) {
@@ -3301,11 +3310,31 @@ function buildCupboard({ color='#f3ece0', w=0.9, d=0.45, h=1.9 } = {}) {
   const glass = new THREE.MeshStandardMaterial({ color: 0xbcd3dc, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.35 });
   const body = box(w, h, d, wood, 0, h/2, 0); body.userData.colorable = true; g.add(body);
   const mid = h*0.45;
-  // lower doors
-  [-w/4, w/4].forEach(dx => { const door = box(w/2-0.04, mid-0.1, 0.03, mat(shade(color,1.08), 0.6), dx, mid/2, d/2+0.005); door.userData.colorable = true; g.add(door); const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(dx+(dx<0?w/4-0.05:-w/4+0.05),mid-0.18,d/2+0.025); g.add(hd); });
-  // upper glass doors + faint shelves
+  const ldw = w/2-0.04, udw = w/2-0.05;
+  // shelves
   for (let i=0;i<2;i++) g.add(box(w-0.1, 0.02, d-0.08, mat(shade(color,0.85),0.7), 0, mid+0.1+i*0.45, 0));
-  [-w/4, w/4].forEach(dx => { g.add(box(w/2-0.05, h-mid-0.12, 0.02, glass, dx, mid+(h-mid)/2-0.02, d/2+0.01)); const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(dx+(dx<0?w/4-0.05:-w/4+0.05),mid+0.15,d/2+0.025); g.add(hd); });
+  // lower left door: pivot at left hinge edge
+  const lowerL = new THREE.Group(); lowerL.position.set(-w/2+0.02, mid/2, d/2+0.005);
+  { const m = box(ldw, mid-0.1, 0.03, mat(shade(color,1.08), 0.6), ldw/2, 0, 0); m.userData.colorable=true; lowerL.add(m); }
+  { const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(ldw-0.05, mid/2-0.18, 0.02); lowerL.add(hd); }
+  g.add(lowerL);
+  // lower right door: pivot at right hinge edge
+  const lowerR = new THREE.Group(); lowerR.position.set(w/2-0.02, mid/2, d/2+0.005);
+  { const m = box(ldw, mid-0.1, 0.03, mat(shade(color,1.08), 0.6), -ldw/2, 0, 0); m.userData.colorable=true; lowerR.add(m); }
+  { const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(-ldw+0.05, mid/2-0.18, 0.02); lowerR.add(hd); }
+  g.add(lowerR);
+  // upper left glass door: pivot at left hinge edge
+  const upy = mid+(h-mid)/2-0.02;
+  const upperL = new THREE.Group(); upperL.position.set(-w/2+0.02, upy, d/2+0.01);
+  upperL.add(box(udw, h-mid-0.12, 0.02, glass, udw/2, 0, 0));
+  { const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(udw-0.05, 0.17-(h-mid)/2, 0.015); upperL.add(hd); }
+  g.add(upperL);
+  // upper right glass door: pivot at right hinge edge
+  const upperR = new THREE.Group(); upperR.position.set(w/2-0.02, upy, d/2+0.01);
+  upperR.add(box(udw, h-mid-0.12, 0.02, glass, -udw/2, 0, 0));
+  { const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(-udw+0.05, 0.17-(h-mid)/2, 0.015); upperR.add(hd); }
+  g.add(upperR);
+  g.userData.parts = { lowerL, lowerR, upperL, upperR };
   return g;
 }
 function buildKitchenCounter({ color='#e8e2d6', w=2.4, d=0.65, h=0.9 } = {}) {
@@ -3460,6 +3489,7 @@ function placeFurniture(def, position, rotY, color, record = true) {
   scene.add(group);
   const item = { group, defId: def.id, position: position.clone(), rotY, color };
   placedItems.push(item); updateItemCount();
+  setupItemInteractor(item);
   if (record) pushHistory({ type: 'place', item });
   return item;
 }
@@ -5112,6 +5142,7 @@ function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
   });
   // base frame / legs
   [[-w/2+0.12,d/2-0.1],[w/2-0.12,d/2-0.1],[-w/2+0.12,-d/2+0.1],[w/2-0.12,-d/2+0.1]].forEach(([x,z])=>g.add(box(0.1,0.12,0.1,dark,x,0.06,z)));
+  g.userData.parts = { door: doorGroup };
   return g;
 }
 function buildInjectionMolder({ color='#374a60', w=3.5, d=1.5, h=2.2 } = {}) {
@@ -5492,13 +5523,14 @@ function buildForklift({ color='#f0a020', w=1.1, d=2.0, h=2.0 } = {}) {
   [-w * 0.28, w * 0.28].forEach(mx => {
     const mast = new THREE.Mesh(roundedBoxGeom(0.07, mastH, 0.08, 0.02, 4), metal); mast.position.set(mx, mastH / 2, -d * 0.38); mast.castShadow = true; g.add(mast);
   });
-  // carriage crossbar
-  const carriage = new THREE.Mesh(roundedBoxGeom(w * 0.62, 0.14, 0.07, 0.02, 4), metal); carriage.position.set(0, 0.55, -d * 0.38); g.add(carriage);
+  // carriage + fork assembly — grouped so it can be lifted as a unit
+  const forkAss = new THREE.Group(); g.add(forkAss);
+  const carriage = new THREE.Mesh(roundedBoxGeom(w * 0.62, 0.14, 0.07, 0.02, 4), metal); carriage.position.set(0, 0.55, -d * 0.38); forkAss.add(carriage);
 
   // fork tines (L-shape: horizontal extending forward + short vertical heel)
   [-w * 0.18, w * 0.18].forEach(fx => {
-    const tine = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, d * 0.62), metal); tine.position.set(fx, 0.3, -d * 0.5 - d * 0.31 + d * 0.31); tine.castShadow = true; g.add(tine);
-    const heel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.05), metal); heel.position.set(fx, 0.41, -d * 0.38); g.add(heel);
+    const tine = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, d * 0.62), metal); tine.position.set(fx, 0.3, -d * 0.5 - d * 0.31 + d * 0.31); tine.castShadow = true; forkAss.add(tine);
+    const heel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.05), metal); heel.position.set(fx, 0.41, -d * 0.38); forkAss.add(heel);
   });
 
   // lift cylinder
@@ -5516,6 +5548,7 @@ function buildForklift({ color='#f0a020', w=1.1, d=2.0, h=2.0 } = {}) {
     const hl = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.03, 12), mat('#ffffcc', 0.1, 0.3, { emissive: '#ffffaa', emissiveIntensity: 0.8 })); hl.rotation.x = Math.PI / 2; hl.position.set(hx, hy, -d * 0.28); g.add(hl);
   });
 
+  g.userData.parts = { forkAss };
   return g;
 }
 
@@ -7083,6 +7116,10 @@ canvas.addEventListener('pointerup', e => {
     if (dragStarted && selectedGroup) { const item = placedItems.find(i => i.group === selectedGroup); if (item && dragItemStart && !dragItemStart.equals(item.position)) pushHistory({ type:'move', item, from: dragItemStart, to: item.position.clone() }); }
     // No need to restore controls.enabled — we used stopImmediatePropagation instead,
     // so OrbitControls never started tracking and its state remains clean.
+    if (isClick && !dragStarted && selectedGroup) {
+      const _ia = placedItems.find(i => i.group === selectedGroup);
+      if (_ia) _ia.group.userData.interactor?.toggle();
+    }
   }
   if (isClick) {
     if (state === 'PLACING' && currentDef && ghostGroup && ghostGroup.visible) {
@@ -7148,10 +7185,102 @@ function updateWalls() {
 function handleResize() { const w = wrapper.clientWidth, h = wrapper.clientHeight; camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); }
 window.addEventListener('resize', handleResize);
 
+// ============================================================ ITEM INTERACTIONS
+let _animPrevT = 0;
+const ITEM_INTERACTIONS = {
+  wardrobe(g) {
+    const p = g.userData.parts || {};
+    if (!p.doorL) return null;
+    let open = false, prog = 0;
+    return {
+      toggle() { open = !open; },
+      tick(dt) {
+        prog += ((open ? 1 : 0) - prog) * Math.min(dt * 5, 1);
+        const a = prog * Math.PI * 0.5;
+        p.doorL.rotation.y = -a;
+        p.doorR.rotation.y = a;
+      }
+    };
+  },
+  closet(g) {
+    const p = g.userData.parts || {};
+    if (!p.slideL) return null;
+    const initL = p.slideL.position.x, initR = p.slideR.position.x;
+    let open = false, prog = 0;
+    return {
+      toggle() { open = !open; },
+      tick(dt) {
+        prog += ((open ? 1 : 0) - prog) * Math.min(dt * 5, 1);
+        p.slideL.position.x = initL - prog * p.slideRange;
+        p.slideR.position.x = initR + prog * p.slideRange;
+      }
+    };
+  },
+  cupboard(g) {
+    const p = g.userData.parts || {};
+    if (!p.lowerL) return null;
+    let open = false, prog = 0;
+    return {
+      toggle() { open = !open; },
+      tick(dt) {
+        prog += ((open ? 1 : 0) - prog) * Math.min(dt * 5, 1);
+        const a = prog * Math.PI * 0.5;
+        p.lowerL.rotation.y = -a;
+        p.lowerR.rotation.y = a;
+        p.upperL.rotation.y = -a;
+        p.upperR.rotation.y = a;
+      }
+    };
+  },
+  conveyor(g) {
+    const p = g.userData.parts || {};
+    if (!p.drumH) return null;
+    let running = false;
+    return {
+      toggle() { running = !running; },
+      tick(dt) {
+        if (!running) return;
+        p.drumH.rotation.x += dt * 3;
+        p.drumT.rotation.x += dt * 3;
+      }
+    };
+  },
+  forklift(g) {
+    const p = g.userData.parts || {};
+    if (!p.forkAss) return null;
+    let up = false, prog = 0;
+    return {
+      toggle() { up = !up; },
+      tick(dt) {
+        prog += ((up ? 1 : 0) - prog) * Math.min(dt * 2.5, 1);
+        p.forkAss.position.y = prog * 0.8;
+      }
+    };
+  },
+  ind_furnace(g) {
+    const p = g.userData.parts || {};
+    if (!p.door) return null;
+    let open = true, prog = 1;
+    return {
+      toggle() { open = !open; },
+      tick(dt) {
+        prog += ((open ? 1 : 0) - prog) * Math.min(dt * 3, 1);
+        p.door.rotation.y = -prog * 0.95;
+      }
+    };
+  },
+};
+function setupItemInteractor(item) {
+  const fn = ITEM_INTERACTIONS[item.defId];
+  if (fn) item.group.userData.interactor = fn(item.group);
+}
+
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
+  const dt = Math.min(t - _animPrevT, 0.05); _animPrevT = t;
+  placedItems.forEach(item => item.group.userData.interactor?.tick(dt));
   controls.update();
   updateWalls();
   if (selectionRing.visible) { selectionRing.material.opacity = 0.6 + Math.sin(t*3)*0.25; selectionRing.scale.setScalar(1 + Math.sin(t*3)*0.02); }
