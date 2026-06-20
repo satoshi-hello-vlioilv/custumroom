@@ -5566,14 +5566,16 @@ function buildAluminumCoil({ color='#c8c8cc', w=1.0, d=0.8, h=0.8 } = {}) {
   const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, d + 0.02, 16), core_m);
   core.rotation.x = Math.PI / 2; core.position.set(0, coilR, 0); g.add(core);
 
-  // end face rings (layered sheet look)
+  // end face rings (layered sheet look) — in XY plane, perpendicular to coil axis (Z)
   [-(d / 2), d / 2].forEach(fz => {
     for (let r = coreR + 0.03; r < coilR - 0.01; r += 0.06) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 4, 28), alum);
-      ring.rotation.x = Math.PI / 2; ring.position.set(0, coilR, fz); g.add(ring);
+      ring.position.set(0, coilR, fz); g.add(ring);
     }
     const face = new THREE.Mesh(new THREE.CircleGeometry(coilR, 32), alum);
-    face.rotation.x = -Math.PI / 2; face.position.set(0, coilR, fz + (fz < 0 ? -0.005 : 0.005)); if (fz < 0) face.rotation.y = Math.PI; g.add(face);
+    face.position.set(0, coilR, fz + (fz < 0 ? -0.005 : 0.005));
+    if (fz < 0) face.rotation.y = Math.PI;
+    g.add(face);
   });
 
   return g;
