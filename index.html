@@ -870,7 +870,7 @@ const PART_H    = 2.4;   // interior partition height
 const COLORS = [
   '#c8a06a','#f3ece0','#5b5048','#b9714a','#5b86b8',
   '#6f9e74','#b25c78','#8a6fb0','#8a5a2b','#3f5d7a',
-  '#e8e2d6','#c2b6a3','#f5c020','#4a4f54'
+  '#e8e2d6','#c2b6a3','#f5c020','#4a4f54','#34543f'
 ];
 
 // ============================================================ APP STATE
@@ -2355,7 +2355,7 @@ const FURNITURE_DEFS = [
   { id:'rug',     cat:'deco',    name:'ラグ',              icon:'fa-rug',            w:2.0, d:1.5,  h:0.02, colorIdx:9, build:buildRug },
   { id:'workbench',  cat:'factory', name:'作業台',          icon:'fa-screwdriver-wrench', w:1.5,  d:0.75, h:0.9,  colorIdx:2, build:buildWorkbench },
   { id:'toolcab',    cat:'factory', name:'ツールキャビネット', icon:'fa-toolbox',          w:0.7,  d:0.45, h:1.12, colorIdx:3, build:buildToolCabinet },
-  { id:'conveyor',   cat:'factory', name:'コンベアベルト',   icon:'fa-arrows-left-right',  w:2.4,  d:0.5,  h:0.82, colorIdx:2, build:buildConveyor },
+  { id:'conveyor',   cat:'factory', name:'コンベアベルト',   icon:'fa-arrows-left-right',  w:2.4,  d:0.5,  h:0.82, colorIdx:14, build:buildConveyor },
   { id:'robot',      cat:'factory', name:'産業ロボット',     icon:'fa-robot',              w:0.65, d:0.65, h:1.65, colorIdx:7, build:buildIndustrialRobot },
   { id:'cnc',        cat:'factory', name:'CNC工作機械',      icon:'fa-gear',               w:1.2,  d:1.0,  h:1.54, colorIdx:2, build:buildCNCMachine },
   { id:'palletrack', cat:'factory', name:'パレットラック',   icon:'fa-layer-group',         w:1.7,  d:0.5,  h:2.46, colorIdx:3, build:buildPalletRack },
@@ -2930,75 +2930,90 @@ function buildToolCabinet({ color='#d4690a', w=0.7, d=0.45, h=1.12 } = {}) {
   return g;
 }
 
-function buildConveyor({ color='#1e2530', w=2.4, d=0.5, h=0.82 } = {}) {
+function buildConveyor({ color='#34543f', w=2.4, d=0.5, h=0.82 } = {}) {
   const g = new THREE.Group();
-  const framM = mat('#5a6474', 0.3, 0.68);
-  const rollM = mat('#8a9ab0', 0.2, 0.78);
-  const motM  = mat('#2a3240', 0.42, 0.45);
+  // aluminium-extrusion flat-belt conveyor: bright alu frame/legs, green PVC belt, geared motor
+  const alu    = mat('#c4c8cc', 0.3, 0.85, { env: 1.1 });    // aluminium extrusion (frame/legs/pulleys)
+  const aluD   = mat('#a6abb0', 0.35, 0.75, { env: 0.9 });   // shaded aluminium / plates
+  const belt   = mat(color, 0.6, 0.04, { env: 0.2 });        // PVC belt (colorable)
+  const rubber = mat('#1a1a1a', 0.92, 0.0);                  // foot pads
+  const gearA  = mat('#b6bbc0', 0.35, 0.7, { env: 0.9 });    // gearbox aluminium
+  const motorM = mat('#3a3f45', 0.5, 0.4);                   // motor body
+  const bolt   = mat('#80868c', 0.4, 0.7);
 
-  const beltW = 0.38;
-  const fZ    = 0.22;          // side frame center Z (±)
-  const topY  = h;
-  const webH  = 0.2;
-  const webY  = topY - webH / 2 - 0.008;
+  const beltW = 0.34, fZ = 0.2, topY = h;
+  const rP = 0.075, pulleyY = topY - rP;
+  const headX = w/2 - 0.09, tailX = -w/2 + 0.09;
+  const railCY = topY - 0.07, railH = 0.1, railThk = 0.045;
 
-  // Side C-channel frames: web + top flange + bottom flange
+  // ---- side aluminium extrusion rails (T-slot look) ----
   [-fZ, fZ].forEach(z => {
-    g.add(box(w, webH, 0.024, framM, 0, webY, z));
-    g.add(box(w, 0.022, 0.072, framM, 0, topY - 0.011, z));
-    g.add(box(w, 0.022, 0.072, framM, 0, webY - webH / 2 + 0.011, z));
+    g.add(box(w, railH, railThk, alu, 0, railCY, z));
+    g.add(box(w, 0.012, railThk + 0.004, aluD, 0, railCY, z));                  // centre groove line
+    g.add(box(w, 0.02, railThk + 0.01, alu, 0, railCY + railH/2 - 0.01, z));    // top flange
   });
+  // slider bed under the belt
+  g.add(box(headX - tailX, 0.02, beltW + 0.03, aluD, 0, topY - 0.035, 0));
+  // cross members tying the two rails
+  for (let x = tailX + 0.4; x < headX - 0.1; x += 0.5) g.add(box(0.04, 0.04, fZ*2 - 0.02, alu, x, railCY - 0.03, 0));
 
-  // Cross members connecting left/right frames
-  for (let x = -w / 2 + 0.48; x < w / 2; x += 0.48) {
-    g.add(box(0.024, 0.024, beltW + 0.06, framM, x, webY - 0.04, 0));
-  }
-
-  // Head drum (drive end, +x) and tail drum (-x) — saved for spin animation
-  const headX = w / 2 - 0.08, tailX = -w / 2 + 0.08;
-  const convDrums = [headX, tailX].map(x => {
-    const drum = cyl(0.078, 0.078, beltW + 0.055, 18, rollM);
-    drum.rotation.z = Math.PI / 2; drum.position.set(x, topY - 0.01, 0); g.add(drum); return drum;
-  });
-
-  // Idler rollers every 0.28m between drums
-  for (let x = tailX + 0.3; x < headX - 0.12; x += 0.28) {
-    const rol = cyl(0.036, 0.036, beltW + 0.02, 10, rollM);
-    rol.rotation.z = Math.PI / 2; rol.position.set(x, topY - 0.044, 0); g.add(rol);
-  }
-
-  // Belt surface (colorable)
-  const belt = box(w - 0.16, 0.016, beltW, mat(color, 0.88, 0.06), 0, topY + 0.003, 0);
-  belt.userData.colorable = true; g.add(belt);
-  // Belt cleats (grip ribs)
-  for (let x = tailX + 0.22; x < headX - 0.05; x += 0.22) {
-    g.add(box(0.015, 0.018, beltW - 0.02, mat('#141820', 0.94, 0), x, topY + 0.016, 0));
-  }
-
-  // Drive motor + gearbox at head end
-  const mX = headX + 0.18;
-  g.add(box(0.2, 0.16, 0.16, motM, mX, webY, 0));
-  g.add(box(0.09, 0.12, 0.11, mat('#333d4a', 0.38, 0.5), mX - 0.145, webY, 0));
-  for (let fi = -0.055; fi <= 0.055; fi += 0.022) {
-    g.add(plainBox(0.2, 0.005, 0.018, mat('#38445a', 0.32, 0.5), mX, webY + fi, 0.085));
-  }
-  g.add(box(0.05, 0.04, 0.04, rollM, mX - 0.19, webY, 0));
-
-  // Support legs — 3 positions with cross-bracing
-  const frameBot = webY - webH / 2 - 0.01;
-  const legH = frameBot - 0.03;
-  const legCY = 0.03 + legH / 2;
-  [-w * 0.35, 0, w * 0.35].forEach(lx => {
-    [-fZ + 0.01, fZ - 0.01].forEach(lz => {
-      g.add(box(0.05, legH, 0.05, framM, lx, legCY, lz));
-      const ft = cyl(0.042, 0.05, 0.036, 8, mat('#38424e', 0.4, 0.45));
-      ft.position.set(lx, 0.018, lz); g.add(ft);
+  // ---- end pulleys (silver core + green belt wrap; spun by interactor) ----
+  const makePulley = (x) => {
+    const grp = new THREE.Group(); grp.position.set(x, pulleyY, 0);
+    const core = cyl(rP, rP, beltW + 0.05, 20, alu); core.rotation.x = Math.PI/2; grp.add(core);
+    const wrap = cyl(rP + 0.005, rP + 0.005, beltW, 20, belt); wrap.rotation.x = Math.PI/2; grp.add(wrap);
+    [beltW/2 + 0.026, -(beltW/2 + 0.026)].forEach(cz => {            // end-cap detail so spin reads
+      grp.add(cylAt(rP*0.55, rP*0.55, 0.006, 14, aluD, 0, 0, cz).rotateX(Math.PI/2));
+      grp.add(cylAt(0.012, 0.012, 0.012, 8, bolt, 0, rP*0.3, cz + Math.sign(cz)*0.004).rotateX(Math.PI/2));
     });
-    // Horizontal cross-brace between two legs
-    g.add(box(0.022, 0.022, fZ * 2 - 0.02, framM, lx, legCY * 0.68, 0));
-  });
+    g.add(grp); return grp;
+  };
+  const drumH = makePulley(headX), drumT = makePulley(tailX);
 
-  g.userData.parts = { drumH: convDrums[0], drumT: convDrums[1] };
+  // ---- belt: smooth green top run + lower return strand ----
+  g.add(box(headX - tailX, 0.014, beltW, belt, 0, topY, 0));
+  g.add(box(headX - tailX, 0.012, beltW, belt, 0, pulleyY - rP, 0));
+
+  // ---- support legs (2 stations) with H-frame bracing + adjustable feet ----
+  const lx0 = w*0.28;
+  const legTopY = railCY - railH/2;
+  const footY = 0.055, legBotY = footY + 0.02;
+  const legH = legTopY - legBotY, legCY = (legTopY + legBotY)/2;
+  const lowY = legBotY + 0.16;
+  [-lx0, lx0].forEach(lx => {
+    [-fZ, fZ].forEach(lz => {
+      g.add(box(0.05, legH, 0.05, alu, lx, legCY, lz));                          // leg extrusion
+      // adjustable foot (threaded stem + rubber pad)
+      g.add(cylAt(0.018, 0.018, 0.08, 8, bolt, lx, footY, lz));
+      g.add(cylAt(0.055, 0.06, 0.025, 14, rubber, lx, footY - 0.04, lz));
+      // top mounting gusset plate + bolts
+      g.add(box(0.14, 0.13, 0.012, aluD, lx, legTopY - 0.02, lz + Math.sign(lz)*0.032));
+      [[-0.04,-0.03],[0.04,-0.03],[0,0.04]].forEach(([bx,by]) =>
+        g.add(cylAt(0.008,0.008,0.02,6, bolt, lx+bx, legTopY-0.02+by, lz + Math.sign(lz)*0.042).rotateX(Math.PI/2)));
+      // diagonal gusset brace (leg-top → lower member, in the x–y plane)
+      const dx = -Math.sign(lx)*0.17, dy = lowY - (legTopY - 0.08), L = Math.hypot(dx, dy);
+      const br = box(0.035, L, 0.035, alu, lx + dx/2, (legTopY - 0.08) + dy/2, lz);
+      br.rotation.z = Math.atan2(-dx, dy); g.add(br);
+    });
+    // cross member (z) at this station
+    g.add(box(0.04, 0.04, fZ*2 - 0.02, alu, lx, lowY, 0));
+  });
+  // long members along the length connecting the two leg stations (front & back, two heights)
+  [-fZ, fZ].forEach(lz => { g.add(box(lx0*2, 0.04, 0.04, alu, 0, lowY, lz)); g.add(box(lx0*2, 0.04, 0.04, alu, 0, lowY + 0.22, lz)); });
+
+  // ---- drive gearmotor at head end (right, front side) ----
+  const gx = headX - 0.02, gz = fZ + 0.1, gy = railCY;
+  g.add(box(0.18, 0.2, 0.16, gearA, gx, gy, gz));                                // right-angle gearbox
+  g.add(cylAt(0.05, 0.05, 0.08, 14, gearA, gx, gy, fZ + 0.02).rotateX(Math.PI/2)); // output toward drum
+  const motorZ = gz + 0.18;
+  g.add(cylAt(0.07, 0.07, 0.18, 16, motorM, gx, gy - 0.02, motorZ).rotateX(Math.PI/2));   // motor body
+  for (let i = 0; i < 4; i++) g.add(cylAt(0.078, 0.078, 0.008, 16, motorM, gx, gy - 0.02, motorZ - 0.06 + i*0.04).rotateX(Math.PI/2)); // cooling fins
+  g.add(cylAt(0.05, 0.05, 0.03, 14, mat('#2a2e33',0.5), gx, gy - 0.02, motorZ + 0.1).rotateX(Math.PI/2));  // fan cover
+  g.add(box(0.07, 0.06, 0.07, mat('#2a2e33',0.5), gx, gy + 0.07, motorZ - 0.02));          // terminal box
+
+  // colorable belt parts
+  g.traverse(o => { if (o.isMesh && o.material === belt) o.userData.colorable = true; });
+  g.userData.parts = { drumH, drumT };
   return g;
 }
 
@@ -7636,8 +7651,8 @@ const ITEM_INTERACTIONS = {
       toggle() { running = !running; },
       tick(dt) {
         if (!running) return;
-        p.drumH.rotation.x += dt * 3;
-        p.drumT.rotation.x += dt * 3;
+        p.drumH.rotation.z += dt * 3;
+        p.drumT.rotation.z += dt * 3;
       }
     };
   },
