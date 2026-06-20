@@ -5586,10 +5586,10 @@ function buildForklift({ color='#f5c020', w=1.6, d=4.7, h=2.5 } = {}) {
   // ---------- seat / controls ----------
   lbox(0.62, 0.16, 0.6, MAT.seat, 0, 1.66, 0.32, lift);   // seat base
   lbox(0.6, 0.62, 0.14, MAT.seat, 0, 2.02, 0.62, lift);   // seat back
-  const colG = new THREE.Group(); colG.position.set(0, 1.42, -1.0); colG.rotation.x = -0.55; lift.add(colG);
+  const colG = new THREE.Group(); colG.position.set(0, 1.42, -1.0); colG.rotation.x = 0.55; lift.add(colG);
   lcyl(.04, .05, .62, MAT.steel, 0, .31, 0, colG, 12);
   const wheelG = new THREE.Group(); wheelG.position.y = 0.64; colG.add(wheelG);
-  const sWheel = new THREE.Mesh(new THREE.TorusGeometry(.19, .025, 10, 28), MAT.seat); sWheel.castShadow = true; wheelG.add(sWheel);
+  const sWheel = new THREE.Mesh(new THREE.TorusGeometry(.19, .025, 10, 28), MAT.seat); sWheel.rotation.x = Math.PI/2; sWheel.castShadow = true; wheelG.add(sWheel);
   for (let i = 0; i < 3; i++) { const sp = lbox(.025, .02, .18, MAT.steelLite, 0, 0, 0, wheelG); sp.rotation.y = i*Math.PI*2/3; sp.translateZ(.09); }
   lcyl(.03, .03, .05, MAT.hub, 0, 0, 0, wheelG, 10);
   for (let i = 0; i < 3; i++) { const lv = lcyl(.014, .014, .3, MAT.steelLite, 0.32 + i*0.1, 1.62, -0.78, lift, 8); lv.rotation.x = -0.5; lcyl(.026, .026, .04, MAT.seat, 0, 0, 0, lv, 8).position.y = .15; }
