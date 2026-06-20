@@ -5554,25 +5554,26 @@ function buildForklift({ color='#f0a020', w=1.1, d=2.0, h=2.0 } = {}) {
 
 function buildAluminumCoil({ color='#c8c8cc', w=1.0, d=0.8, h=0.8 } = {}) {
   const g = new THREE.Group();
-  const alum = mat(color, 0.2, 0.85, { env: 0.9 }), core_m = mat('#888', 0.4, 0.5);
+  const alum = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.2, metalness: 0.85, envMapIntensity: 0.9, side: THREE.DoubleSide });
+  const core_m = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.4, metalness: 0.5, side: THREE.DoubleSide });
 
-  // main coil body (cylinder lying on its side)
+  // main coil body — open-ended so the hollow center is visible through the core
   const coilR = Math.min(w, h) / 2;
-  const coil = new THREE.Mesh(new THREE.CylinderGeometry(coilR, coilR, d, 32), alum);
+  const coil = new THREE.Mesh(new THREE.CylinderGeometry(coilR, coilR, d, 32, 1, true), alum);
   coil.rotation.x = Math.PI / 2; coil.position.set(0, coilR, 0); coil.castShadow = true; coil.receiveShadow = true; coil.userData.colorable = true; g.add(coil);
 
-  // inner core (hollow steel tube)
+  // inner steel core tube — open-ended and double-sided so the hollow bore is visible
   const coreR = coilR * 0.28;
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, d + 0.02, 16), core_m);
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, d + 0.02, 16, 1, true), core_m);
   core.rotation.x = Math.PI / 2; core.position.set(0, coilR, 0); g.add(core);
 
-  // end face rings (layered sheet look) — in XY plane, perpendicular to coil axis (Z)
+  // end faces — RingGeometry shows the annular wound cross-section (hollow center exposed)
   [-(d / 2), d / 2].forEach(fz => {
     for (let r = coreR + 0.03; r < coilR - 0.01; r += 0.06) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 4, 28), alum);
       ring.position.set(0, coilR, fz); g.add(ring);
     }
-    const face = new THREE.Mesh(new THREE.CircleGeometry(coilR, 32), alum);
+    const face = new THREE.Mesh(new THREE.RingGeometry(coreR, coilR, 32), alum);
     face.position.set(0, coilR, fz + (fz < 0 ? -0.005 : 0.005));
     if (fz < 0) face.rotation.y = Math.PI;
     g.add(face);
