@@ -2474,6 +2474,9 @@ const FURNITURE_DEFS = [
   { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:1.8,  d:1.4,  h:3.5,   colorIdx:6,  build:buildLargeHydraulicPress },
   { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
   { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:3.5,  d:1.5,  h:2.2,   colorIdx:8,  build:buildInjectionMolder },
+  { id:'jib_crane',      cat:'factory', name:'ジブクレーン',        icon:'fa-arrow-up',             w:2.0,  d:0.5,  h:2.5,   colorIdx:0,  build:buildJibCrane },
+  { id:'fire_ext',       cat:'factory', name:'消火器',              icon:'fa-fire',                 w:0.18, d:0.18, h:0.6,   colorIdx:6,  build:buildFireExtinguisher },
+  { id:'worker',         cat:'factory', name:'作業員',              icon:'fa-person',               w:0.5,  d:0.3,  h:1.75,  colorIdx:3,  build:buildWorkerFigure },
 ];
 
 // ============================================================ FURNITURE BUILDERS
@@ -4944,6 +4947,16 @@ function buildCNCMachiningCenter({ color='#3c5a7a', w=3.0, d=2.2, h=2.8 } = {}) 
   // exhaust duct on top
   g.add(box(0.2, 0.35, 0.2, dark, 0, h + 0.17, 0));
   g.add(box(0.14, 0.12, 0.14, mat('#606870',0.4,0.5), 0, h + 0.35, 0));
+  // ATC (automatic tool changer) carousel — recessed in left side
+  g.add(box(0.28, 0.32, 0.28, dark, -w/2 + 0.18, h*0.64, -0.12));
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI * 2 / 8;
+    g.add(cylAt(0.018,0.012,0.1,8,mat('#c8a030',0.3,0.8),-w/2+0.18+Math.sin(a)*0.09,h*0.64,-0.12+Math.cos(a)*0.09).rotateX(Math.PI/2));
+  }
+  // tri-color status stack light on top-right corner
+  [[h+0.08,'#22c55e'],[h+0.14,'#f59e0b'],[h+0.20,'#ef4444']].forEach(([sy,sc])=>{
+    g.add(cylAt(0.032,0.032,0.06,12,mat(sc,0.2,0.1,{emissive:sc,emissiveIntensity:0.7}),w/2-0.18,sy,d/2-0.18));
+  });
   return g;
 }
 function buildIndustrialRobotLg({ color='#f59e0b', w=1.2, d=1.2, h=2.4 } = {}) {
@@ -4980,6 +4993,12 @@ function buildIndustrialRobotLg({ color='#f59e0b', w=1.2, d=1.2, h=2.4 } = {}) {
   g.add(box(0.48, 1.2, 0.34, mat('#2a2f35',0.5), -0.7, 0.6, 0.2));
   g.add(box(0.36, 0.45, 0.04, mat('#0d2040',0.3), -0.7, 0.82, 0.38));
   ['#22c55e','#3b82f6','#ef4444'].forEach((cl,i)=>g.add(cylAt(0.018,0.018,0.025,10,mat(cl,0.3),-0.7,0.56-i*0.05,0.38).rotateX(Math.PI/2)));
+  // status LED on shoulder housing
+  g.add(cylAt(0.015,0.015,0.02,10,mat('#22c55e',0.2,0.1,{emissive:'#22c55e',emissiveIntensity:0.9}),0.14,0.78,-0.12).rotateX(Math.PI/2));
+  // teach pendant unit hanging from control cabinet
+  const tpCable = cyl(0.01,0.01,0.52,8,mat('#111',0.9)); tpCable.rotation.x=0.35; tpCable.position.set(-0.48,0.92,0.38); g.add(tpCable);
+  g.add(box(0.11,0.18,0.03,mat('#333',0.5),-0.52,0.72,0.41));
+  g.add(box(0.08,0.1,0.02,mat('#0a1828',0.2),-0.52,0.74,0.43));
   return g;
 }
 function buildLargeHydraulicPress({ color='#2d4a2d', w=1.8, d=1.4, h=3.5 } = {}) {
@@ -5014,6 +5033,13 @@ function buildLargeHydraulicPress({ color='#2d4a2d', w=1.8, d=1.4, h=3.5 } = {})
   // control buttons
   const panel = box(0.22, 0.35, 0.05, dark, w/2 + 0.4, 1.52, 0.24); g.add(panel);
   ['#22c55e','#ef4444'].forEach((cl,i)=>g.add(cylAt(0.025,0.025,0.03,10,mat(cl,0.3),w/2+0.4,1.56-i*0.1,0.27).rotateX(Math.PI/2)));
+  // E-stop mushroom button
+  g.add(cylAt(0.030,0.030,0.028,14,mat('#ef4444',0.2,0.1,{emissive:'#cc0000',emissiveIntensity:0.5}),w/2+0.4,1.36,0.27).rotateX(Math.PI/2));
+  // pressure gauge on HPU panel
+  const pg = cyl(0.048,0.048,0.022,16,mat('#ddd',0.2,0.1)); pg.rotation.x=Math.PI/2; pg.position.set(w/2+0.4,1.72,0.26); g.add(pg);
+  g.add(cylAt(0.028,0.028,0.018,16,mat('#111',0.8),w/2+0.4,1.72,0.272).rotateX(Math.PI/2));
+  // hydraulic hose from HPU to cylinder (high-pressure braided)
+  const hose = cyl(0.016,0.016,1.1,8,mat('#1a1a1a',0.8)); hose.rotation.z = 0.55; hose.position.set(w/2+0.18,2.15,0.04); g.add(hose);
   // safety warning stripe bottom
   g.add(box(w, 0.05, 0.01, yellow, 0, 0.3, d/2 + 0.02));
   return g;
@@ -5036,8 +5062,11 @@ function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
   g.add(box(0.04, 0.04, 0.14, steel, w*0.34, h*0.4, d/2+0.14));
   // exhaust duct on top
   g.add(box(0.3, 0.55, 0.22, dark, w*0.35, h + 0.27, 0));
-  g.add(cyl(0.1,0.1,0.4,14,dark)).position && (g.children.at(-1).position.set(w*0.35, h+0.58, 0));
-  g.children.at(-1).position.set(w*0.35, h+0.58, 0);
+  const chimney = cyl(0.1, 0.1, 0.4, 14, dark); chimney.position.set(w*0.35, h+0.58, 0); g.add(chimney);
+  // thermocouple port (right side, upper zone)
+  g.add(cylAt(0.016,0.016,0.1,8,steel,w/2,h*0.72,0.18).rotateZ(Math.PI/2));
+  // gas/electric inlet fitting (rear lower)
+  g.add(cylAt(0.020,0.020,0.09,10,steel,0.2,h*0.22,-d/2).rotateX(Math.PI/2));
   // temperature controller panel (right side)
   const ctrl = box(0.35, 0.65, 0.06, dark, w/2 - 0.02, h*0.68, -0.3); g.add(ctrl);
   g.add(box(0.26, 0.3, 0.04, mat('#0d1520',0.3), w/2-0.02, h*0.75, -0.26));
@@ -5062,10 +5091,12 @@ function buildInjectionMolder({ color='#374a60', w=3.5, d=1.5, h=2.2 } = {}) {
   g.add(box(w, 0.16, d, dark, 0, 0.08, 0));
   // clamping unit (right half)
   const clamp_body = box(w * 0.42, h - 0.16, d, body, w * 0.22, (h-0.16)/2 + 0.16, 0); clamp_body.userData.colorable=true; g.add(clamp_body);
-  // 4 tie bars
-  [[-0.36, 0.48],[0.36, 0.48],[-0.36,-0.48],[0.36,-0.48]].forEach(([x,z])=>{
-    g.add(cylAt(0.055,0.055,w*0.68,16,chrome,0,h*0.38,0).rotateZ(Math.PI/2));
-    g.add(cylAt(0.055,0.055,h*0.76+0.04,16,chrome,w*0.22+x,h*0.38 + z * 0, z));
+  // 4 tie bars — horizontal rods running machine x-axis, 4 corners in y-z plane
+  [[h*0.28,d*0.38],[h*0.28,-d*0.38],[h*0.60,d*0.38],[h*0.60,-d*0.38]].forEach(([ty,tz])=>{
+    const tb = cyl(0.048,0.048,w*0.74,16,chrome); tb.rotation.z=Math.PI/2; tb.position.set(-w*0.04,ty,tz); g.add(tb);
+    // hex nuts at each end
+    g.add(cylAt(0.068,0.068,0.036,6,mat('#aab4bc',0.3,0.7),-w*0.04+w*0.37,ty,tz));
+    g.add(cylAt(0.068,0.068,0.036,6,mat('#aab4bc',0.3,0.7),-w*0.04-w*0.37,ty,tz));
   });
   // fixed platen (left)
   g.add(box(0.14, h * 0.68, d * 0.88, steel, -w*0.32, h*0.34+0.16, 0));
@@ -5616,6 +5647,112 @@ function buildDrum({ color='#1a4a9a', w=0.58, d=0.58, h=0.88 } = {}) {
   // bung plug on top
   g.add(cylAt(0.028, 0.028, 0.03, 12, mat('#787878', 0.4, 0.7), r * 0.5, h - 0.005, 0));
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+function buildJibCrane({ color='#f5c518', w=2.0, d=0.5, h=2.5 } = {}) {
+  const g = new THREE.Group();
+  const frame = mat(color, 0.5, 0.25);
+  const steel = mat('#8a9aa8', 0.25, 0.7, { env: 0.8 });
+  const dark = mat('#1e2428', 0.7, 0.1);
+  // base mounting flange
+  g.add(cylAt(0.22, 0.22, 0.06, 16, dark, 0, 0.03, 0));
+  for (let i = 0; i < 6; i++) { const a = i * Math.PI * 2 / 6; g.add(cylAt(0.012,0.014,0.09,8,steel,Math.sin(a)*0.17,0.045,Math.cos(a)*0.17)); }
+  // vertical mast column
+  const mast = cyl(0.085, 0.085, h, 14, mat(shade(color,0.72),0.45,0.3)); mast.position.set(0, h/2, 0); g.add(mast);
+  // horizontal boom
+  const boomLen = w - 0.12;
+  const boom = box(boomLen, 0.08, 0.07, frame, boomLen/2, h - 0.06, 0); boom.userData.colorable = true; g.add(boom);
+  // diagonal tie rod (mast-top to boom end)
+  const tieDx = boomLen * 0.85, tieDy = h * 0.32;
+  const tieLen = Math.sqrt(tieDx*tieDx + tieDy*tieDy);
+  const tieBrace = cyl(0.020, 0.020, tieLen, 8, steel);
+  tieBrace.rotation.z = -Math.atan2(tieDy, tieDx);
+  tieBrace.position.set(tieDx/2 + 0.06, h - tieDy/2, 0); g.add(tieBrace);
+  // end stop bumper
+  g.add(box(0.04, 0.14, 0.09, dark, boomLen + 0.04, h - 0.06, 0));
+  // trolley block on boom
+  g.add(box(0.14, 0.08, 0.09, dark, boomLen * 0.55, h - 0.12, 0));
+  // chain (vertical drop)
+  const chain = cyl(0.009, 0.009, 0.52, 6, mat('#888',0.3,0.7)); chain.position.set(boomLen * 0.55, h - 0.39, 0); g.add(chain);
+  // hook (torus arc)
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(0.044, 0.011, 6, 14, Math.PI * 1.4), steel);
+  hook.rotation.x = Math.PI/2; hook.position.set(boomLen * 0.55, h - 0.66, 0); g.add(hook);
+  // yellow stripe rings on boom (hazard marker)
+  [0.28, 0.72].forEach(t => g.add(box(0.06,0.084,0.075,mat('#f5c518',0.4),boomLen*t,h-0.06,0)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+function buildFireExtinguisher({ color='#dc2626', w=0.18, d=0.18, h=0.6 } = {}) {
+  const g = new THREE.Group();
+  const red = mat(color, 0.4, 0.15);
+  const steel = mat('#c8c8cc', 0.2, 0.8, { env: 1.0 });
+  const dark = mat('#1a1a1a', 0.7, 0.1);
+  const r = Math.min(w, d) / 2;
+  // main cylinder body
+  const body = cyl(r, r, h * 0.72, 20, red); body.position.set(0, h * 0.41, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  // bottom dome
+  const botDome = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 8, 0, Math.PI*2, Math.PI*0.5, Math.PI*0.5), red);
+  botDome.position.set(0, h * 0.05, 0); g.add(botDome);
+  // neck reducer
+  g.add(cylAt(r * 0.54, r * 0.54, h * 0.08, 16, steel, 0, h * 0.80, 0));
+  // valve head
+  g.add(cylAt(r * 0.44, r * 0.44, h * 0.1, 12, steel, 0, h * 0.88, 0));
+  // carry handle
+  g.add(box(r * 1.3, h * 0.04, h * 0.04, dark, 0, h * 0.95, 0));
+  // pressure gauge dial
+  const pg = cyl(0.022, 0.022, 0.018, 12, mat('#ddd',0.2,0.1)); pg.rotation.x=Math.PI/2; pg.position.set(0, h*0.82, r+0.01); g.add(pg);
+  g.add(cylAt(0.013,0.013,0.016,12,mat('#111',0.8),0,h*0.82,r+0.019).rotateX(Math.PI/2));
+  // discharge hose
+  const hose = cyl(0.011, 0.011, h * 0.3, 8, dark); hose.rotation.x = 0.75; hose.position.set(0, h * 0.65, r * 0.75); g.add(hose);
+  // nozzle horn
+  g.add(cylAt(0.016,0.007,0.075,10,dark,0,h*0.41,r*1.42).rotateX(0.75));
+  // safety pin ring
+  const pin = new THREE.Mesh(new THREE.TorusGeometry(0.016, 0.004, 4, 12), mat('#f59e0b',0.3,0.6));
+  pin.rotation.z = Math.PI/2; pin.position.set(0.016, h * 0.93, 0); g.add(pin);
+  // label band (white instruction strip)
+  g.add(cylAt(r+0.002,r+0.002,h*0.22,20,mat('#f8f8f8',0.8,0),0,h*0.38,0));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+function buildWorkerFigure({ color='#f97316', w=0.5, d=0.3, h=1.75 } = {}) {
+  const g = new THREE.Group();
+  const vest = mat(color, 0.82, 0.0);
+  const skin = mat('#e8b888', 0.85, 0.0);
+  const pants = mat('#3a4a5a', 0.75, 0.05);
+  const boot = mat('#2a1a0a', 0.8, 0.1);
+  const helm = mat('#f5c518', 0.4, 0.1);
+  // hard hat
+  const hat = new THREE.Mesh(new THREE.SphereGeometry(0.115, 14, 8, 0, Math.PI*2, 0, Math.PI*0.55), helm);
+  hat.position.set(0, h - 0.05, 0); g.add(hat);
+  g.add(cylAt(0.128,0.128,0.022,14,helm,0,h-0.175,0)); // brim ring
+  // head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.098, 14, 10), skin);
+  head.position.set(0, h - 0.215, 0); g.add(head);
+  // torso / safety vest
+  const torso = new THREE.Mesh(roundedBoxGeom(0.28, 0.44, 0.18, 0.04, 4), vest);
+  torso.position.set(0, h - 0.58, 0); torso.castShadow = true; torso.userData.colorable = true; g.add(torso);
+  // reflective stripes
+  [-0.06, 0.06].forEach(sy => g.add(box(0.28, 0.024, 0.185, mat('#f5c518',0.4), 0, h-0.58+sy, 0)));
+  // hips/waist
+  const hips = new THREE.Mesh(roundedBoxGeom(0.25, 0.20, 0.16, 0.03, 4), pants);
+  hips.position.set(0, h - 0.92, 0); hips.castShadow = true; g.add(hips);
+  // legs
+  [[-0.07, 0],[0.07, 0]].forEach(([lx,lz]) => {
+    const leg = new THREE.Mesh(roundedBoxGeom(0.1, 0.44, 0.12, 0.03, 4), pants);
+    leg.position.set(lx, h - 1.25, lz); leg.castShadow = true; g.add(leg);
+    const boo = new THREE.Mesh(roundedBoxGeom(0.1, 0.13, 0.19, 0.03, 4), boot);
+    boo.position.set(lx, h - 1.52, lz + 0.04); boo.castShadow = true; g.add(boo);
+  });
+  // arms
+  [[-0.19, h - 0.60],[0.19, h - 0.60]].forEach(([ax,ay]) => {
+    const arm = new THREE.Mesh(roundedBoxGeom(0.09, 0.38, 0.09, 0.03, 4), vest);
+    arm.position.set(ax, ay - 0.04, 0); arm.castShadow = true; g.add(arm);
+    const glove = new THREE.Mesh(roundedBoxGeom(0.08, 0.11, 0.08, 0.02, 4), mat('#333',0.8));
+    glove.position.set(ax, ay - 0.27, 0); g.add(glove);
+  });
   return g;
 }
 
