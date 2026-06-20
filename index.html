@@ -2475,7 +2475,7 @@ const FURNITURE_DEFS = [
   { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:10, build:buildIndustrialRobotLg },
   { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:1.8,  d:1.4,  h:3.5,   colorIdx:6,  build:buildLargeHydraulicPress },
   { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
-  { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:3.5,  d:1.5,  h:2.2,   colorIdx:8,  build:buildInjectionMolder },
+  { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:3.5,  d:1.5,  h:2.2,   colorIdx:10, build:buildInjectionMolder },
   // ---- 新規アイテム ----
   { id:'jib_crane',      cat:'factory', name:'ジブクレーン',        icon:'fa-arrow-up-from-bracket', w:2.2,  d:0.5,  h:4.2,   colorIdx:7,  build:buildJibCrane },
   { id:'fire_ext',       cat:'factory', name:'消火器',              icon:'fa-fire-extinguisher',     w:0.2,  d:0.2,  h:0.65,  colorIdx:3,  build:buildFireExtinguisher, stack:true },
@@ -5320,53 +5320,157 @@ function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
   g.userData.parts = { door: doorGroup };
   return g;
 }
-function buildInjectionMolder({ color='#374a60', w=3.5, d=1.5, h=2.2 } = {}) {
+function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   const g = new THREE.Group();
-  const body = mat(color, 0.45, 0.25);
-  const steel = mat('#9aaabb', 0.25, 0.65, { env: 0.8 });
-  const dark = mat('#1a1e24', 0.7, 0.1);
-  const chrome = mat('#c8d4dc', 0.1, 0.9, { env: 1.2 });
-  const yellow = mat('#f5c518', 0.4, 0.1);
-  // base platen (floor frame)
-  g.add(box(w, 0.16, d, dark, 0, 0.08, 0));
-  // clamping unit (right half)
-  const clamp_body = box(w * 0.42, h - 0.16, d, body, w * 0.22, (h-0.16)/2 + 0.16, 0); clamp_body.userData.colorable=true; g.add(clamp_body);
-  // 4 tie bars — horizontal rods running machine x-axis, 4 corners in y-z plane
-  [[h*0.28,d*0.38],[h*0.28,-d*0.38],[h*0.60,d*0.38],[h*0.60,-d*0.38]].forEach(([ty,tz])=>{
-    const tb = cyl(0.048,0.048,w*0.74,16,chrome); tb.rotation.z=Math.PI/2; tb.position.set(-w*0.04,ty,tz); g.add(tb);
-    // hex nuts at each end
-    g.add(cylAt(0.068,0.068,0.036,6,mat('#aab4bc',0.3,0.7),-w*0.04+w*0.37,ty,tz));
-    g.add(cylAt(0.068,0.068,0.036,6,mat('#aab4bc',0.3,0.7),-w*0.04-w*0.37,ty,tz));
+  // horizontal injection molding machine (TOYO Si-180 style): off-white shrouds,
+  // blue safety guard, charcoal machine bed, stainless hopper. Clamp LEFT, injection RIGHT.
+  const body   = mat(color, 0.45, 0.12, { env: 0.4 });               // off-white shrouds (colorable)
+  const bodyD  = mat(shade(color, 0.9), 0.45, 0.12);
+  const charc  = mat('#34373b', 0.55, 0.3, { env: 0.4 });            // machine bed / cabinets
+  const charc2 = mat('#26282b', 0.6, 0.2);                           // recessed door panels
+  const blue   = mat('#2c4fa0', 0.4, 0.25, { env: 0.5 });            // safety guard
+  const blueD  = mat('#213c80', 0.45, 0.25);
+  const steel  = mat('#9aa6b0', 0.25, 0.75, { env: 0.9 });           // platens / rods
+  const chrome = mat('#cdd4da', 0.12, 0.95, { env: 1.3 });           // tie bars / hopper / nozzle
+  const stain  = mat('#c4ccd2', 0.18, 0.9, { env: 1.2 });            // stainless hopper
+  const dark   = mat('#15181b', 0.55, 0.25);                         // screens / handles
+  const yellow = mat('#f2c200', 0.5, 0.1);
+  const glass  = new THREE.MeshStandardMaterial({ color: 0x8aa0ae, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.4 });
+  const deckY = 0.92;
+  const fz = d/2;
+
+  // ===== machine bed (charcoal) =====
+  // bottom perimeter rails on leveling feet
+  [fz - 0.12, -(fz - 0.12)].forEach(z => g.add(box(w - 0.1, 0.14, 0.2, charc, 0, 0.21, z)));
+  // leveling feet
+  for (let i = 0; i < 6; i++) { const fx = -w/2 + 0.3 + i * (w - 0.6)/5;
+    [fz - 0.12, -(fz - 0.12)].forEach(z => { g.add(cylAt(0.04, 0.05, 0.1, 10, dark, fx, 0.06, z)); g.add(cylAt(0.07, 0.07, 0.03, 12, charc2, fx, 0.015, z)); });
+  }
+  // left clamp pedestal block (leaves a recessed gap to its right, as in the photo)
+  g.add(box(0.62, 0.74, d, charc, -w/2 + 0.31, 0.55, 0));
+  // central + right cabinet block (doors / vents / labels)
+  const cabX0 = -w/2 + 1.15, cabX1 = w/2;                 // x range of main cabinet
+  const cabW = cabX1 - cabX0, cabCx = (cabX0 + cabX1)/2;
+  g.add(box(cabW, 0.74, d, charc, cabCx, 0.55, 0));
+  // checker-plate deck on top of the bed (center span)
+  const deckTex = checkerTex.clone(); deckTex.repeat.set(6, 2); deckTex.needsUpdate = true;
+  const deckMat = new THREE.MeshStandardMaterial({ color: 0x9098a0, roughness: 0.5, metalness: 0.55, map: deckTex });
+  g.add(box(w - 1.1, 0.04, d - 0.06, deckMat, 0.1, deckY + 0.02, 0));
+  // front cabinet doors + handles + warning labels + louver vents
+  [-0.15, 0.75].forEach(dx => {
+    g.add(box(0.7, 0.56, 0.02, charc2, cabCx + dx, 0.54, fz + 0.006));            // door panel
+    g.add(box(0.025, 0.22, 0.03, mat('#8a9098',0.4,0.6), cabCx + dx + 0.3, 0.54, fz + 0.02)); // handle
+    g.add(box(0.1, 0.1, 0.008, yellow, cabCx + dx - 0.18, 0.66, fz + 0.012));     // warning label
   });
-  // fixed platen (left)
-  g.add(box(0.14, h * 0.68, d * 0.88, steel, -w*0.32, h*0.34+0.16, 0));
-  // moving platen
-  g.add(box(0.12, h * 0.65, d * 0.84, steel, w*0.08, h*0.34+0.16, 0));
-  // mold halves (in between)
-  g.add(box(0.22, h * 0.54, d * 0.72, mat('#556070',0.4,0.3), -w*0.12, h*0.34+0.16, 0));
-  g.add(box(0.22, h * 0.54, d * 0.72, mat('#556070',0.4,0.3), w*0.00, h*0.34+0.16, 0));
-  // injection unit (left half - barrel + hopper)
-  const inj_body = box(w * 0.48, h * 0.38, d * 0.55, body, -w * 0.24, h*0.19+0.16, 0); inj_body.userData.colorable=true; g.add(inj_body);
-  const barrel = cyl(0.085, 0.085, w * 0.5, 18, steel); barrel.rotation.z=Math.PI/2; barrel.position.set(-w*0.08, h*0.48, 0); g.add(barrel);
-  const nozzle = cyl(0.04, 0.025, 0.22, 12, chrome); nozzle.rotation.z=Math.PI/2; nozzle.position.set(w*0.18, h*0.48, 0); g.add(nozzle);
-  // hopper — conical funnel (wide top → narrow throat onto barrel)
-  const hpX = -w*0.3, hpY = h*0.48 + 0.085; // base = top of barrel at this x
-  const hpMat = mat('#aab4bc',0.3,0.5), hpDk = mat('#88949c',0.25,0.6);
-  const hpThR = 0.055, hpBinR = 0.17;
-  g.add(cylAt(hpThR, hpThR, h*0.07, 12, hpDk, hpX, hpY+h*0.035, 0)); // throat
-  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(hpBinR, hpThR, h*0.13, 12), hpMat);
-  funnel.position.set(hpX, hpY+h*0.135, 0); funnel.castShadow = true; g.add(funnel); // cone
-  g.add(cylAt(hpBinR, hpBinR, h*0.10, 12, hpMat, hpX, hpY+h*0.25, 0)); // bin
-  g.add(cylAt(hpBinR+0.012, hpBinR+0.012, 0.018, 12, hpDk, hpX, hpY+h*0.30, 0)); // rim
-  // band heaters on barrel
-  for (let bx = -w*0.04; bx < w*0.18; bx += 0.16) g.add(box(0.12, 0.09, 0.19, mat('#8a4a20',0.7), bx, h*0.48, 0));
-  // safety guard
-  g.add(box(w*0.5, h*0.72, 0.025, new THREE.MeshStandardMaterial({color:0x88bbdd,roughness:0.05,metalness:0.1,transparent:true,opacity:0.2}), w*0.05, h*0.52, d/2));
-  // control panel
-  const panel = box(0.35, 0.65, 0.06, dark, -w/2+0.22, h*0.6, d/2-0.03); g.add(panel);
-  g.add(box(0.28, 0.4, 0.04, mat('#0a1828',0.2), -w/2+0.22, h*0.64, d/2));
-  // safety stripe
-  g.add(box(w, 0.05, 0.01, yellow, 0, 0.18, d/2+0.01));
+  for (let i = 0; i < 5; i++) g.add(box(0.34, 0.012, 0.01, charc2, cabX1 - 0.28, 0.42 + i*0.045, fz + 0.008)); // louvers
+  // recessed opening frame (left gap)
+  g.add(box(0.5, 0.06, d - 0.1, charc2, -w/2 + 0.85, 0.32, 0));
+
+  // ===== clamping unit shroud (off-white rounded cover, far left) =====
+  const clmpCx = -w/2 + 0.42;
+  const clmp = new THREE.Mesh(roundedBoxGeom(0.78, 0.86, d - 0.1, 0.12, 4), body);
+  clmp.position.set(clmpCx, deckY + 0.45, 0); clmp.castShadow = true; g.add(clmp);
+  g.add(box(0.1, 0.7, d - 0.2, bodyD, clmpCx + 0.4, deckY + 0.42, 0));            // rear shading face
+  // nameplate "Si-180-6 / TOYO PLASTAR"
+  const nCv = document.createElement('canvas'); nCv.width = 384; nCv.height = 192;
+  const nx = nCv.getContext('2d'); nx.fillStyle = '#e8e4dc'; nx.fillRect(0,0,384,192);
+  nx.fillStyle = '#23262b'; nx.font = 'bold 64px Arial'; nx.fillText('Si-180-6', 20, 78);
+  nx.fillStyle = '#2c4fa0'; nx.font = 'bold 40px Arial'; nx.fillText('TOYO', 20, 132);
+  nx.fillStyle = '#23262b'; nx.font = 'bold 30px Arial'; nx.fillText('PLASTAR', 20, 168);
+  const nTex = new THREE.CanvasTexture(nCv); nTex.anisotropy = 4;
+  const nPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.3), new THREE.MeshBasicMaterial({ map: nTex }));
+  nPlane.position.set(clmpCx - 0.12, deckY + 0.5, fz - 0.04); g.add(nPlane);
+
+  // signal tower on top-left of clamp shroud
+  const sx = clmpCx - 0.2, sz = -0.2;
+  g.add(cylAt(0.018, 0.018, 0.22, 10, chrome, sx, deckY + 0.92, sz));
+  let sly = deckY + 1.06;
+  [['#ef4444',0.9],['#f5b800',0.85],['#22c55e',0.85]].forEach(([c,e]) => { g.add(cylAt(0.04,0.04,0.08,14, mat(c,0.3,0.1,{emissive:c,emissiveIntensity:e}), sx, sly, sz)); sly += 0.09; });
+  g.add(cylAt(0.032,0.032,0.03,12, dark, sx, sly, sz));
+
+  // ===== mold area: platens + tie bars (visible behind the blue guard) =====
+  const moldY = deckY + 0.42;
+  // 4 chrome tie bars running along x
+  [[0.32,0.32],[0.32,-0.32],[-0.32,0.32],[-0.32,-0.32]].forEach(([dy,tz]) => {
+    const tb = cyl(0.045, 0.045, 1.5, 14, chrome); tb.rotation.z = Math.PI/2; tb.position.set(-0.55, moldY + dy, tz); g.add(tb);
+  });
+  // fixed platen (left) with bore-hole pattern, moving platen (right), mold block
+  const platen = (px) => { const p = box(0.12, 0.62, d - 0.28, steel, px, moldY, 0); g.add(p);
+    for (let a = 0; a < 4; a++) { const ang = a/4*Math.PI*2; g.add(cylAt(0.05,0.05,0.13,12, dark, px, moldY + Math.cos(ang)*0.18, Math.sin(ang)*0.22).rotateZ(Math.PI/2)); } };
+  platen(-1.15); platen(-0.55);
+  g.add(box(0.3, 0.5, d - 0.34, mat('#5a626c',0.4,0.4), -0.85, moldY, 0));        // mold block
+
+  // ===== blue safety guard over the mold area =====
+  const grdCx = -0.85, grdW = 0.92;
+  g.add(box(grdW, 0.82, 0.04, blue, grdCx, deckY + 0.45, fz - 0.02));             // guard door
+  g.add(box(grdW + 0.06, 0.1, 0.08, blueD, grdCx, deckY + 0.88, fz - 0.02));      // top rail
+  g.add(box(grdW + 0.06, 0.08, 0.08, blueD, grdCx, deckY + 0.06, fz - 0.02));     // bottom rail
+  const gwin = plainBox(grdW - 0.2, 0.5, 0.01, glass, grdCx, deckY + 0.5, fz + 0.005); gwin.castShadow = false; g.add(gwin);
+  [grdCx - 0.18, grdCx + 0.18].forEach(hx => g.add(box(0.03, 0.5, 0.03, dark, hx, deckY + 0.48, fz + 0.03))); // handles
+  g.add(box(0.34, 0.06, 0.01, yellow, grdCx, deckY + 0.08, fz + 0.01));           // warning stripe
+
+  // ===== control panel (center, dark housing on swing arm) =====
+  const pan = new THREE.Group(); pan.position.set(-0.05, deckY + 0.5, fz + 0.06); pan.rotation.y = -0.12; g.add(pan);
+  g.add(box(0.06, 0.5, 0.06, dark, -0.18, deckY + 0.5, fz - 0.06));               // swing arm
+  pan.add(box(0.5, 0.78, 0.08, dark, 0, 0, 0));                                   // housing
+  // screen with GUI canvas
+  const sCv = document.createElement('canvas'); sCv.width = 200; sCv.height = 160;
+  const sc = sCv.getContext('2d'); sc.fillStyle = '#d8dde2'; sc.fillRect(0,0,200,160);
+  sc.fillStyle = '#1f5fa8'; sc.fillRect(0,0,200,22);
+  sc.fillStyle = '#ffffff'; sc.font = '12px Arial'; sc.fillText('TOYO Si-180', 6, 16);
+  const cols = ['#2f7fd0','#39b54a','#f0a020','#d04545'];
+  for (let i=0;i<8;i++){ sc.fillStyle = cols[i%4]; sc.fillRect(8 + (i%4)*46, 32 + Math.floor(i/4)*40, 40, 32); }
+  sc.fillStyle = '#222'; sc.font = '11px monospace'; sc.fillText('CYCLE 18.6s  OK', 8, 150);
+  const sTex = new THREE.CanvasTexture(sCv); sTex.anisotropy = 4;
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.27), new THREE.MeshBasicMaterial({ map: sTex }));
+  scr.position.set(0, 0.17, 0.045); pan.add(scr);
+  pan.add(box(0.4, 0.32, 0.02, mat('#0c1218',0.4), 0, 0.17, 0.04));               // screen housing
+  // keypad
+  for (let r=0;r<3;r++) for (let c=0;c<6;c++) pan.add(box(0.04,0.035,0.012, mat('#cfcbc3',0.6), -0.18 + c*0.072, -0.06 - r*0.055, 0.045));
+  // buttons + E-stop
+  pan.add(cylAt(0.035,0.035,0.03,16, mat('#ef4444',0.4,0.1,{emissive:'#aa0000',emissiveIntensity:0.4}), 0.16, -0.28, 0.05).rotateX(Math.PI/2));
+  ['#22c55e','#f59e0b'].forEach((c,i)=>pan.add(cylAt(0.022,0.022,0.025,12, mat(c,0.4), -0.16 + i*0.06, -0.3, 0.05).rotateX(Math.PI/2)));
+
+  // ===== injection unit (right): carriage rods, barrel shroud, hopper, drive =====
+  // guide rods / ballscrew in the gap between control area and injection shroud
+  [0.28, -0.28].forEach(tz => { const r = cyl(0.04,0.04,1.0,12, chrome); r.rotation.z = Math.PI/2; r.position.set(0.55, deckY + 0.32, tz); g.add(r); });
+  const bscrew = cyl(0.05,0.05,0.9,14, mat('#aab2ba',0.3,0.7)); bscrew.rotation.z = Math.PI/2; bscrew.position.set(0.55, deckY + 0.32, 0); g.add(bscrew);
+  // barrel + nozzle pointing left toward the platen
+  const barrel = cyl(0.09,0.09,0.7,18, steel); barrel.rotation.z = Math.PI/2; barrel.position.set(0.62, deckY + 0.32, 0); g.add(barrel);
+  for (let bx = 0.4; bx < 0.85; bx += 0.13) g.add(box(0.1, 0.21, 0.21, mat('#8a4a20',0.7), bx, deckY + 0.32, 0)); // band heaters
+  const nozzle = cyl(0.045,0.03,0.16,12, chrome); nozzle.rotation.z = Math.PI/2; nozzle.position.set(0.18, deckY + 0.32, 0); g.add(nozzle);
+  // injection unit base / tilt cradle (dark)
+  g.add(box(1.1, 0.18, d - 0.2, charc, 1.05, deckY + 0.08, 0));
+  g.add(box(0.5, 0.16, d - 0.34, charc2, 1.05, deckY + 0.2, 0));
+  // off-white barrel shroud
+  const injCx = 1.1;
+  const injShroud = new THREE.Mesh(roundedBoxGeom(1.0, 0.6, d - 0.16, 0.1, 4), body);
+  injShroud.position.set(injCx, deckY + 0.5, 0); injShroud.castShadow = true; g.add(injShroud);
+  // "180 / TOYO PLASTAR" label
+  const iCv = document.createElement('canvas'); iCv.width = 256; iCv.height = 160;
+  const ix = iCv.getContext('2d'); ix.fillStyle = '#e8e4dc'; ix.fillRect(0,0,256,160);
+  ix.fillStyle = '#23262b'; ix.font = 'bold 80px Arial'; ix.fillText('180', 16, 80);
+  ix.fillStyle = '#2c4fa0'; ix.font = 'bold 34px Arial'; ix.fillText('TOYO', 18, 120);
+  ix.fillStyle = '#23262b'; ix.font = 'bold 24px Arial'; ix.fillText('PLASTAR', 18, 148);
+  const iTex = new THREE.CanvasTexture(iCv); iTex.anisotropy = 4;
+  const iPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.31), new THREE.MeshBasicMaterial({ map: iTex }));
+  iPlane.position.set(injCx + 0.05, deckY + 0.5, fz - 0.08); g.add(iPlane);
+  // drive/motor housing at far right
+  g.add(box(0.42, 0.56, d - 0.24, charc, w/2 - 0.12, deckY + 0.42, 0));
+  g.add(cylAt(0.03,0.03,0.02,10, mat('#ef4444',0.3,0.1,{emissive:'#cc0000',emissiveIntensity:0.5}), w/2 - 0.12, deckY + 0.62, fz - 0.16).rotateX(Math.PI/2));
+
+  // ===== stainless steel hopper on top of the injection unit =====
+  const hX = injCx - 0.05, hBaseY = deckY + 0.8;
+  g.add(cylAt(0.05, 0.05, 0.12, 14, stain, hX, hBaseY, 0));                       // throat onto barrel
+  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.05, 0.26, 18), stain);
+  funnel.position.set(hX, hBaseY + 0.19, 0); funnel.castShadow = true; g.add(funnel); // cone
+  g.add(cylAt(0.2, 0.2, 0.22, 18, stain, hX, hBaseY + 0.43, 0));                  // cylindrical bin
+  g.add(cylAt(0.21, 0.21, 0.02, 18, mat('#a8b0b6',0.2,0.85), hX, hBaseY + 0.55, 0)); // rim
+  g.add(cylAt(0.14, 0.14, 0.03, 16, stain, hX, hBaseY + 0.58, 0));                // lid
+  g.add(box(0.16, 0.012, 0.012, dark, hX, hBaseY + 0.3, 0.2));                    // sight-glass strip
+
+  // mark off-white shrouds colorable
+  g.traverse(o => { if (o.isMesh && o.material === body) o.userData.colorable = true; });
   return g;
 }
 
