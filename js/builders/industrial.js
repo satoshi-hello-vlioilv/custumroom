@@ -1049,15 +1049,16 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   return g;
 }
 
-function buildForklift({ color='#f5c020', w=1.6, d=4.7, h=2.5 } = {}) {
-  // Ported from the 8t counterbalance forklift reference model.
-  // Built at native (real-machine) scale into `lift`, then uniformly scaled
-  // and recentred to fit the catalogue footprint. Front faces -z.
+function buildForklift({ color='#f5c020', w=1.45, d=4.0, h=2.25 } = {}) {
+  // 3.5t-class counterbalance forklift. Built at native (real-machine) scale into
+  // `lift`, then uniformly scaled and recentred to fit the catalogue footprint.
+  // Front faces -z. Fork blades: 1.09 m long, 0.59 m centres — sized to standard
+  // 1100 mm pallets / stillages so the loads are actually carryable.
   const g = new THREE.Group();
-  const SCALE = 0.69;
+  const SCALE = 0.64;
   const lift = new THREE.Group();
   lift.scale.setScalar(SCALE);
-  lift.position.z = 1.05 * SCALE;   // recentre native z-extent (-4.44..+2.34) on origin
+  lift.position.z = 0.8 * SCALE;   // recentre native z-extent (-3.94..+2.34) on origin
   g.add(lift);
 
   // ---------- local helpers (match the reference model signatures) ----------
@@ -1121,7 +1122,7 @@ function buildForklift({ color='#f5c020', w=1.6, d=4.7, h=2.5 } = {}) {
   lbox(1.7, 0.62, 0.32, MAT.counter, 0, 0.62, 2.18, bodyG);
   const hzMat = new THREE.MeshStandardMaterial({ map: hazardTexture(), roughness:.6 });
   lbox(1.9, 0.3, 0.03, hzMat, 0, 1.32, 2.215, bodyG);         // rear hazard plate
-  const lblT = labelTexture('8.0t');
+  const lblT = labelTexture('3.5t');
   [-1, 1].forEach(s => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.42), new THREE.MeshStandardMaterial({ map: lblT, roughness:.6 }));
     p.position.set(s*1.105, 1.15, 1.62); p.rotation.y = s*Math.PI/2; bodyG.add(p);
@@ -1162,7 +1163,8 @@ function buildForklift({ color='#f5c020', w=1.6, d=4.7, h=2.5 } = {}) {
     return wg;
   }
   const frontWheelR = 0.62, rearWheelR = 0.50;
-  [-1, 1].forEach(s => { [0.68, 1.04].forEach(off => { const sp = new THREE.Group(); sp.position.set(s*off, frontWheelR, -1.45); sp.add(makeWheel(frontWheelR, 0.31)); lift.add(sp); }); });
+  // single drive wheel per side (3.5t class), not the 8t's dual tyres
+  [-1, 1].forEach(s => { const sp = new THREE.Group(); sp.position.set(s*0.9, frontWheelR, -1.45); sp.add(makeWheel(frontWheelR, 0.42)); lift.add(sp); });
   const rearSteer = [];
   [-1, 1].forEach(s => { const st = new THREE.Group(); st.position.set(s*0.78, rearWheelR, 1.05); st.add(makeWheel(rearWheelR, 0.34)); lift.add(st); rearSteer.push(st); });
 
@@ -1185,7 +1187,7 @@ function buildForklift({ color='#f5c020', w=1.6, d=4.7, h=2.5 } = {}) {
   lbox(1.28, 0.08, 0.05, MAT.steel, 0, 1.82, -0.22, carriage);
   [-1, 1].forEach(s => {
     lbox(0.21, 0.72, 0.085, MAT.body, s*0.46, 0.45, -0.255, carriage);   // shank (yellow)
-    lbox(0.21, 0.075, 2.2, MAT.body, s*0.46, 0.125, -1.39, carriage);    // blade (yellow)
+    lbox(0.21, 0.075, 1.7, MAT.body, s*0.46, 0.125, -1.14, carriage);    // blade (1.09 m at 1:1)
   });
 
   // ---------- tilt struts (static, body ↔ mast) ----------
@@ -1282,7 +1284,7 @@ function buildTensileTestMachine({ color='#d8d8d8', w=0.8, d=0.7, h=2.0 } = {}) 
   return g;
 }
 
-function buildScrapBucket({ color='#4a4f54', w=0.7, d=0.7, h=0.65 } = {}) {
+function buildScrapBucket({ color='#4a4f54', w=1.0, d=1.0, h=0.7 } = {}) {
   const g = new THREE.Group();
   // rectangular steel stillage / pallet box container (open top, fork pockets, lifting eyes)
   const panel  = mat(color, 0.55, 0.35, { env: 0.4 });               // sheet-metal walls (colorable)
@@ -1376,6 +1378,59 @@ function buildResinPallet({ color='#1a3f7a', w=1.1, d=1.1, h=0.15 } = {}) {
     }
   }
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+function buildWoodPallet({ color='#c9a26a', w=1.1, d=1.1, h=0.145 } = {}) {
+  // Standard wooden block pallet (ISPM-15 / HT marked), matching the reference photo:
+  // 6 top deck boards (run along depth), 3 bottom boards, 9 blocks (3×3) with
+  // 4-way fork entry. Fork openings line up with the 3.5t forklift's 0.59 m forks.
+  const g = new THREE.Group();
+  const wt = woodTex.clone(); wt.wrapS = wt.wrapT = THREE.RepeatWrapping; wt.repeat.set(1.2, 1.2); wt.needsUpdate = true;
+  const woodM = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.8, metalness: 0.0, map: wt });
+  const woodD = new THREE.MeshStandardMaterial({ color: new THREE.Color(shade(color, 0.88)), roughness: 0.82, metalness: 0.0, map: wt });
+  const blockM = new THREE.MeshStandardMaterial({ color: new THREE.Color(shade(color, 0.74)), roughness: 0.85, metalness: 0.0 });
+
+  const deckT  = 0.022;            // deck-board thickness
+  const blockH = h - deckT * 2;    // block height between top & bottom decks
+  const blockY = deckT + blockH / 2;
+  const blockS = 0.135;            // block footprint
+
+  // ---- 9 blocks (3×3), 4-way entry ----
+  const bx = w / 2 - blockS / 2 - 0.012, bz = d / 2 - blockS / 2 - 0.012;
+  [-bx, 0, bx].forEach(px => [-bz, 0, bz].forEach(pz =>
+    g.add(box(blockS, blockH, blockS, blockM, px, blockY, pz))));
+
+  // ---- bottom deck: 3 boards running across the width ----
+  const botY = deckT / 2;
+  [-bz, 0, bz].forEach(pz => g.add(box(w, deckT, 0.16, woodD, 0, botY, pz)));
+
+  // ---- top deck: 6 boards running along the depth, with gaps ----
+  const topY = h - deckT / 2;
+  const nBoards = 6, bw = 0.135, gap = (w - nBoards * bw) / (nBoards - 1);
+  for (let i = 0; i < nBoards; i++) {
+    const px = -w / 2 + bw / 2 + i * (bw + gap);
+    g.add(box(bw, deckT, d, woodM, px, topY, 0));
+  }
+
+  // ---- ISPM-15 burn stamp (wheat + HT / JP) on the front-centre block ----
+  const sc = document.createElement('canvas'); sc.width = 128; sc.height = 96;
+  const sx = sc.getContext('2d');
+  sx.clearRect(0, 0, 128, 96);
+  sx.strokeStyle = '#3a2410'; sx.lineWidth = 4; sx.strokeRect(8, 8, 112, 80);
+  sx.strokeStyle = '#4a3018'; sx.lineWidth = 3;
+  // wheat sheaf glyph
+  sx.beginPath(); sx.moveTo(34, 78); sx.lineTo(34, 40); sx.stroke();
+  for (let k = 0; k < 4; k++) { const yy = 44 + k * 9; sx.beginPath(); sx.moveTo(34, yy); sx.lineTo(26, yy - 6); sx.moveTo(34, yy); sx.lineTo(42, yy - 6); sx.stroke(); }
+  sx.fillStyle = '#3a2410'; sx.font = "700 26px 'Arial'"; sx.textBaseline = 'middle';
+  sx.fillText('HT', 58, 36); sx.font = "700 18px 'Arial'"; sx.fillText('JP-000', 52, 66);
+  const stampTex = new THREE.CanvasTexture(sc); stampTex.colorSpace = THREE.SRGBColorSpace;
+  const stampMat = new THREE.MeshStandardMaterial({ map: stampTex, transparent: true, roughness: 0.9 });
+  const stamp = new THREE.Mesh(new THREE.PlaneGeometry(blockS * 0.82, blockS * 0.62), stampMat);
+  stamp.position.set(0, blockY + 0.005, d / 2 - 0.012 + blockS / 2 + 0.001); g.add(stamp);
+
+  g.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+  g.traverse(c => { if (c.isMesh && (c.material === woodM || c.material === woodD)) c.userData.colorable = true; });
   return g;
 }
 
@@ -1730,4 +1785,4 @@ function buildWorker({ color='#e8a820', w=0.5, d=0.5, h=1.8 } = {}) {
 }
 
 
-export { buildAlumCoilSide, buildAluminumCoil, buildBandedAlumCoil, buildCNCMachine, buildCNCMachiningCenter, buildControlPanel, buildConveyor, buildDrum, buildExportAlumCoil, buildFireExtinguisher, buildForklift, buildIndustrialFurnace, buildIndustrialRobot, buildIndustrialRobotLg, buildInjectionMolder, buildJibCrane, buildLargeHydraulicPress, buildPackagedAlumCoil, buildPalletRack, buildResinPallet, buildScrapBucket, buildSteelPallet, buildTensileTestMachine, buildToolCabinet, buildWorkbench, buildWorker };
+export { buildAlumCoilSide, buildAluminumCoil, buildBandedAlumCoil, buildCNCMachine, buildCNCMachiningCenter, buildControlPanel, buildConveyor, buildDrum, buildExportAlumCoil, buildFireExtinguisher, buildForklift, buildIndustrialFurnace, buildIndustrialRobot, buildIndustrialRobotLg, buildInjectionMolder, buildJibCrane, buildLargeHydraulicPress, buildPackagedAlumCoil, buildPalletRack, buildResinPallet, buildScrapBucket, buildSteelPallet, buildTensileTestMachine, buildToolCabinet, buildWoodPallet, buildWorkbench, buildWorker };
