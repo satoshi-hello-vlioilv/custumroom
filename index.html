@@ -341,7 +341,7 @@ scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 // Warm gradient background
 scene.background = makeBgGradient();
-scene.fog = new THREE.Fog(0xe9e0d0, 22, 46);
+// (no fog — keep the view clear at every zoom level)
 
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 const DEFAULT_CAM_POS = new THREE.Vector3(8.5, 9.5, 9.5);
