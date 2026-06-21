@@ -1,10 +1,15 @@
 # custumroom — ルームプランナー 3D
 
-ブラウザで動く 3D ルームプランニングアプリです。単一の HTML ファイル（`index.html`）で完結しており、インストール不要で利用できます。
+ブラウザで動く 3D ルームプランニングアプリです。ビルド工程は不要で、依存は CDN から読み込みます。コードは責務ごとに ES モジュールへ分割されており、モデルの追加・編集がしやすい構成になっています。
 
 ## デモ
 
-`index.html` をブラウザで直接開くだけで動作します。サーバー不要。
+ES モジュール（`js/` 配下）を使用しているため、`index.html` を `file://` で直接開くとブラウザの CORS 制限で読み込みに失敗します。**ローカルサーバー経由で開いてください。**
+
+```bash
+python3 -m http.server 8080
+# → http://localhost:8080/ をブラウザで開く
+```
 
 ## 主な機能
 
@@ -81,7 +86,7 @@
 | 項目 | 内容 |
 |------|------|
 | レンダリング | Three.js r160 |
-| ビルドツール | 不要（単一 HTML、CDN 読み込み） |
+| ビルドツール | 不要（ES モジュール、CDN 読み込み） |
 | フォント | Inter / Noto Sans JP（Google Fonts） |
 | アイコン | Font Awesome 6.5 |
 | 依存ライブラリ | es-module-shims 1.8.3 |
@@ -118,24 +123,50 @@
 git clone https://github.com/satoshi-hello-vlioilv/custumroom.git
 cd custumroom
 
-# index.html をブラウザで開く（サーバー不要）
-open index.html
-```
-
-ライブリロードが必要な場合は任意のローカルサーバーを使用してください。
-
-```bash
-# Python の場合
+# ローカルサーバーを起動して開く（ES モジュールのため file:// 不可）
 python3 -m http.server 8080
+# → http://localhost:8080/
 ```
 
 ## ファイル構成
 
+責務ごとにファイルを分割しています。新しい家具・機械モデルを追加するときは、
+**該当する `js/builders/*.js` に `buildXxx()` を追加 → `js/catalog.js` の
+`FURNITURE_DEFS` に 1 行登録** するだけで済みます（必要なら `js/builders/<file>.js`
+の `export { ... }` にも名前を追加）。
+
 ```
 custumroom/
-├── index.html   # アプリ本体（全コード含む）
-└── .gitignore
+├── index.html              # HTML マークアップのみ（importmap + js/app.js を読み込む）
+├── css/
+│   └── style.css           # 全スタイル
+└── js/
+    ├── app.js              # アプリ状態・部屋/壁・配置・選択・UI・2D エディタ・保存・起動
+    ├── catalog.js          # FURNITURE_DEFS（家具カタログ定義。各 builder を参照）
+    ├── presets.js          # プリセット（部屋レイアウト）定義
+    ├── core/
+    │   ├── scene.js        # renderer / scene / camera / ライト / 環境マップ
+    │   ├── textures.js     # 手続き的テクスチャ生成・床/壁タイプ定義
+    │   ├── helpers.js      # 幾何ヘルパー（mat/box/cyl/cylAt 等）・定数・COLORS
+    │   └── util.js         # 純粋ユーティリティ（clamp / shade）
+    └── builders/           # ★モデル生成関数（責務＝用途ごとに分割）
+        ├── furniture.js    # 住宅家具・照明・装飾
+        ├── household.js    # キッチン・水回り・家電・収納
+        ├── office.js       # オフィス・店舗・展示什器
+        ├── plants.js       # 観葉植物シリーズ
+        ├── industrial.js   # 大型工場機械・搬送・物流（CNC/ロボット/プレス 等）
+        ├── lab.js          # 実験室・工房・試験/工作機器
+        └── instruments.js  # 分析機器（HPLC・分光光度計 等）
 ```
+
+### モジュール依存関係
+
+```
+util ← textures ← helpers ← builders/* ← catalog ← presets ← app
+scene ← textures              scene ← app
+```
+
+すべて純粋な ES モジュールで、ビルドツールは不要です。
 
 ## ライセンス
 
