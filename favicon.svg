@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- floor -->
+  <polygon points="16,20 28,14 16,8 4,14" fill="#c8a06a"/>
+  <!-- left wall -->
+  <polygon points="4,14 16,20 16,28 4,22" fill="#9a7040"/>
+  <!-- right wall -->
+  <polygon points="28,14 16,20 16,28 28,22" fill="#b08050"/>
+  <!-- top edge highlight -->
+  <polygon points="16,8 28,14 16,20 4,14" fill="#e8c088" opacity="0.5"/>
+</svg>
