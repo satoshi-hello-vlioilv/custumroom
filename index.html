@@ -2473,7 +2473,7 @@ const FURNITURE_DEFS = [
   // ---- 大型工業機械 ----
   { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:3.0,  d:2.2,  h:2.8,   colorIdx:10, build:buildCNCMachiningCenter },
   { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:10, build:buildIndustrialRobotLg },
-  { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:1.8,  d:1.4,  h:3.5,   colorIdx:6,  build:buildLargeHydraulicPress },
+  { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:3.2,  d:2.6,  h:5.5,   colorIdx:11, build:buildLargeHydraulicPress },
   { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
   { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:3.5,  d:1.5,  h:2.2,   colorIdx:10, build:buildInjectionMolder },
   // ---- 新規アイテム ----
@@ -5235,54 +5235,158 @@ function buildIndustrialRobotLg({ color='#e8e4dc', w=1.2, d=1.2, h=2.4 } = {}) {
   g.scale.set(w / 1.2, h / 2.4, d / 1.2);
   return g;
 }
-function buildLargeHydraulicPress({ color='#2d4a2d', w=1.8, d=1.4, h=3.5 } = {}) {
+function buildLargeHydraulicPress({ color='#c2c4be', w=3.2, d=2.6, h=5.5 } = {}) {
   const g = new THREE.Group();
-  const frame = mat(color, 0.5, 0.25, { env: 0.5 });
-  const steel = mat('#8a9aa8', 0.3, 0.6, { env: 0.8 });
-  const dark = mat('#1a1e22', 0.7, 0.1);
-  const yellow = mat('#f5c518', 0.5, 0.1);
-  const ram_mat = mat('#9ab0c0', 0.15, 0.85, { env: 1.0 });
-  // C-frame (left upright + top beam + right upright)
-  g.add(box(0.22, h, 0.22, frame, -w/2 + 0.12, h/2, 0)).userData && (g.children.at(-1).userData.colorable=true);
-  g.add(box(0.22, h, 0.22, frame, w/2 - 0.12, h/2, 0));
-  g.add(box(w, 0.28, 0.22, frame, 0, h - 0.14, 0)); // top crossbeam
-  g.add(box(w, 0.28, 0.22, frame, 0, 0.14, 0));       // bottom crossbeam
-  // bolster plate / bed
-  g.add(box(w - 0.3, 0.14, d - 0.3, steel, 0, 0.35, 0));
-  // T-slots on bed
-  for (let tx = -0.4; tx <= 0.4; tx += 0.28) g.add(box(0.025, 0.04, d-0.4, dark, tx, 0.44, 0));
-  // Hydraulic cylinder on top
-  const cylinder = cyl(0.12, 0.12, 0.8, 20, frame); cylinder.position.set(0, h - 0.55, 0); g.add(cylinder);
-  // Ram (chrome rod)
-  const ram = cyl(0.07, 0.07, 0.95, 16, ram_mat); ram.position.set(0, h - 1.28, 0); g.add(ram);
-  // Upper die / ram head
-  g.add(box(w - 0.4, 0.12, d - 0.4, steel, 0, h - 1.8, 0));
-  // Safety guard panels — transparent polycarbonate (front + rear, with yellow steel frame rails)
-  const pcMat = new THREE.MeshStandardMaterial({color:0xb0d8f0, roughness:0.06, metalness:0.08, transparent:true, opacity:0.30});
-  const grdW = w - 0.28, grdH = h * 0.72, grdY = 0.28 + grdH / 2;
-  [d/2 + 0.011, -d/2 - 0.011].forEach(gz => {
-    g.add(plainBox(grdW, grdH, 0.022, pcMat, 0, grdY, gz));
-    [-(grdW/2 + 0.013), grdW/2 + 0.013].forEach(gx =>
-      g.add(box(0.03, grdH, 0.03, yellow, gx, grdY, gz)));
-    g.add(box(grdW + 0.06, 0.028, 0.03, yellow, 0, grdY - grdH/2 - 0.014, gz)); // bottom rail
-    g.add(box(grdW + 0.06, 0.028, 0.03, yellow, 0, grdY + grdH/2 + 0.014, gz)); // top rail
+  // 4-post hydraulic press (HP-3000 style): light grey cast frame, chrome tie rods,
+  // 3 hydraulic cylinders, hazard striped slider/bolster, top platform with yellow railing,
+  // HPU tanks on top, separate control cabinet beside.
+  const frame  = mat(color, 0.5, 0.12, { env: 0.3 });
+  const frameD = mat(shade(color, 0.88), 0.5, 0.12);
+  const chrome = mat('#c8d0d8', 0.12, 0.92, { env: 1.2 });
+  const steel  = mat('#8a9aaa', 0.3, 0.65, { env: 0.8 });
+  const dark   = mat('#22262a', 0.6, 0.2);
+  const yellow = mat('#f2c200', 0.5, 0.1);
+
+  const colW = 0.38, colD = 0.38;
+  const boltY = h * 0.14;
+  const sliderY = h * 0.48;
+  const crossH = 0.55, topY = h - crossH / 2;
+
+  // ==== BASE BED ====
+  g.add(box(w, 0.72, d, frame, 0, 0.36, 0));
+  for (let tx = -w/2+0.28; tx < w/2-0.18; tx += 0.26) g.add(box(0.04, 0.04, d-0.42, dark, tx, 0.75, 0));
+  g.add(box(w-0.46, 0.20, d-0.46, steel, 0, boltY, 0));
+  for (let tx = -w/2+0.38; tx < w/2-0.28; tx += 0.28) g.add(box(0.04, 0.06, d-0.6, dark, tx, boltY+0.13, 0));
+
+  // hazard canvas stripe
+  const hzCv = document.createElement('canvas'); hzCv.width = 256; hzCv.height = 32;
+  const hzC = hzCv.getContext('2d');
+  for (let xi = 0; xi < 16; xi++) { hzC.fillStyle = xi%2===0 ? '#f2c200' : '#1a1a1a'; hzC.fillRect(xi*16, 0, 16, 32); }
+  const hzTex = new THREE.CanvasTexture(hzCv); hzTex.repeat.set(6, 1); hzTex.wrapS = THREE.RepeatWrapping; hzTex.anisotropy = 4;
+  const hzMat = new THREE.MeshStandardMaterial({ map: hzTex, roughness: 0.6 });
+  [d/2-0.01, -(d/2-0.01)].forEach(fz => g.add(plainBox(w-0.52, 0.06, 0.01, hzMat, 0, boltY+0.22, fz)));
+
+  // gusset ribs on base bed front/rear
+  [-d/2+0.025, d/2-0.025].forEach(fz =>
+    [-w/2+0.62, 0, w/2-0.62].forEach(bx => g.add(box(0.26, 0.58, 0.04, frameD, bx, 0.30, fz))));
+
+  // ==== FOUR CORNER COLUMNS ====
+  const colXs = [-w/2+colW/2, w/2-colW/2];
+  const colZs = [-d/2+colD/2, d/2-colD/2];
+  colXs.forEach(cx => colZs.forEach(cz => {
+    const col = box(colW, h, colD, frame, cx, h/2, cz); col.userData.colorable = true; g.add(col);
+    g.add(box(0.07, h*0.78, 0.055, frameD, cx + Math.sign(cx) * (-colW/2 + 0.025), h/2, cz));
+    g.add(box(0.055, h*0.78, 0.07, frameD, cx, h/2, cz + Math.sign(cz) * (-colD/2 + 0.025)));
+  }));
+
+  // ==== NAMEPLATE ====
+  const npCv = document.createElement('canvas'); npCv.width = 512; npCv.height = 192;
+  const np = npCv.getContext('2d');
+  np.fillStyle = '#23262a'; np.fillRect(0, 0, 512, 192);
+  np.fillStyle = '#dde0dc'; np.font = 'bold 88px Arial'; np.fillText('HP-3000', 24, 96);
+  np.fillStyle = '#a0a4a0'; np.font = '30px Arial'; np.fillText('HYDRAULIC PRESS', 24, 140);
+  const npTex = new THREE.CanvasTexture(npCv); npTex.anisotropy = 4;
+  const npPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.42), new THREE.MeshBasicMaterial({ map: npTex }));
+  npPlane.position.set(0, h * 0.65, d/2 + 0.01); g.add(npPlane);
+
+  // ==== TOP CROSSHEAD ====
+  g.add(box(w, crossH, d, frame, 0, topY, 0));
+  g.add(box(w-0.86, crossH*0.6, 0.035, frameD, 0, topY, d/2 - 0.018));
+
+  // ==== 4 CHROME TIE RODS ====
+  const rodR = 0.07, rodH = h * 0.72, rodY = boltY + rodH / 2 + 0.18;
+  colXs.forEach(cx => colZs.forEach(cz => {
+    g.add(cylAt(rodR, rodR, rodH, 16, chrome, cx * 0.55, rodY, cz * 0.55));
+    [boltY+0.25, boltY+0.33].forEach(sy => g.add(cylAt(rodR+0.022, rodR+0.022, 0.028, 14, dark, cx*0.55, sy, cz*0.55)));
+  }));
+
+  // ==== 3 HYDRAULIC CYLINDERS (black barrels + chrome piston rods) ====
+  const cylBase = topY - crossH / 2;
+  [[0, 0, 0.20, 0.72], [-0.65, 0, 0.14, 0.52], [0.65, 0, 0.14, 0.52]].forEach(([cx, cz, cR, cH]) => {
+    g.add(cylAt(cR, cR, cH, 20, dark, cx, cylBase - cH/2, cz));
+    g.add(cylAt(cR+0.04, cR+0.04, 0.08, 18, frame, cx, cylBase - 0.04, cz));
+    g.add(cylAt(cR*0.65, cR*0.65, cH*1.1, 14, chrome, cx, cylBase - cH - cH*0.55 + 0.06, cz));
   });
-  // Hydraulic power unit (HPU) beside press
-  g.add(box(0.55, 0.9, 0.45, dark, w/2 + 0.4, 0.45, 0));
-  g.add(cyl(0.12, 0.12, 0.4, 16, mat('#4a6a4a',0.4)));
-  g.children.at(-1).position.set(w/2+0.4, 0.98, 0);
-  // control buttons
-  const panel = box(0.22, 0.35, 0.05, dark, w/2 + 0.4, 1.52, 0.24); g.add(panel);
-  ['#22c55e','#ef4444'].forEach((cl,i)=>g.add(cylAt(0.025,0.025,0.03,10,mat(cl,0.3),w/2+0.4,1.56-i*0.1,0.27).rotateX(Math.PI/2)));
-  // E-stop mushroom button
-  g.add(cylAt(0.030,0.030,0.028,14,mat('#ef4444',0.2,0.1,{emissive:'#cc0000',emissiveIntensity:0.5}),w/2+0.4,1.36,0.27).rotateX(Math.PI/2));
-  // pressure gauge on HPU panel
-  const pg = cyl(0.048,0.048,0.022,16,mat('#ddd',0.2,0.1)); pg.rotation.x=Math.PI/2; pg.position.set(w/2+0.4,1.72,0.26); g.add(pg);
-  g.add(cylAt(0.028,0.028,0.018,16,mat('#111',0.8),w/2+0.4,1.72,0.272).rotateX(Math.PI/2));
-  // hydraulic hose from HPU to cylinder (high-pressure braided)
-  const hose = cyl(0.016,0.016,1.1,8,mat('#1a1a1a',0.8)); hose.rotation.z = 0.55; hose.position.set(w/2+0.18,2.15,0.04); g.add(hose);
-  // safety warning stripe bottom
-  g.add(box(w, 0.05, 0.01, yellow, 0, 0.3, d/2 + 0.02));
+
+  // ==== SLIDER / RAM HEAD ====
+  g.add(box(w-0.48, 0.22, d-0.5, steel, 0, sliderY, 0));
+  [d/2-0.25, -(d/2-0.25)].forEach(fz => g.add(plainBox(w-0.54, 0.06, 0.01, hzMat, 0, sliderY+0.13, fz)));
+  colXs.forEach(cx => colZs.forEach(cz => g.add(cylAt(rodR+0.016, rodR+0.016, 0.24, 14, frameD, cx*0.55, sliderY, cz*0.55))));
+
+  // ==== HYDRAULIC HOSES ====
+  const hoseMat = mat('#141618', 0.8, 0.1);
+  [[0.3,1.0,0.1],[-0.3,0.95,-0.05],[0.0,0.85,0.12],[0.55,0.78,-0.08],[-0.55,0.72,0.06]].forEach(([hr,hl,ha]) => {
+    const ho = cyl(0.038, 0.038, hl, 8, hoseMat); ho.rotation.z = 0.4 + ha; ho.position.set(hr, topY - 0.28, 0.18); g.add(ho);
+  });
+
+  // ==== TOP PLATFORM ====
+  g.add(box(w, 0.06, d, mat(shade(color, 0.82), 0.6, 0.3), 0, h + 0.03, 0));
+  const railY = h + 0.06;
+  // corner posts
+  [[-w/2+0.14,-d/2+0.14],[w/2-0.14,-d/2+0.14],[-w/2+0.14,d/2-0.14],[w/2-0.14,d/2-0.14]].forEach(([rx,rz]) => {
+    g.add(cylAt(0.032, 0.032, 0.9, 8, yellow, rx, railY + 0.45, rz));
+  });
+  // horizontal rails
+  [0.3, 0.7].forEach(rh => {
+    g.add(box(w-0.28, 0.028, 0.028, yellow, 0, railY + rh, -d/2+0.14));
+    g.add(box(w-0.28, 0.028, 0.028, yellow, 0, railY + rh,  d/2-0.14));
+    g.add(box(0.028, 0.028, d-0.28, yellow, -w/2+0.14, railY + rh, 0));
+    g.add(box(0.028, 0.028, d-0.28, yellow,  w/2-0.14, railY + rh, 0));
+  });
+  // HPU tanks
+  [-0.62, 0.62].forEach(tx => {
+    g.add(cylAt(0.3, 0.3, 0.82, 20, steel, tx, h + 0.47, -0.18));
+    g.add(cylAt(0.28, 0.28, 0.06, 16, frameD, tx, h + 0.9, -0.18));
+    g.add(cylAt(0.04, 0.04, 0.2, 10, dark, tx + 0.26, h + 0.55, -0.18).rotateZ(Math.PI/2));
+    g.add(cylAt(0.03, 0.03, 0.14, 8, dark, tx, h + 0.9, 0.1).rotateX(Math.PI/2));
+  });
+  g.add(box(0.38, 0.32, 0.32, dark, 0, h + 0.22, 0.52));
+  g.add(cylAt(0.1, 0.1, 0.26, 14, mat('#3a3f45', 0.5), 0, h + 0.24, 0.52).rotateX(Math.PI/2));
+
+  // ==== CONTROL CABINET (right side) ====
+  const cabX = w/2 + 0.82, cabH = 2.4;
+  g.add(box(0.76, cabH, 0.6, frame, cabX, cabH/2, 0));
+  // screen
+  const sCv = document.createElement('canvas'); sCv.width = 240; sCv.height = 180;
+  const sc = sCv.getContext('2d');
+  sc.fillStyle = '#d0d4d0'; sc.fillRect(0, 0, 240, 180);
+  sc.fillStyle = '#1d3a60'; sc.fillRect(0, 0, 240, 24);
+  sc.fillStyle = '#fff'; sc.font = '14px Arial'; sc.fillText('HP-3000 CONTROL', 8, 18);
+  sc.fillStyle = '#2a6aaa';
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) sc.fillRect(8 + c*76, 32 + r*44, 68, 36);
+  sc.fillStyle = '#fff'; sc.font = 'bold 11px Arial';
+  ['CYCLE','SPEED','FORCE','POS','PRES','MODE','START','STOP','RESET'].forEach((t, i) =>
+    sc.fillText(t, 12 + (i%3)*76, 56 + Math.floor(i/3)*44));
+  const scTex = new THREE.CanvasTexture(sCv); scTex.anisotropy = 4;
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.38), new THREE.MeshBasicMaterial({ map: scTex }));
+  scr.position.set(cabX, cabH * 0.72, 0.31); g.add(scr);
+  g.add(box(0.54, 0.42, 0.02, mat('#0c1218', 0.4), cabX, cabH * 0.72, 0.305));
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++)
+    g.add(box(0.05, 0.04, 0.016, mat('#ccc', 0.6), cabX - 0.16 + c*0.11, cabH*0.52 - r*0.06, 0.31));
+  g.add(cylAt(0.044, 0.044, 0.03, 16, mat('#ef4444', 0.4, 0.1, { emissive: '#aa0000', emissiveIntensity: 0.5 }), cabX + 0.18, cabH*0.37, 0.32).rotateX(Math.PI/2));
+  ['#22c55e','#f59e0b'].forEach((c, i) => g.add(cylAt(0.028, 0.028, 0.025, 12, mat(c, 0.4), cabX - 0.06 + i*0.1, cabH*0.3, 0.32).rotateX(Math.PI/2)));
+  // HPU/pump cluster on cabinet top
+  g.add(box(0.62, 0.58, 0.52, frameD, cabX, cabH + 0.31, 0));
+  g.add(cylAt(0.1, 0.1, 0.28, 14, mat('#3a3f45', 0.5), cabX + 0.06, cabH + 0.42, 0.16).rotateX(Math.PI/2));
+  g.add(cylAt(0.1, 0.1, 0.14, 14, mat('#3a3f45', 0.5), cabX, cabH + 0.48, 0.06));
+  // signal tower
+  const lx = cabX + 0.34, lz = 0.04, lly = cabH + 0.1;
+  g.add(cylAt(0.018, 0.018, 0.22, 10, chrome, lx, lly, lz));
+  let sly2 = lly + 0.16;
+  [['#ef4444',0.9],['#f5b800',0.85],['#22c55e',0.85]].forEach(([c, e]) => {
+    g.add(cylAt(0.04, 0.04, 0.09, 14, mat(c, 0.3, 0.1, { emissive: c, emissiveIntensity: e }), lx, sly2, lz));
+    sly2 += 0.1;
+  });
+
+  // ==== LEFT-SIDE OPERATOR PANEL (gauges) ====
+  g.add(box(0.06, 0.82, 0.56, frameD, -w/2 - 0.04, 2.1, 0));
+  [0, 1, 2].forEach(i => {
+    const pg = cyl(0.07, 0.07, 0.025, 16, mat('#ddd', 0.2, 0.1));
+    pg.rotation.x = Math.PI/2; pg.position.set(-w/2 - 0.04, 2.42 - i*0.26, 0.26); g.add(pg);
+    g.add(cylAt(0.04, 0.04, 0.02, 12, dark, -w/2 - 0.04, 2.42 - i*0.26, 0.274).rotateX(Math.PI/2));
+  });
+
+  g.traverse(o => { if (o.isMesh && o.material === frame) o.userData.colorable = true; });
   return g;
 }
 function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
