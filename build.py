@@ -169,16 +169,22 @@ def build():
     body_block = ''.join(body_parts)
     inline_script = f'<script type="module">\n{cdn_block}\n{body_block}</script>'
 
-    # Replace the external script tag
-    new_html = re.sub(
-        r'<script\s+type=["\']module["\']\s+src=["\'][^"\']+["\']>\s*</script>',
-        inline_script,
-        html
-    )
+    # Idempotent replace: handle both the external src form (first build) and the
+    # already-inlined module block (subsequent builds). A function replacement is
+    # used so backslashes in the JS body are not treated as regex backreferences.
+    ext_re = re.compile(r'<script\s+type=["\']module["\']\s+src=["\'][^"\']+["\']>\s*</script>')
+    inline_re = re.compile(r'<script\s+type=["\']module["\']\s*>.*?</script>', re.DOTALL)
+
+    if ext_re.search(html):
+        new_html = ext_re.sub(lambda m: inline_script, html, count=1)
+    elif inline_re.search(html):
+        new_html = inline_re.sub(lambda m: inline_script, html, count=1)
+    else:
+        new_html = html
 
     if new_html == html:
-        print("WARNING: Could not find the external script tag to replace.")
-        print("  Expected: <script type=\"module\" src=\"...\"></script>")
+        print("WARNING: Could not find a module script tag to replace.")
+        print("  Expected: <script type=\"module\" src=\"...\"></script>  or an inline <script type=\"module\">...</script>")
         return
 
     with open(html_path, encoding='utf-8', mode='w') as f:

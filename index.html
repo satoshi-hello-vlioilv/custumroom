@@ -6130,7 +6130,7 @@ function buildWallSegment(wall) {
       pivot.position.set(hx, slabH / 2, hz); pivot.rotation.y = rotY;
       slab.position.set(dir * leafW / 2, 0, 0.06);
       slab.castShadow = true; pivot.add(slab);
-      pivot.rotation.y = rotY - dir * 0.32;
+      pivot.rotation.y = rotY;
       roomGroup.add(pivot); registerWall(slab);
       slab.userData.fadeNormal = fn;
     };
@@ -6190,10 +6190,9 @@ function buildWallSegment(wall) {
       const lintel = new THREE.Mesh(new THREE.BoxGeometry(ow, lh, WALL_T), lmat);
       lintel.position.set(cx, DOOR_H + lh / 2, cz); lintel.rotation.y = rotY;
       lintel.castShadow = true; roomGroup.add(lintel); registerWall(lintel); paintableWalls.push(lintel);
-      // Glass panel (slightly offset / ajar)
-      const gPanel = new THREE.Mesh(new THREE.BoxGeometry(ow * 0.62, DOOR_H - 0.04, 0.04), glassMat());
-      const [gx, gz] = ptAt(o.s0 + ow * 0.2);
-      gPanel.position.set(gx, DOOR_H / 2, gz); gPanel.rotation.y = rotY;
+      // Glass panel (closed — spans the full opening)
+      const gPanel = new THREE.Mesh(new THREE.BoxGeometry(ow - 0.02, DOOR_H - 0.04, 0.04), glassMat());
+      gPanel.position.set(cx, DOOR_H / 2, cz); gPanel.rotation.y = rotY;
       roomGroup.add(gPanel); registerWall(gPanel);
       // Frame rail
       [o.s0, o.s1].forEach(sp => {
@@ -6215,7 +6214,7 @@ function buildWallSegment(wall) {
       });
       const topRail = new THREE.Mesh(new THREE.BoxGeometry(ow, 0.08, ft), alM);
       topRail.position.set(cx, DOOR_H - 0.04, cz); topRail.rotation.y = rotY; roomGroup.add(topRail); registerWall(topRail);
-      const panW = ow * 0.42;
+      const panW = ow * 0.5;   // closed — two leaves meet at the center
       const gMopen = glassMat();
       const [lpx, lpz] = ptAt(o.s0 + panW / 2);
       const lp = new THREE.Mesh(new THREE.BoxGeometry(panW, DOOR_H - 0.1, 0.04), gMopen);
@@ -6248,13 +6247,13 @@ function buildWallSegment(wall) {
       pivL.position.set(hlx, dslabH / 2, hlz);
       const slabL = new THREE.Mesh(new THREE.BoxGeometry(halfW, dslabH, 0.04), ddoorM);
       slabL.position.set(halfW / 2, 0, 0.06); slabL.castShadow = true; pivL.add(slabL);
-      pivL.rotation.y = rotY - 0.32; roomGroup.add(pivL); registerWall(slabL); slabL.userData.fadeNormal = dfn;
+      pivL.rotation.y = rotY; roomGroup.add(pivL); registerWall(slabL); slabL.userData.fadeNormal = dfn;
       const pivR = new THREE.Group();
       const [hrx, hrz] = ptAt(o.s1 - fw * 0.5);
       pivR.position.set(hrx, dslabH / 2, hrz);
       const slabR = new THREE.Mesh(new THREE.BoxGeometry(halfW, dslabH, 0.04), ddoorM);
       slabR.position.set(-halfW / 2, 0, 0.06); slabR.castShadow = true; pivR.add(slabR);
-      pivR.rotation.y = rotY + 0.32; roomGroup.add(pivR); registerWall(slabR); slabR.userData.fadeNormal = dfn;
+      pivR.rotation.y = rotY; roomGroup.add(pivR); registerWall(slabR); slabR.userData.fadeNormal = dfn;
     } else if (o.kind === 'lab_door') {
       // 安全ドア: steel door with upper observation window
       const lh = WALL_H - DOOR_H;
@@ -6280,7 +6279,7 @@ function buildWallSegment(wall) {
       const lwinW = Math.min(0.28, lslabW * 0.45), lwinH = 0.26;
       const lwinglass = new THREE.Mesh(new THREE.BoxGeometry(lwinW, lwinH, 0.07), glassMat());
       lwinglass.position.set(lslabW * 0.5, lslabH * 0.25, 0.06); lpivot.add(lwinglass);
-      lpivot.rotation.y = rotY - 0.35; roomGroup.add(lpivot); registerWall(lslab);
+      lpivot.rotation.y = rotY; roomGroup.add(lpivot); registerWall(lslab);
       const lfn = new THREE.Vector3(cx, 0, cz); if (lfn.length() < 0.35) lfn.set(0, 0, 0); else lfn.normalize();
       lslab.userData.fadeNormal = lfn;
       lwinglass.userData.fadeNormal = lfn; wallMeshes.push(lwinglass);
@@ -6302,8 +6301,8 @@ function buildWallSegment(wall) {
         const post = new THREE.Mesh(new THREE.BoxGeometry(0.048, DOOR_H, ft), fwM);
         post.position.set(px, DOOR_H / 2, pz); post.rotation.y = rotY; post.castShadow = true; roomGroup.add(post); registerWall(post);
       });
-      // Two panels (each 40% of opening, slid open leaving 20% gap)
-      const fpW = ow * 0.40, fpH = DOOR_H - 0.07;
+      // Two panels (closed — each 50% of opening, meeting at the center)
+      const fpW = ow * 0.50, fpH = DOOR_H - 0.07;
       [[o.s0 + fpW / 2, -1], [o.s1 - fpW / 2, 1]].forEach(([sc, side]) => {
         const [px, pz] = ptAt(sc);
         const panel = new THREE.Mesh(new THREE.BoxGeometry(fpW, fpH, 0.038), paM);
@@ -6348,7 +6347,7 @@ function buildWallSegment(wall) {
       });
       // Translucent washi paper
       const waM = new THREE.MeshStandardMaterial({ color: 0xfdf5e6, roughness: 0.85, metalness: 0.0, transparent: true, opacity: 0.72, side: THREE.DoubleSide });
-      const spW = ow * 0.44, spH = DOOR_H - 0.06;
+      const spW = ow * 0.50, spH = DOOR_H - 0.06;   // closed — panels meet at the center
       [[o.s0 + spW / 2, 1], [o.s1 - spW / 2, -1]].forEach(([sc, _]) => {
         const [px, pz] = ptAt(sc);
         const scrn = new THREE.Mesh(new THREE.BoxGeometry(spW - 0.04, spH - 0.04, 0.012), waM);
@@ -6384,9 +6383,9 @@ function buildWallSegment(wall) {
       });
       const bathTop = new THREE.Mesh(new THREE.BoxGeometry(ow, 0.042, ft), batAlM);
       bathTop.position.set(cx, DOOR_H - 0.021, cz); bathTop.rotation.y = rotY; roomGroup.add(bathTop); registerWall(bathTop);
-      // Frosted glass panel (partially open - slid to one side)
-      const bgW = ow * 0.60, bgH = DOOR_H - 0.06;
-      const [bgx, bgz] = ptAt(o.s0 + bgW / 2 + 0.02);
+      // Frosted glass panel (closed — spans the full opening)
+      const bgW = ow - 0.04, bgH = DOOR_H - 0.06;
+      const [bgx, bgz] = ptAt((o.s0 + o.s1) / 2);
       const bglass = new THREE.Mesh(new THREE.BoxGeometry(bgW, bgH, 0.028), frostM);
       bglass.position.set(bgx, bgH / 2 + 0.025, bgz); bglass.rotation.y = rotY; roomGroup.add(bglass); registerWall(bglass);
       // Aluminum rail on glass top/bottom
@@ -6394,8 +6393,8 @@ function buildWallSegment(wall) {
         const rail = new THREE.Mesh(new THREE.BoxGeometry(bgW, rh, 0.035), batAlM);
         rail.position.set(bgx, yOff, bgz); rail.rotation.y = rotY; roomGroup.add(rail);
       });
-      // Handle
-      const [bhx, bhz] = ptAt(o.s0 + bgW + 0.015);
+      // Handle (near the leading edge)
+      const [bhx, bhz] = ptAt(o.s1 - 0.08);
       const bhdl = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.14, 0.042), batAlM);
       bhdl.position.set(bhx, bgH * 0.5, bhz); bhdl.rotation.y = rotY; roomGroup.add(bhdl);
     } else if (o.kind === 'toilet_door') {
@@ -6426,7 +6425,7 @@ function buildWallSegment(wall) {
       const indicM = new THREE.MeshStandardMaterial({ color: 0x22bb44, roughness: 0.4, metalness: 0.1, emissive: new THREE.Color(0x116622), emissiveIntensity: 0.5, transparent: true, opacity: 1.0 });
       const indic = new THREE.Mesh(new THREE.BoxGeometry(tslabW * 0.55, 0.06, 0.045), indicM);
       indic.position.set(tslabW * 0.5, tslabH * 0.88, 0.06); tpivot.add(indic);
-      tpivot.rotation.y = rotY - 0.30; roomGroup.add(tpivot); registerWall(tslab);
+      tpivot.rotation.y = rotY; roomGroup.add(tpivot); registerWall(tslab);
       const tfn = new THREE.Vector3(cx, 0, cz); if (tfn.length() < 0.35) tfn.set(0, 0, 0); else tfn.normalize();
       tslab.userData.fadeNormal = tfn;
     } else {
@@ -6451,7 +6450,7 @@ function buildWallSegment(wall) {
       const [hx, hz] = ptAt(o.s0 + fw / 2);
       pivot.position.set(hx, slabH / 2, hz); pivot.rotation.y = rotY;
       slab.position.set(slabW / 2, 0, 0.06);
-      slab.castShadow = true; pivot.add(slab); pivot.rotation.y = rotY - 0.35;
+      slab.castShadow = true; pivot.add(slab); pivot.rotation.y = rotY;
       roomGroup.add(pivot); registerWall(slab);
       const fn = new THREE.Vector3(cx, 0, cz); if (fn.length() < 0.35) fn.set(0, 0, 0); else fn.normalize();
       slab.userData.fadeNormal = fn;
