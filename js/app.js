@@ -920,10 +920,13 @@ function updateRoomSize(w, d, keepPartitions = false) {
   if (!keepPartitions) { partitions = []; extWallOpenings = null; }
   // Regenerate the plan as a rectangle (preserves the slider / preset / reset-to-rect flow).
   roomPlan = rectToPlan(w, d, keepPartitions ? partitions : [], floorType, extWallOpenings);
-  document.getElementById('room-w-val').textContent = w + 'm';
-  document.getElementById('room-d-val').textContent = d + 'm';
   document.getElementById('room-size-display').textContent = `${w}m × ${d}m`;
-  document.getElementById('room-w').value = w; document.getElementById('room-d').value = d;
+  // Update editor panel controls (elements live in the editor modal)
+  const rwv = document.getElementById('room-w-val'); if (rwv) rwv.textContent = w + 'm';
+  const rdv = document.getElementById('room-d-val'); if (rdv) rdv.textContent = d + 'm';
+  const rws = document.getElementById('room-w'); if (rws) rws.value = w;
+  const rds = document.getElementById('room-d'); if (rds) rds.value = d;
+  const disp = document.getElementById('ed-room-display'); if (disp) disp.textContent = `${w}m × ${d}m`;
   buildRoom();
 }
 
@@ -1190,10 +1193,6 @@ function initUI() {
   document.getElementById('search-input').addEventListener('input', e => {
     const active = document.querySelector('.cat-tab.active'); buildCatalog(e.target.value, active?.dataset.cat || 'all');
   });
-  ['room-w','room-d'].forEach(id => document.getElementById(id).addEventListener('input', () => {
-    updateRoomSize(parseFloat(document.getElementById('room-w').value), parseFloat(document.getElementById('room-d').value));
-    refreshSelection();
-  }));
   // Wall mode segmented
   document.getElementById('wall-seg').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; wallMode = b.dataset.mode;
@@ -1298,6 +1297,14 @@ function initUI() {
   document.getElementById('editor-clear').addEventListener('click', () => { roomPlan = { cells: new Map(), walls: [] }; syncPlanTo3D(); });
   document.getElementById('editor-rect').addEventListener('click', () => { roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType); syncPlanTo3D(); });
   document.getElementById('editor-apply').addEventListener('click', closeEditor);
+  // Room size sliders (now live in the editor panel, not the toolbar)
+  ['room-w', 'room-d'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => {
+      updateRoomSize(parseFloat(document.getElementById('room-w').value), parseFloat(document.getElementById('room-d').value));
+      refreshSelection();
+    });
+  });
 
   document.getElementById('btn-zoom-in').addEventListener('click', () => { camera.position.sub(controls.target).multiplyScalar(0.85).add(controls.target); controls.update(); });
   document.getElementById('btn-zoom-out').addEventListener('click', () => { camera.position.sub(controls.target).multiplyScalar(1.18).add(controls.target); controls.update(); });
@@ -1825,6 +1832,12 @@ function openEditor() {
     exitPaintMode(); deselect();
     editorFloorType = floorType;
     const sel = document.getElementById('editor-floor-select'); if (sel) sel.value = editorFloorType;
+    // Sync room size controls to current state
+    const rw = document.getElementById('room-w'); if (rw) rw.value = roomW;
+    const rd = document.getElementById('room-d'); if (rd) rd.value = roomD;
+    const rwv = document.getElementById('room-w-val'); if (rwv) rwv.textContent = roomW + 'm';
+    const rdv = document.getElementById('room-d-val'); if (rdv) rdv.textContent = roomD + 'm';
+    const disp = document.getElementById('ed-room-display'); if (disp) disp.textContent = `${roomW}m × ${roomD}m`;
     const b = planBounds();
     const bw = Math.max(b.w, 2), bd = Math.max(b.d, 2);
     editorScale = clamp(Math.min(edCanvas.width / (bw + 4), edCanvas.height / (bd + 4)), 14, 100);
