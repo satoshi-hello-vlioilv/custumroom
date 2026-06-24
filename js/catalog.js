@@ -60,7 +60,7 @@ const FURNITURE_DEFS = [
   // ---- museum ----
   { id:'displaycase',cat:'museum',  name:'展示ケース',        icon:'fa-box-open',          w:0.88,d:0.52, h:1.3,  colorIdx:10, build:buildDisplayCase },
   { id:'pedestal',   cat:'museum',  name:'展示台',            icon:'fa-chess-rook',        w:0.5, d:0.5,  h:1.05, colorIdx:1,  build:buildPedestal },
-  { id:'infopanel',  cat:'museum',  name:'解説パネル',        icon:'fa-sign-hanging',      w:0.76,d:0.03, h:1.5,  colorIdx:1,  build:buildInfoPanel, wallMount:true },
+  { id:'infopanel',  cat:'museum',  name:'解説パネル',        icon:'fa-sign-hanging',      w:0.76,d:0.03, h:1.5,  colorIdx:1,  build:buildInfoPanel },
   // ---- shop ----
   { id:'shelfrack',  cat:'shop',    name:'商品棚',            icon:'fa-shelves',           w:1.2, d:0.5,  h:1.9,  colorIdx:1,  build:buildShelfRack },
   { id:'register',   cat:'shop',    name:'レジカウンター',    icon:'fa-cash-register',     w:1.2, d:0.65, h:0.9,  colorIdx:1,  build:buildRegisterCounter },

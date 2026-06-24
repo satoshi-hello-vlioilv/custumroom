@@ -34,10 +34,10 @@ const BACK_TO_WALL = new Set([
   'cupboard', 'kitchen', 'stove', 'fridge', 'dishwasher',
   // sanitary
   'toilet', 'handbasin', 'vanity', 'washer', 'bathtub', 'bathset',
-  // office / shop
-  'filingcab', 'copier', 'reception', 'shelfrack', 'register', 'showcasefridge', 'vendingmachine', 'atm', 'barcounter',
-  // factory (壁付けが自然な棚・盤)
-  'toolcab', 'ctrlpanel', 'palletrack', 'chemshelf',
+  // office / shop (island racks/registers stand freely — removed: shelfrack, register, palletrack)
+  'filingcab', 'copier', 'reception', 'showcasefridge', 'vendingmachine', 'atm', 'barcounter',
+  // factory (壁付けが自然な棚・盤; palletrack は島ラックのため除外)
+  'toolcab', 'ctrlpanel', 'chemshelf',
 ]);
 
 // --- 前面(+Z)に必要なアクセスクリアランス[m]。未指定は 0 (前面チェックなし) -----
@@ -60,8 +60,13 @@ const ACCESS = {
 };
 
 // --- stack のうち必ず什器の上に載るべきもの (床に落ちたら不整合) --------------
+// ceiling/floor fixtures excluded from footprint overlap check (don't block furniture placement)
+const FOOTPRINT_SKIP = new Set(['pendlamp', 'tablelamp', 'desklamp', 'lamp', 'floorlamp', 'stove']);
+
 const SURFACE_ONLY = new Set([
-  'monitor', 'espresso', 'microwave', 'ricecook', 'projector', 'desklamp', 'tablelamp', 'lantern',
+  'monitor', 'espresso', 'microwave', 'ricecook', 'projector', 'desklamp', 'tablelamp',
+  // lantern は屋外地面置きが正常なため除外
+
   'microscope', 'centrifuge', 'analbalance', 'glassware', 'oscilloscope', 'printer3d',
   'spectropho', 'ultrasonic', 'vacpump',
 ]);
@@ -210,8 +215,10 @@ function validateLayout(preset, defsById) {
     }
   }
 
-  // (5) 床置き什器どうしの footprint 重なり (椅子・ラグ・壁/stack は除外)
-  const floor = items.filter(m => m.use.mount === 'floor' && m.def.cat !== 'seating' && (m.def.h || 0) >= 0.06);
+  // (5) 床置き什器どうしの footprint 重なり
+  // 除外: 椅子・ラグ(h<0.06)・壁/stack・工場設備(隣接/積載が通常)・照明器具
+  const floor = items.filter(m => m.use.mount === 'floor' && m.def.cat !== 'seating'
+    && m.def.cat !== 'factory' && !FOOTPRINT_SKIP.has(m.def.id) && (m.def.h || 0) >= 0.06);
   for (let i = 0; i < floor.length; i++) {
     for (let j = i + 1; j < floor.length; j++) {
       const a = floor[i], b = floor[j];
