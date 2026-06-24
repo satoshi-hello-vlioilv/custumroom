@@ -974,8 +974,8 @@ function applyLayout(layout) {
     roomPlan = { cells, walls: (layout.plan.walls || []).map(w => ({
       x1: w.x1, z1: w.z1, x2: w.x2, z2: w.z2,
       type: w.type || 'wall',
-      openings: w.openings ? w.openings.map(o => ({ t: o.t, w: o.w, kind: o.kind || 'door' }))
-                           : (w.doors || []).map(d => ({ t: d.t, w: d.w, kind: 'door' }))
+      openings: w.openings ? w.openings.map(o => ({ t: o.t, w: o.w, kind: o.kind || 'door', hinge: o.hinge || 0, swing: o.swing == null ? 1 : o.swing }))
+                           : (w.doors || []).map(d => ({ t: d.t, w: d.w, kind: 'door', hinge: 0, swing: 1 }))
     })) };
     buildRoom();
   } else if (layout.patches) {
@@ -1290,16 +1290,24 @@ function initUI() {
   document.getElementById('editor-close').addEventListener('click', closeEditor);
   document.getElementById('editor-modal').addEventListener('click', e => { if (e.target.id === 'editor-modal') closeEditor(); });
   const edHints = {
-    floor: 'クリック/ドラッグで床セルを追加（部屋の形を描きます）',
-    erase: 'クリック/ドラッグで床セルを削除',
-    wall: '2点をドラッグして壁を追加（Snapあり）。既存の壁をクリックでタイプ切り替え',
-    door: '壁をクリックして開口を追加/削除（開口タイプで種類を選択）',
+    floor: 'クリック/ドラッグで床セルを追加。ブラシの太さで一度に塗る範囲を変更できます',
+    erase: 'クリック/ドラッグで床セルを削除（ブラシの太さ対応）',
+    unify: 'ドラッグで範囲を選択 → 範囲内の床材のどれかにまとめて統一します',
+    wall: '2点をドラッグして壁を追加（Snapあり）。壁タイプは下のメニューで選択',
+    door: '壁をクリックで開口を追加。既存の開口をクリックすると開き方を編集できます',
     delwall: '壁をクリックして削除'
   };
   document.querySelectorAll('.ed-tool[data-tool]').forEach(btn => btn.addEventListener('click', () => {
     edTool = btn.dataset.tool;
     document.querySelectorAll('.ed-tool[data-tool]').forEach(b => b.classList.toggle('active', b === btn));
     document.getElementById('editor-hint').textContent = edHints[edTool] || '';
+    closeDoorPop(); closeUnifyPop();
+  }));
+  // brush-size segmented control
+  document.querySelectorAll('#ed-brush-seg button').forEach(btn => btn.addEventListener('click', () => {
+    edBrush = +btn.dataset.brush;
+    document.querySelectorAll('#ed-brush-seg button').forEach(b => b.classList.toggle('active', b === btn));
+    drawEditor();
   }));
   const edSel = document.getElementById('editor-floor-select');
   Object.entries(FLOOR_TYPES).forEach(([key, spec]) => { const o = document.createElement('option'); o.value = key; o.textContent = spec.name; edSel.appendChild(o); });
@@ -1613,7 +1621,20 @@ let edTool = 'floor';
 let editorFloorType = 'wood';
 let editorScale = 36;                 // px per meter
 let editorPan = { x: 0, y: 0 };       // pan offset (px)
-let edDrag = null;                    // { type:'paint'|'wall'|'pan', ... }
+let edDrag = null;                    // { type:'paint'|'wall'|'pan'|'unify', ... }
+let edBrush = 1;                      // brush footprint in cells (1=細,2=中,3=太)
+let edHover = null;                   // { x, z } world coords under pointer (for ghost preview)
+let edSelOpening = null;              // { wi, oi } currently selected wall opening (door/window)
+let edAnim = null;                    // editor swing-animation rAF handle
+let edSwingT = 0;                     // animated 0..1 phase for selected-door swing
+// Opening kinds that swing on a single hinge (show 吊り元/開く向き controls)
+const SWING_KINDS = new Set(['door', 'lab_door', 'bath_door', 'toilet_door']);
+// Opening kinds with two leaves hinged at both jambs (show 開く向き only)
+const DOUBLE_KINDS = new Set(['double_door']);
+// Opening kinds whose leaves slide along the wall (引戸・自動ドア)
+const SLIDE_KINDS = new Set(['glass_door', 'auto_door']);
+function openingSwings(kind) { return SWING_KINDS.has(kind) || DOUBLE_KINDS.has(kind); }
+function openingAnimates(kind) { return openingSwings(kind) || SLIDE_KINDS.has(kind); }
 
 // Rebuild the 3D room from the plan (live), then redraw the 2D canvas.
 function syncPlanTo3D() { buildRoom(); drawEditor(); }
@@ -1677,7 +1698,7 @@ function drawEditor() {
   ctx.fillStyle = 'rgba(110,100,80,0.6)'; ctx.font = '10px sans-serif';
   ctx.fillText('X →', o.x + 12, o.y - 4); ctx.fillText('↓ Z', o.x + 4, o.y + 16);
   // walls + openings (color-coded by type)
-  roomPlan.walls.forEach(wall => {
+  roomPlan.walls.forEach((wall, wi) => {
     const wType = wall.type || 'wall';
     const a = worldToScreen(wall.x1, wall.z1), b = worldToScreen(wall.x2, wall.z2);
     const wallColor = wType === 'glass' ? '#5ba4c8' : wType === 'window' ? '#7a8fa0'
@@ -1688,52 +1709,194 @@ function drawEditor() {
     else if (wType === 'half') ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     ctx.setLineDash([]);
-    // door wall: draw a swing arc to indicate it's a door unit
-    if (wType === 'door') {
-      const len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
-      if (len > 0.01) {
-        const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len;
-        const hx = wall.x1 + ux * 0.02, hz = wall.z1 + uz * 0.02;
-        const ph = worldToScreen(hx, hz);
-        ctx.strokeStyle = '#b9925e'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(ph.x, ph.y, Math.min(len, 1.0) * editorScale, 0, Math.PI / 2); ctx.stroke();
-      }
-    }
-    // openings (backward compat: fall back to doors)
+    // openings — clean architectural symbol (NO always-on swing line; click a door to see its swing)
+    const len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
+    if (len < 0.01) return;
+    const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len;
+    const px = -uz, pz = ux;           // wall-perpendicular unit (for jamb ticks)
     const ops = wall.openings || (wall.doors || []).map(d => ({ t: d.t, w: d.w, kind: 'door' }));
-    ops.forEach(dr => {
-      const dw = dr.w || 0.9, kind = dr.kind || 'door', len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
-      if (len < 0.01) return;
-      const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len;
+    ops.forEach((dr, oi) => {
+      const dw = dr.w || 0.9, kind = dr.kind || 'door';
       const s = clamp(dr.t, 0, 1) * len;
       const ax = wall.x1 + ux * (s - dw/2), az = wall.z1 + uz * (s - dw/2);
       const bx = wall.x1 + ux * (s + dw/2), bz = wall.z1 + uz * (s + dw/2);
       const pa = worldToScreen(ax, az), pb = worldToScreen(bx, bz);
-      // gap fill
-      ctx.strokeStyle = '#f1ece1'; ctx.lineWidth = 7;
+      const sel = edSelOpening && edSelOpening.wi === wi && edSelOpening.oi === oi;
+      // 1) punch the gap out of the wall line
+      ctx.strokeStyle = '#f1ece1'; ctx.lineWidth = wallLW + 3; ctx.lineCap = 'butt';
       ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
-      // symbol by kind
-      if (kind === 'window') {
-        ctx.strokeStyle = '#5ba4c8'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
-        ctx.fillStyle = '#5ba4c8'; ctx.font = 'bold 10px sans-serif';
-        ctx.fillText('W', (pa.x+pb.x)/2-5, (pa.y+pb.y)/2+4);
-      } else if (kind === 'glass_door') {
-        ctx.strokeStyle = '#5ba4c8'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(pa.x, pa.y, dw * editorScale, 0, Math.PI / 2); ctx.stroke();
+      // 2) jamb ticks (short perpendicular marks = the frame) so it still reads as an opening
+      const tickC = kind === 'window' || kind === 'glass_door' || kind === 'auto_door' ? '#5ba4c8' : '#b9925e';
+      const tk = 0.12;
+      ctx.strokeStyle = tickC; ctx.lineWidth = sel ? 3.5 : 2.5;
+      [[ax, az], [bx, bz]].forEach(([jx, jz]) => {
+        const j0 = worldToScreen(jx - px * tk, jz - pz * tk), j1 = worldToScreen(jx + px * tk, jz + pz * tk);
+        ctx.beginPath(); ctx.moveTo(j0.x, j0.y); ctx.lineTo(j1.x, j1.y); ctx.stroke();
+      });
+      // 3) sill / threshold line across the gap (color-coded by kind)
+      if (kind === 'window' || kind === 'glass_door' || kind === 'auto_door') {
+        ctx.strokeStyle = '#5ba4c8'; ctx.lineWidth = sel ? 3 : 2;
+        const o1 = worldToScreen(ax + px * 0.05, az + pz * 0.05), o2 = worldToScreen(bx + px * 0.05, bz + pz * 0.05);
+        const u1 = worldToScreen(ax - px * 0.05, az - pz * 0.05), u2 = worldToScreen(bx - px * 0.05, bz - pz * 0.05);
+        ctx.beginPath(); ctx.moveTo(o1.x, o1.y); ctx.lineTo(o2.x, o2.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(u1.x, u1.y); ctx.lineTo(u2.x, u2.y); ctx.stroke();
       } else {
-        ctx.strokeStyle = '#b9925e'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(pa.x, pa.y, dw * editorScale, 0, Math.PI / 2); ctx.stroke();
+        ctx.strokeStyle = sel ? '#62a86d' : '#caa078'; ctx.lineWidth = sel ? 3 : 1.5;
+        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
       }
     });
   });
   ctx.lineCap = 'butt';
+  // selected opening — animated swing diagram (shows HOW the door moves)
+  if (edSelOpening) drawSelectedOpening(ctx);
   // wall-drawing preview
   if (edDrag && edDrag.type === 'wall' && edDrag.cur) {
     const a = worldToScreen(edDrag.x1, edDrag.z1), b = worldToScreen(edDrag.cur.x, edDrag.cur.z);
     ctx.strokeStyle = 'rgba(98,168,109,0.85)'; ctx.lineWidth = 4;
     ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
   }
+  // unify selection rectangle
+  if (edDrag && edDrag.type === 'unify' && edDrag.cur) {
+    const r = edUnifyRange(edDrag);
+    const tl = worldToScreen(r.ix0 * CELL, r.iz0 * CELL);
+    const br = worldToScreen((r.ix1 + 1) * CELL, (r.iz1 + 1) * CELL);
+    ctx.fillStyle = 'rgba(98,168,109,0.14)';
+    ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+    ctx.strokeStyle = 'rgba(78,145,89,0.9)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
+    ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y); ctx.setLineDash([]);
+  }
+  // hover ghost (tentative-paint / tool preview)
+  if (edHover && !(edDrag && edDrag.type === 'pan')) drawHoverGhost(ctx);
+}
+
+// brush footprint: cell indices covered by a brush centered on (ix,iz)
+function brushCells(ix, iz) {
+  const half = Math.floor(edBrush / 2), out = [];
+  for (let dx = 0; dx < edBrush; dx++) for (let dz = 0; dz < edBrush; dz++) out.push([ix - half + dx, iz - half + dz]);
+  return out;
+}
+
+// cell-index range covered by a unify drag (inclusive)
+function edUnifyRange(d) {
+  const ix0 = Math.floor(Math.min(d.x1, d.cur.x) / CELL), ix1 = Math.floor(Math.max(d.x1, d.cur.x) / CELL);
+  const iz0 = Math.floor(Math.min(d.z1, d.cur.z) / CELL), iz1 = Math.floor(Math.max(d.z1, d.cur.z) / CELL);
+  return { ix0, ix1, iz0, iz1 };
+}
+
+// Translucent preview of what the current tool will do at the hovered position.
+function drawHoverGhost(ctx) {
+  const cs = CELL * editorScale;
+  if (edTool === 'floor' || edTool === 'erase') {
+    const cix = Math.floor(edHover.x / CELL), ciz = Math.floor(edHover.z / CELL);
+    brushCells(cix, ciz).forEach(([ix, iz]) => {
+      const p = worldToScreen(ix * CELL, iz * CELL);
+      if (edTool === 'floor') {
+        ctx.fillStyle = floorSwatch(editorFloorType); ctx.globalAlpha = 0.5;
+        ctx.fillRect(p.x, p.y, cs, cs); ctx.globalAlpha = 1;
+        ctx.strokeStyle = 'rgba(78,145,89,0.95)'; ctx.lineWidth = 1.5; ctx.strokeRect(p.x + 0.5, p.y + 0.5, cs - 1, cs - 1);
+      } else {
+        ctx.fillStyle = 'rgba(217,106,91,0.16)'; ctx.fillRect(p.x, p.y, cs, cs);
+        ctx.strokeStyle = 'rgba(217,106,91,0.9)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+        ctx.strokeRect(p.x + 0.5, p.y + 0.5, cs - 1, cs - 1); ctx.setLineDash([]);
+      }
+    });
+  } else if (edTool === 'wall') {
+    const sp = worldToScreen(edSnap(edHover.x), edSnap(edHover.z));
+    ctx.strokeStyle = 'rgba(78,145,89,0.95)'; ctx.fillStyle = 'rgba(98,168,109,0.25)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  } else if (edTool === 'door') {
+    const hit = edFindWall(edHover.x, edHover.z, 16);
+    if (hit) {
+      const wall = roomPlan.walls[hit.index];
+      const a = worldToScreen(wall.x1, wall.z1), b = worldToScreen(wall.x2, wall.z2);
+      ctx.strokeStyle = 'rgba(98,168,109,0.55)'; ctx.lineWidth = 9; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.lineCap = 'butt';
+      const len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
+      const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len;
+      const s = clamp(hit.t, 0.05, 0.95) * len;
+      const mk = worldToScreen(wall.x1 + ux * s, wall.z1 + uz * s);
+      ctx.fillStyle = '#4e9159'; ctx.beginPath(); ctx.arc(mk.x, mk.y, 4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+// Animated swing diagram for the currently selected opening.
+function drawSelectedOpening(ctx) {
+  const sel = selectedOpening(); if (!sel) return;
+  const { wall, op } = sel;
+  const len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1); if (len < 0.01) return;
+  const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len;
+  const dw = op.w || 0.9, kind = op.kind || 'door';
+  const s = clamp(op.t, 0, 1) * len, s0 = s - dw / 2, s1 = s + dw / 2;
+  const mx = wall.x1 + ux * s, mz = wall.z1 + uz * s;
+  // highlight the selected gap
+  const pa = worldToScreen(wall.x1 + ux * s0, wall.z1 + uz * s0);
+  const pb = worldToScreen(wall.x1 + ux * s1, wall.z1 + uz * s1);
+  ctx.strokeStyle = 'rgba(98,168,109,0.9)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke(); ctx.lineCap = 'butt';
+  if (SLIDE_KINDS.has(kind)) { drawSlideDiagram(ctx, wall, op, ux, uz, s0, s1, dw); return; }
+  if (!openingSwings(kind)) return;   // windows: just highlight, no swing
+  // interior normal (toward room center), flipped by swing
+  let nx = -uz, nz = ux;
+  if (mx * nx + mz * nz > 0) { nx = -nx; nz = -nz; }
+  const swing = op.swing === -1 ? -1 : 1; nx *= swing; nz *= swing;
+  const prog = 0.5 - 0.5 * Math.cos(edSwingT * Math.PI * 2);   // eased 0→1→0
+  const drawLeaf = (hingeAtStart, leafLen) => {
+    const hx = hingeAtStart ? wall.x1 + ux * s0 : wall.x1 + ux * s1;
+    const hz = hingeAtStart ? wall.z1 + uz * s0 : wall.z1 + uz * s1;
+    const dir = hingeAtStart ? 1 : -1;
+    const ax = dir * ux, az = dir * uz;            // closed-leaf direction (along wall)
+    const aC = Math.atan2(az, ax), aO = Math.atan2(nz, nx);
+    let delta = aO - aC; while (delta > Math.PI) delta -= 2 * Math.PI; while (delta < -Math.PI) delta += 2 * Math.PI;
+    const ph = worldToScreen(hx, hz), r = leafLen * editorScale;
+    // swing arc envelope
+    ctx.strokeStyle = 'rgba(98,168,109,0.5)'; ctx.lineWidth = 1.3; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(ph.x, ph.y, r, aC, aC + delta, delta < 0); ctx.stroke(); ctx.setLineDash([]);
+    // fully-open leaf (faint)
+    const eO = worldToScreen(hx + nx * leafLen, hz + nz * leafLen);
+    ctx.strokeStyle = 'rgba(98,168,109,0.28)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ph.x, ph.y); ctx.lineTo(eO.x, eO.y); ctx.stroke();
+    // animated leaf at current progress
+    const aN = aC + delta * prog;
+    const lx = ph.x + Math.cos(aN) * r, ly = ph.y + Math.sin(aN) * r;
+    ctx.strokeStyle = '#4e9159'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(ph.x, ph.y); ctx.lineTo(lx, ly); ctx.stroke(); ctx.lineCap = 'butt';
+    // hinge dot
+    ctx.fillStyle = '#4e9159'; ctx.beginPath(); ctx.arc(ph.x, ph.y, 4, 0, Math.PI * 2); ctx.fill();
+  };
+  if (DOUBLE_KINDS.has(kind)) { drawLeaf(true, dw / 2); drawLeaf(false, dw / 2); }
+  else drawLeaf(!op.hinge, dw);
+}
+
+// Animated slide diagram for 引戸 / 自動ドア (panel translates along the wall).
+function drawSlideDiagram(ctx, wall, op, ux, uz, s0, s1, dw) {
+  const prog = 0.5 - 0.5 * Math.cos(edSwingT * Math.PI * 2);
+  let nx = -uz, nz = ux;
+  const cx = wall.x1 + ux * (s0 + s1) / 2, cz = wall.z1 + uz * (s0 + s1) / 2;
+  if (cx * nx + cz * nz > 0) { nx = -nx; nz = -nz; }
+  const off = 0.08, kind = op.kind;
+  const auto = kind === 'auto_door';
+  // panel spans: [a,b] in along-wall meters at current progress
+  const panels = auto
+    ? [{ a0: s0, w: dw / 2, dir: -1 }, { a0: (s0 + s1) / 2, w: dw / 2, dir: 1 }]
+    : [{ a0: s0, w: dw, dir: 1 }];
+  panels.forEach(pn => {
+    const shift = pn.dir * pn.w * prog;
+    const a = pn.a0 + shift, b = pn.a0 + pn.w + shift;
+    const pa = worldToScreen(wall.x1 + ux * a + nx * off, wall.z1 + uz * a + nz * off);
+    const pb = worldToScreen(wall.x1 + ux * b + nx * off, wall.z1 + uz * b + nz * off);
+    ctx.strokeStyle = '#4e9159'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke(); ctx.lineCap = 'butt';
+    // slide-direction arrow at the leading edge
+    const tip = worldToScreen(wall.x1 + ux * b + nx * off, wall.z1 + uz * b + nz * off);
+    const ah = 5, axu = pn.dir * ux, azu = pn.dir * uz, ang = Math.atan2(azu, axu);
+    ctx.fillStyle = 'rgba(78,145,89,0.85)';
+    ctx.beginPath();
+    ctx.moveTo(tip.x + Math.cos(ang) * ah, tip.y + Math.sin(ang) * ah);
+    ctx.lineTo(tip.x + Math.cos(ang + 2.5) * ah, tip.y + Math.sin(ang + 2.5) * ah);
+    ctx.lineTo(tip.x + Math.cos(ang - 2.5) * ah, tip.y + Math.sin(ang - 2.5) * ah);
+    ctx.closePath(); ctx.fill();
+  });
 }
 
 // Constrain an endpoint to horiz/vertical when near-axis (cleaner plans).
@@ -1758,63 +1921,192 @@ function edFindWall(wx, wz, pxThreshold) {
 
 function edApplyAt(px, py) {
   const w = screenToWorld(px, py);
-  if (edTool === 'floor' || edTool === 'erase') {
-    const ix = Math.floor(w.x / CELL), iz = Math.floor(w.z / CELL), key = cellKey(ix, iz);
+  if (edTool !== 'floor' && edTool !== 'erase') return false;
+  const cix = Math.floor(w.x / CELL), ciz = Math.floor(w.z / CELL);
+  let changed = false;
+  brushCells(cix, ciz).forEach(([ix, iz]) => {
+    const key = cellKey(ix, iz);
     if (edTool === 'floor') {
-      if (roomPlan.cells.get(key) === editorFloorType) return false;
-      roomPlan.cells.set(key, editorFloorType);
+      if (roomPlan.cells.get(key) !== editorFloorType) { roomPlan.cells.set(key, editorFloorType); changed = true; }
     } else {
-      if (!roomPlan.cells.has(key)) return false;
-      roomPlan.cells.delete(key);
+      if (roomPlan.cells.has(key)) { roomPlan.cells.delete(key); changed = true; }
     }
-    return true;
-  }
-  return false;
+  });
+  return changed;
 }
+
+// ---- selected-opening helpers ----
+function selectedOpening() {
+  if (!edSelOpening) return null;
+  const wall = roomPlan.walls[edSelOpening.wi]; if (!wall) return null;
+  const op = (wall.openings || [])[edSelOpening.oi]; if (!op) return null;
+  return { wall, op };
+}
+function startEdAnim() { if (edAnim) return; const loop = () => { edSwingT = (edSwingT + 0.011) % 1; drawEditor(); edAnim = requestAnimationFrame(loop); }; edAnim = requestAnimationFrame(loop); }
+function stopEdAnim() { if (edAnim) { cancelAnimationFrame(edAnim); edAnim = null; } }
+
+// CSS-pixel position (relative to the canvas-area) for a backing-store screen point.
+function edCanvasCssPos(sx, sy) {
+  const rect = edCanvas.getBoundingClientRect();
+  const area = edCanvas.parentElement.getBoundingClientRect();
+  return { left: (rect.left - area.left) + (sx / edCanvas.width) * rect.width,
+           top:  (rect.top - area.top) + (sy / edCanvas.height) * rect.height };
+}
+
+const OPENING_KIND_LABELS = { door: 'ドア（片開き）', double_door: '両開きドア', glass_door: 'ガラス引戸', auto_door: '自動ドア', window: '窓' };
+function handleDoorClick(w) {
+  const hit = edFindWall(w.x, w.z, 16);
+  if (!hit) { closeDoorPop(); return; }
+  const wall = roomPlan.walls[hit.index];
+  if (!wall.openings) wall.openings = (wall.doors || []).map(d => ({ t: d.t, w: d.w, kind: 'door' }));
+  const len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
+  let oi = -1, best = Infinity;
+  wall.openings.forEach((op, i) => {
+    const halfT = (op.w || 0.9) / 2 / len + 0.04, d = Math.abs(op.t - hit.t);
+    if (d < halfT && d < best) { best = d; oi = i; }
+  });
+  if (oi >= 0) {
+    edSelOpening = { wi: hit.index, oi };
+    openDoorPop();
+  } else {
+    const selKind = (document.getElementById('ed-opening-kind') || {}).value || 'door';
+    wall.openings.push({ t: clamp(hit.t, 0.05, 0.95), w: selKind === 'window' ? 1.2 : 0.9, kind: selKind, hinge: 0, swing: 1 });
+    edSelOpening = { wi: hit.index, oi: wall.openings.length - 1 };
+    syncPlanTo3D();
+    openDoorPop();
+  }
+}
+
+function openDoorPop() {
+  const sel = selectedOpening(), pop = document.getElementById('ed-door-pop');
+  if (!sel || !pop) return;
+  const { wall, op } = sel, kind = op.kind || 'door';
+  const showHinge = SWING_KINDS.has(kind);
+  const showSwing = SWING_KINDS.has(kind) || DOUBLE_KINDS.has(kind);
+  const opts = Object.entries(OPENING_KIND_LABELS).map(([k, lbl]) =>
+    `<option value="${k}"${k === kind ? ' selected' : ''}>${lbl}</option>`).join('');
+  pop.innerHTML = `
+    <div class="ed-pop-head"><i class="fa-solid fa-door-open"></i><span>開口の編集</span>
+      <button class="ed-pop-x" data-act="close" title="閉じる"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="ed-pop-body">
+      <label class="ed-pop-field"><span>種類</span>
+        <select class="ed-pop-kind ed-select">${opts}</select></label>
+      <label class="ed-pop-field"><span>幅 <b class="ed-pop-wval">${(op.w || 0.9).toFixed(1)}m</b></span>
+        <input type="range" class="ed-pop-width ed-slider" min="0.6" max="2" step="0.1" value="${op.w || 0.9}"></label>
+      ${showHinge ? `<button class="ed-pop-btn" data-act="hinge"><i class="fa-solid fa-left-right"></i> 吊り元を左右反転</button>` : ''}
+      ${showSwing ? `<button class="ed-pop-btn" data-act="swing"><i class="fa-solid fa-arrows-up-down"></i> 開く向きを内/外反転</button>` : ''}
+    </div>
+    <div class="ed-pop-foot">
+      <button class="ed-pop-del" data-act="delete"><i class="fa-solid fa-trash"></i> この開口を削除</button>
+    </div>`;
+  // position near the opening midpoint
+  const len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
+  const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len, s = clamp(op.t, 0, 1) * len;
+  const mid = worldToScreen(wall.x1 + ux * s, wall.z1 + uz * s);
+  const css = edCanvasCssPos(mid.x, mid.y);
+  pop.hidden = false;
+  const area = edCanvas.parentElement.getBoundingClientRect();
+  let left = css.left + 14, top = css.top + 14;
+  left = clamp(left, 6, area.width - pop.offsetWidth - 6);
+  top = clamp(top, 6, area.height - pop.offsetHeight - 6);
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  // wire controls
+  pop.querySelector('.ed-pop-kind').addEventListener('change', e => {
+    op.kind = e.target.value;
+    if (openingSwings(op.kind)) { if (op.hinge == null) op.hinge = 0; if (op.swing == null) op.swing = 1; }
+    if (op.kind === 'window' && op.w < 1.0) op.w = 1.2;
+    syncPlanTo3D(); openDoorPop();
+  });
+  pop.querySelector('.ed-pop-width').addEventListener('input', e => {
+    op.w = parseFloat(e.target.value); pop.querySelector('.ed-pop-wval').textContent = op.w.toFixed(1) + 'm';
+    syncPlanTo3D();
+  });
+  pop.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', () => {
+    const act = btn.dataset.act;
+    if (act === 'close') closeDoorPop();
+    else if (act === 'hinge') { op.hinge = op.hinge ? 0 : 1; syncPlanTo3D(); }
+    else if (act === 'swing') { op.swing = op.swing === -1 ? 1 : -1; syncPlanTo3D(); }
+    else if (act === 'delete') {
+      wall.openings.splice(edSelOpening.oi, 1); closeDoorPop(); syncPlanTo3D(); toast('開口を削除しました');
+    }
+  }));
+  if (openingAnimates(op.kind)) startEdAnim(); else stopEdAnim();
+  drawEditor();
+}
+function closeDoorPop() {
+  const pop = document.getElementById('ed-door-pop'); if (pop) pop.hidden = true;
+  edSelOpening = null; stopEdAnim(); drawEditor();
+}
+
+// ---- unify (均一化) chooser ----
+function openUnifyChooser(range, sx, sy) {
+  const pop = document.getElementById('ed-unify-pop'); if (!pop) return;
+  const counts = new Map();
+  for (let ix = range.ix0; ix <= range.ix1; ix++) for (let iz = range.iz0; iz <= range.iz1; iz++) {
+    const t = roomPlan.cells.get(cellKey(ix, iz)); if (t != null) counts.set(t, (counts.get(t) || 0) + 1);
+  }
+  if (counts.size === 0) { toast('範囲に床がありません'); return; }
+  if (counts.size === 1) { toast('この範囲はすでに均一です'); return; }
+  const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([type, n]) =>
+    `<button class="ed-unify-opt" data-type="${type}">
+       <span class="ed-unify-sw" style="background:${floorSwatch(type)}"></span>
+       <span class="ed-unify-name">${(FLOOR_TYPES[type] || {}).name || type}</span>
+       <span class="ed-unify-n">${n}</span></button>`).join('');
+  pop.innerHTML = `
+    <div class="ed-pop-head"><i class="fa-solid fa-object-group"></i><span>どの床材に統一しますか？</span>
+      <button class="ed-pop-x" data-act="ucancel" title="閉じる"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="ed-unify-list">${rows}</div>`;
+  pop.hidden = false;
+  const area = edCanvas.parentElement.getBoundingClientRect();
+  const css = edCanvasCssPos(sx, sy);
+  let left = clamp(css.left + 8, 6, area.width - pop.offsetWidth - 6);
+  let top = clamp(css.top + 8, 6, area.height - pop.offsetHeight - 6);
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  pop.querySelector('[data-act="ucancel"]').addEventListener('click', closeUnifyPop);
+  pop.querySelectorAll('.ed-unify-opt').forEach(btn => btn.addEventListener('click', () => {
+    const type = btn.dataset.type; let n = 0;
+    for (let ix = range.ix0; ix <= range.ix1; ix++) for (let iz = range.iz0; iz <= range.iz1; iz++) {
+      const key = cellKey(ix, iz);
+      if (roomPlan.cells.has(key) && roomPlan.cells.get(key) !== type) { roomPlan.cells.set(key, type); n++; }
+    }
+    closeUnifyPop(); syncPlanTo3D(); toast(`${n} セルを「${(FLOOR_TYPES[type] || {}).name || type}」に統一しました`);
+  }));
+}
+function closeUnifyPop() { const pop = document.getElementById('ed-unify-pop'); if (pop) pop.hidden = true; }
 
 edCanvas.addEventListener('pointerdown', e => {
   e.preventDefault(); edCanvas.setPointerCapture(e.pointerId);
   const p = edPointer(e);
-  // middle button or space-less pan via right button
+  // middle button or right button = pan
   if (e.button === 1 || e.button === 2) { edDrag = { type: 'pan', sx: p.x, sy: p.y, ox: editorPan.x, oy: editorPan.y }; return; }
   const w = screenToWorld(p.x, p.y);
+  if (edTool !== 'door') closeDoorPop();
+  closeUnifyPop();
   if (edTool === 'floor' || edTool === 'erase') {
     edDrag = { type: 'paint' };
     if (edApplyAt(p.x, p.y)) syncPlanTo3D(); else drawEditor();
+  } else if (edTool === 'unify') {
+    edDrag = { type: 'unify', x1: w.x, z1: w.z, cur: { x: w.x, z: w.z } };
+    drawEditor();
   } else if (edTool === 'wall') {
     edDrag = { type: 'wall', x1: edSnap(w.x), z1: edSnap(w.z), cur: { x: edSnap(w.x), z: edSnap(w.z) } };
     drawEditor();
   } else if (edTool === 'door') {
-    const hit = edFindWall(w.x, w.z, 14);
-    if (hit) {
-      const wall = roomPlan.walls[hit.index];
-      if (!wall.openings) wall.openings = (wall.doors || []).map(d => ({ t: d.t, w: d.w, kind: 'door' }));
-      const selKind = (document.getElementById('ed-opening-kind') || {}).value || 'door';
-      const di = wall.openings.findIndex(dr => Math.abs(dr.t - hit.t) < 0.18);
-      if (di >= 0) wall.openings.splice(di, 1);
-      else wall.openings.push({ t: clamp(hit.t, 0.05, 0.95), w: selKind === 'window' ? 1.2 : 0.9, kind: selKind });
-      syncPlanTo3D();
-    }
-  } else if (edTool === 'wall' && e.button === 0 && !edDrag) {
-    // Short tap on existing wall = cycle its type
-    const hit = edFindWall(w.x, w.z, 14);
-    if (hit) {
-      const wall = roomPlan.walls[hit.index];
-      const types = ['wall', 'glass', 'window', 'door', 'half'];
-      wall.type = types[(types.indexOf(wall.type || 'wall') + 1) % types.length];
-      syncPlanTo3D();
-    }
+    handleDoorClick(w);
   } else if (edTool === 'delwall') {
     const hit = edFindWall(w.x, w.z, 14);
-    if (hit) { roomPlan.walls.splice(hit.index, 1); syncPlanTo3D(); }
+    if (hit) { roomPlan.walls.splice(hit.index, 1); closeDoorPop(); syncPlanTo3D(); }
   }
 });
 edCanvas.addEventListener('pointermove', e => {
-  if (!edDrag) return;
   const p = edPointer(e);
+  const w = screenToWorld(p.x, p.y);
+  edHover = { x: w.x, z: w.z };
+  if (!edDrag) { drawEditor(); return; }
   if (edDrag.type === 'pan') { editorPan.x = edDrag.ox + (p.x - edDrag.sx); editorPan.y = edDrag.oy + (p.y - edDrag.sy); drawEditor(); return; }
-  if (edDrag.type === 'paint') { if (edApplyAt(p.x, p.y)) syncPlanTo3D(); return; }
-  if (edDrag.type === 'wall') { const w = screenToWorld(p.x, p.y); edDrag.cur = { x: edSnap(w.x), z: edSnap(w.z) }; drawEditor(); }
+  if (edDrag.type === 'paint') { if (edApplyAt(p.x, p.y)) syncPlanTo3D(); else drawEditor(); return; }
+  if (edDrag.type === 'wall') { edDrag.cur = { x: edSnap(w.x), z: edSnap(w.z) }; drawEditor(); return; }
+  if (edDrag.type === 'unify') { edDrag.cur = { x: w.x, z: w.z }; drawEditor(); return; }
 });
 edCanvas.addEventListener('pointerup', e => {
   if (edDrag && edDrag.type === 'wall' && edDrag.cur) {
@@ -1825,10 +2117,16 @@ edCanvas.addEventListener('pointerup', e => {
       roomPlan.walls.push({ x1: edDrag.x1, z1: edDrag.z1, x2: ex, z2: ez, type: selWType, openings: [] });
       syncPlanTo3D();
     } else drawEditor();
+  } else if (edDrag && edDrag.type === 'unify' && edDrag.cur) {
+    const range = edUnifyRange(edDrag);
+    const p = edPointer(e);
+    edDrag = null;
+    openUnifyChooser(range, p.x, p.y);
+    return;
   }
   edDrag = null;
 });
-edCanvas.addEventListener('pointerleave', () => { if (edDrag && edDrag.type !== 'wall') edDrag = null; });
+edCanvas.addEventListener('pointerleave', () => { edHover = null; if (edDrag && edDrag.type !== 'wall') edDrag = null; drawEditor(); });
 edCanvas.addEventListener('contextmenu', e => e.preventDefault());
 edCanvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -1858,11 +2156,18 @@ function openEditor() {
     const bw = Math.max(b.w, 2), bd = Math.max(b.d, 2);
     editorScale = clamp(Math.min(edCanvas.width / (bw + 4), edCanvas.height / (bd + 4)), 14, 100);
     editorPan = { x: 0, y: 0 };
+    edSelOpening = null; edHover = null; edDrag = null;
+    closeDoorPop(); closeUnifyPop();
+    // sync brush-size control
+    document.querySelectorAll('#ed-brush-seg button').forEach(b => b.classList.toggle('active', +b.dataset.brush === edBrush));
     document.getElementById('editor-modal').classList.add('open');
     requestAnimationFrame(() => drawEditor());
   } catch(err) { console.error('openEditor:', err); }
 }
-function closeEditor() { document.getElementById('editor-modal').classList.remove('open'); }
+function closeEditor() {
+  stopEdAnim(); closeDoorPop(); closeUnifyPop();
+  document.getElementById('editor-modal').classList.remove('open');
+}
 
 // ============================================================ JS TOOLTIP
 (function initTooltip() {
