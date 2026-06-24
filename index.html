@@ -64,6 +64,7 @@
       <button class="tb-btn" id="btn-load" data-tip="読み込む"><i class="fa-solid fa-folder-open"></i></button>
       <button class="tb-btn" id="btn-save" data-tip="保存"><i class="fa-solid fa-floppy-disk"></i></button>
       <button class="tb-btn" id="btn-screenshot" data-tip="スクリーンショット"><i class="fa-solid fa-camera"></i></button>
+      <button class="tb-btn tb-btn-danger" id="btn-clear-saved" data-tip="保存データを削除して新規スタート"><i class="fa-solid fa-trash-can"></i></button>
       <div id="save-status" class="save-status saved" data-tip="自動保存状態"><i class="fa-solid fa-cloud-arrow-up"></i> <span id="save-status-text">保存済み</span></div>
       <input type="file" id="file-input" accept=".json" style="display:none">
     </div>
@@ -7104,6 +7105,13 @@ function initUI() {
   document.getElementById('btn-load').addEventListener('click', () => document.getElementById('file-input').click());
   document.getElementById('file-input').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = ev => loadLayout(ev.target.result); r.readAsText(f); e.target.value = ''; });
   document.getElementById('btn-screenshot').addEventListener('click', takeScreenshot);
+  document.getElementById('btn-clear-saved').addEventListener('click', async () => {
+    if (!confirm('保存された自動セーブデータを削除して新規スタートします。よろしいですか？')) return;
+    const ok = await idbDelete();
+    applyLayout(PRESETS[0]);
+    setStatus('保存データを削除しました — 新規スタート');
+    toast(ok ? '保存データを削除しました' : '保存データはありませんでした');
+  });
   document.getElementById('btn-presets').addEventListener('click', openPresetModal);
   document.getElementById('preset-close').addEventListener('click', closePresetModal);
   document.getElementById('preset-modal').addEventListener('click', e => { if (e.target.id === 'preset-modal') closePresetModal(); });
@@ -7771,6 +7779,17 @@ function idbGet() {
     } catch(e) { res(null); }
   });
 }
+function idbDelete() {
+  return new Promise(res => {
+    if (!idb) { res(false); return; }
+    try {
+      const tx = idb.transaction(IDB_STORE, 'readwrite');
+      const req = tx.objectStore(IDB_STORE).delete('layout');
+      req.onsuccess = () => res(true);
+      req.onerror = () => res(false);
+    } catch(e) { console.warn('idbDelete failed', e); res(false); }
+  });
+}
 function buildSavePayload() {
   const cells = [];
   roomPlan.cells.forEach((type, key) => { const [ix, iz] = key.split(',').map(Number); cells.push([ix, iz, type]); });
@@ -7813,23 +7832,10 @@ async function boot() {
   _autoSaveEnabled = true;
   const saved = await idbGet();
   if (saved && saved.items && saved.items.length > 0) {
-    // Show restore banner
-    const banner = document.createElement('div');
-    banner.className = 'restore-banner';
-    banner.innerHTML = `<div class="rb-text"><b>前回のレイアウトが見つかりました</b><br><span style="font-size:11px;color:var(--text-secondary)">${saved.items.length} 点の家具 / ${saved.room?.w||'?'}m × ${saved.room?.d||'?'}m</span></div>
-      <div class="rb-btns">
-        <button class="rb-restore" id="rb-yes">復元する</button>
-        <button id="rb-no">新規スタート</button>
-      </div>`;
-    document.body.appendChild(banner);
-    document.getElementById('rb-yes').addEventListener('click', () => {
-      applyLayout(saved); banner.remove();
-      setStatus('前回のレイアウトを復元しました');
-    });
-    document.getElementById('rb-no').addEventListener('click', () => {
-      applyLayout(PRESETS[0]); banner.remove();
-      setStatus('準備完了 — 家具を配置、またはプリセットを選択');
-    });
+    // Auto-restore the previous layout — no prompt
+    applyLayout(saved);
+    setStatus('前回のレイアウトを自動復元しました');
+    toast(`前回のレイアウトを復元しました（${saved.items.length} 点）`);
   } else {
     applyLayout(PRESETS[0]);
     setStatus('準備完了 — 家具を配置、またはプリセットを選択');
