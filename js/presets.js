@@ -715,6 +715,180 @@ const PRESETS = [
       P('dresser', 2.7, -3.6, 90, '#f3ece0'),  // 東向き (西壁にミラー面)
     ],
   },
+  // ===== 学校 (教室) =====
+  {
+    id: 'classroom', name: '学校（教室）', icon: 'fa-school', cat: '特殊',
+    desc: '9m×8mの標準的な教室。前方に黒板と教卓、学習机を5列×4行で整然と配置。廊下側(西)に前後2つの引き戸、窓側(東)に大きな窓を備えた小中学校の教室レイアウト。',
+    room: { w: 9, d: 8 }, floorType: 'wood', wallType: 'cream',
+    walls: {
+      north: [],   // 黒板の壁
+      south: [{ t: 0.85, w: 1.0, kind: 'window' }],  // 背面窓
+      east:  [{ t: 0.25, w: 1.6, kind: 'window' }, { t: 0.55, w: 1.6, kind: 'window' }, { t: 0.85, w: 1.6, kind: 'window' }],  // 窓側
+      west:  [{ t: 0.28, w: 1.0, kind: 'glass_door' }, { t: 0.75, w: 1.0, kind: 'glass_door' }],  // 廊下側 前後引き戸
+    },
+    partitions: [],
+    items: [
+      // 前方 (北) — 黒板・教卓
+      P('blackboard', 0, -3.97, 0, '#1f4a37'),
+      P('wallclock', 3.7, -3.97, 0),
+      P('desk', 0, -2.8, 0, '#e8e2d6'),   // 教卓
+      P('ochr', 0, -3.35, 0),             // 教師椅子 (南向き=生徒側)
+      // 学習机 5列×4行 (机 rotY=180=引き出し南向き / 生徒椅子 南側・北向き)
+      P('schooldesk', -3.0, -1.4, 180), P('stackchr', -3.0, -0.9, 180),
+      P('schooldesk', -1.5, -1.4, 180), P('stackchr', -1.5, -0.9, 180),
+      P('schooldesk',  0.0, -1.4, 180), P('stackchr',  0.0, -0.9, 180),
+      P('schooldesk',  1.5, -1.4, 180), P('stackchr',  1.5, -0.9, 180),
+      P('schooldesk',  3.0, -1.4, 180), P('stackchr',  3.0, -0.9, 180),
+      P('schooldesk', -3.0, -0.2, 180), P('stackchr', -3.0,  0.3, 180),
+      P('schooldesk', -1.5, -0.2, 180), P('stackchr', -1.5,  0.3, 180),
+      P('schooldesk',  0.0, -0.2, 180), P('stackchr',  0.0,  0.3, 180),
+      P('schooldesk',  1.5, -0.2, 180), P('stackchr',  1.5,  0.3, 180),
+      P('schooldesk',  3.0, -0.2, 180), P('stackchr',  3.0,  0.3, 180),
+      P('schooldesk', -3.0,  1.0, 180), P('stackchr', -3.0,  1.5, 180),
+      P('schooldesk', -1.5,  1.0, 180), P('stackchr', -1.5,  1.5, 180),
+      P('schooldesk',  0.0,  1.0, 180), P('stackchr',  0.0,  1.5, 180),
+      P('schooldesk',  1.5,  1.0, 180), P('stackchr',  1.5,  1.5, 180),
+      P('schooldesk',  3.0,  1.0, 180), P('stackchr',  3.0,  1.5, 180),
+      P('schooldesk', -3.0,  2.2, 180), P('stackchr', -3.0,  2.7, 180),
+      P('schooldesk', -1.5,  2.2, 180), P('stackchr', -1.5,  2.7, 180),
+      P('schooldesk',  0.0,  2.2, 180), P('stackchr',  0.0,  2.7, 180),
+      P('schooldesk',  1.5,  2.2, 180), P('stackchr',  1.5,  2.7, 180),
+      P('schooldesk',  3.0,  2.2, 180), P('stackchr',  3.0,  2.7, 180),
+      // 背面 (南) — 清掃ロッカー・学級文庫
+      P('locker', -3.2, 3.6, 180, '#8a9a9e'),
+      P('shelf',  -1.1, 3.65, 180, '#8a5a2b'),
+      P('shelf',   1.1, 3.65, 180, '#8a5a2b'),
+      P('locker',  3.2, 3.6, 180, '#8a9a9e'),
+      // 窓側
+      P('benjamin', 4.0, -0.6),
+    ],
+  },
+  // ===== ホテル (客室) =====
+  {
+    id: 'hotel', name: 'ホテル客室', icon: 'fa-hotel', cat: '住宅',
+    desc: '7m×5mのホテルツインルーム。ダブルベッド・ワークデスク・ラウンジチェア・壁掛けテレビ・ユニットバスを備えたシティホテルの客室レイアウト。東面に大きな眺望窓。',
+    room: { w: 7, d: 5 }, floorType: 'carpet', wallType: 'cream',
+    walls: {
+      north: [],
+      south: [{ t: 0.18, w: 1.0, kind: 'door' }],   // 客室入口
+      east:  [{ t: 0.5, w: 2.2, kind: 'window' }],   // 眺望窓
+      west:  [],
+    },
+    partitions: [
+      // バスルーム (北西) の囲い
+      { x1: -1.3, z1: -2.5, x2: -1.3, z2: -0.3, openings: [{ t: 0.78, w: 0.75, kind: 'door' }] },
+      { x1: -3.5, z1: -0.3, x2: -1.3, z2: -0.3 },
+    ],
+    floors: [
+      { x1: -3.5, z1: -2.5, x2: -1.3, z2: -0.3, type: 'tile' },  // バスルーム
+    ],
+    items: [
+      // バスルーム
+      P('bathset', -2.4, -1.35, 90, '#e8e2d6'),
+      // ベッド (ヘッドボード北壁)
+      P('dbed', 0.7, -1.3, 0, '#3f5d7a'),
+      P('stable', -0.5, -2.0), P('stable', 1.9, -2.0),
+      P('tablelamp', -0.5, -2.0), P('tablelamp', 1.9, -2.0),
+      P('wallart', 0.7, -2.45, 0),
+      // テレビ (南壁・ベッド対面)
+      P('tvboard', 0.7, 2.28, 180, '#5b5048'), P('walltv', 0.7, 2.45, 180, '#2a2a2a'),
+      // ワークデスク (東壁・窓下)
+      P('desk', 3.0, 0.7, 270, '#e8e2d6'), P('ochr', 2.35, 0.7, 90),
+      // ワードローブ・荷物掛け (西壁)
+      P('wardrobe', -3.0, 0.6, 90, '#f3ece0'),
+      P('hangerrack', -3.0, 2.0, 90),
+      // ラウンジコーナー (南東)
+      P('loungechair', 2.6, 1.9, 270, '#6f9e74'), P('lamp', 3.2, 2.2),
+      // 装飾
+      P('strelitzia', 3.1, -2.0),
+      P('pendlamp', 0.7, -0.6),
+    ],
+  },
+  // ===== 日本家屋 (和室) =====
+  {
+    id: 'washitsu', name: '日本家屋', icon: 'fa-torii-gate', cat: '住宅',
+    desc: '10m×9mの伝統的な日本家屋。畳敷きの二間続き(襖で仕切り)・床の間・縁側・玄関を備えた和の住まい。北面の障子越しに庭を望む。',
+    room: { w: 10, d: 9 }, floorType: 'tatami', wallType: 'cream',
+    walls: {
+      north: [{ t: 0.5, w: 3.5, kind: 'window' }],   // 庭側 (縁側の先)
+      south: [{ t: 0.5, w: 1.2, kind: 'door' }],      // 玄関入口
+      east:  [{ t: 0.3, w: 1.2, kind: 'window' }, { t: 0.7, w: 1.2, kind: 'window' }],
+      west:  [{ t: 0.3, w: 1.2, kind: 'window' }, { t: 0.7, w: 1.2, kind: 'window' }],
+    },
+    partitions: [
+      // 縁側 仕切り (障子)
+      { x1: -5, z1: -3.5, x2: 5, z2: -3.5, openings: [{ t: 0.25, w: 1.6, kind: 'shoji' }, { t: 0.72, w: 1.6, kind: 'shoji' }] },
+      // 中央 襖 (二間続き)
+      { x1: 0, z1: -3.5, x2: 0, z2: 1.0, openings: [{ t: 0.32, w: 1.4, kind: 'fusuma' }, { t: 0.78, w: 1.4, kind: 'fusuma' }] },
+      // 玄関の囲い
+      { x1: -1.5, z1: 2.2, x2: -1.5, z2: 4.5 },
+      { x1: 1.5, z1: 2.2, x2: 1.5, z2: 4.5 },
+      { x1: -1.5, z1: 2.2, x2: 1.5, z2: 2.2, openings: [{ t: 0.5, w: 1.0, kind: 'door' }] },  // 上がり框の戸
+    ],
+    floors: [
+      { x1: -5, z1: -4.5, x2: 5, z2: -3.5, type: 'wood' },     // 縁側
+      { x1: -1.5, z1: 2.2, x2: 1.5, z2: 4.5, type: 'genkan' }, // 玄関
+    ],
+    items: [
+      // 西の間 (居間) — こたつ
+      P('kotatsu', -2.5, -1.2, 0, '#8a5a2b'),
+      P('zabuton', -2.5, -2.1, 0, '#7a3540'), P('zabuton', -2.5, -0.3, 0, '#3f5d7a'),
+      P('zabuton', -3.5, -1.2, 0, '#5b6b3a'), P('zabuton', -1.4, -1.2, 0, '#b25c78'),
+      P('chest', -4.6, -2.6, 90, '#5b3a22'),   // 和箪笥
+      P('lamp', -4.4, 0.4),                     // 行灯風
+      P('rhapis', -4.4, 1.6),
+      // 東の間 (座敷) — 床の間付き
+      P('roundctab', 2.5, -1.0, 0, '#5b3a22'),  // 茶卓
+      P('zabuton', 2.5, -1.9, 0, '#7a3540'), P('zabuton', 1.6, -0.5, 0, '#3f5d7a'), P('zabuton', 3.4, -0.5, 0, '#5b6b3a'),
+      P('consoletab', 4.6, -2.4, 270, '#5b3a22'), // 床の間 飾り台
+      P('wallart', 4.95, -2.4, 270),              // 掛け軸
+      P('bamboo', 4.4, -3.0),                      // 活け花
+      P('zzplant', 3.6, 1.4),
+      // 縁側 (北)
+      P('zabuton', 0, -4.0, 0, '#b25c78'),
+      P('benjamin', -4.2, -4.0), P('strelitzia', 4.2, -4.0),
+      // 玄関
+      P('shoebox', 1.05, 4.0, 270, '#5b3a22'),
+      P('olive', -1.05, 4.0),
+      // 玄関脇のたたみ (南角)
+      P('chest', -4.6, 3.8, 90, '#5b3a22'),
+      P('ficus_umb', 4.3, 3.8),
+    ],
+  },
+  // ===== キャンプサイト (テント) =====
+  {
+    id: 'campsite', name: 'キャンプサイト', icon: 'fa-campground', cat: '特殊',
+    desc: '10m×9mの林間キャンプサイト。ドームテント・焚き火・キャンプチェア・クーラーボックス・ランタンを配した屋外レイアウト。芝生の上に設営エリアと焚き火スペースを設けた本格的なアウトドアシーン。',
+    room: { w: 10, d: 9 }, floorType: 'grass', wallType: 'wood',
+    walls: {
+      north: [{ t: 0.5, w: 1.5, kind: 'door' }],   // 林道への小径
+      south: [{ t: 0.5, w: 3.0, kind: 'door' }],    // メインゲート
+      east:  [],
+      west:  [],
+    },
+    partitions: [],
+    floors: [
+      { x1: -0.6, z1: -0.2, x2: 1.6, z2: 1.8, type: 'dirt' },  // 焚き火の地面
+    ],
+    items: [
+      // テント (北西・入口南向き)
+      P('tent', -2.2, -2.3, 180, '#3f7a4a'),
+      P('lantern', -1.0, -0.7),
+      // 焚き火
+      P('campfire', 0.5, 0.8, 0),
+      // 焚き火を囲むチェア
+      P('campchair', 0.5, 2.1, 180, '#2f5fa0'),   // 南→北向き
+      P('campchair', 2.0, 0.8, 270, '#b25c78'),   // 東→西向き
+      P('campchair', -0.9, 0.8, 90, '#5b6b3a'),   // 西→東向き
+      // クーラーボックス・テーブル
+      P('coolerbox', -2.2, 1.6, 0, '#b9714a'),
+      P('cafetable', 3.0, 2.2, 0, '#8a5a2b'), P('lantern', 3.0, 2.2),
+      // 木立 (周囲)
+      P('ficus_umb', -4.3, -3.6), P('benjamin', 4.3, -3.6),
+      P('strelitzia', 4.3, 3.6), P('olive', -4.3, 3.6),
+      P('bamboo', -4.5, 0.5), P('rhapis', 4.5, 0.5),
+    ],
+  },
 ];
 
 export { P, PRESETS };

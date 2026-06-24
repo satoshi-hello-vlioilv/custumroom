@@ -649,4 +649,79 @@ function buildPiano({ color='#1a1010', w=1.45, d=0.6, h=1.22 } = {}) {
   return g;
 }
 
-export { buildArmchair, buildBed, buildBench, buildBookshelf, buildBunkBed, buildCafeChair, buildCafeTable, buildChest, buildCoffeeTable, buildConsoleTable, buildDesk, buildDeskLamp, buildDiningChair, buildDiningTable, buildDresser, buildFloorLamp, buildGlassCabinet, buildHangerRack, buildKotatsu, buildLoungeChair, buildMonitor, buildOfficeChair, buildOttoman, buildPendantLamp, buildPiano, buildRoundCoffeeTable, buildRoundRug, buildRoundTableSm, buildRug, buildSideTable, buildSofa3, buildSofaL, buildStackingChair, buildStool, buildTV, buildTVBoard, buildTableLamp, buildUpholsteredChair, buildWallArt, buildWallClock, buildWardrobe, buildWindsorChair };
+function buildSchoolDesk({ color='#e8c89a', w=0.65, d=0.45, h=0.72 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.6, 0.03);
+  const metal = mat('#b8bcc0', 0.3, 0.7, { env: 0.85 });
+  // Desktop
+  const top = box(w, 0.028, d, wood, 0, h, 0); top.userData.colorable = true; g.add(top);
+  // Top edge trim
+  g.add(box(w+0.01, 0.012, d+0.01, mat(shade(color,0.8),0.55), 0, h-0.018, 0));
+  // Under-desk book tray (open toward -Z = student side)
+  const trayY = h - 0.14;
+  g.add(box(w-0.06, 0.016, d-0.06, mat(shade(color,0.86),0.55), 0, trayY, 0));   // bottom
+  g.add(box(w-0.06, 0.1, 0.016, mat(shade(color,0.82),0.55), 0, trayY+0.05, d/2-0.04));  // back (+Z)
+  g.add(box(0.016, 0.1, d-0.06, mat(shade(color,0.82),0.55),  (w/2-0.04), trayY+0.05, 0)); // right side
+  g.add(box(0.016, 0.1, d-0.06, mat(shade(color,0.82),0.55), -(w/2-0.04), trayY+0.05, 0)); // left side
+  // 4 tubular metal legs + rubber foot caps
+  const footMat = mat('#2a2a2e', 0.7);
+  [[ w/2-0.05,  d/2-0.05], [ w/2-0.05, -(d/2-0.05)],
+   [-(w/2-0.05), d/2-0.05], [-(w/2-0.05), -(d/2-0.05)]].forEach(([lx,lz]) => {
+    g.add(cylAt(0.014, 0.014, h-0.03, 10, metal, lx, (h-0.03)/2, lz));
+    g.add(cylAt(0.02, 0.02, 0.012, 10, footMat, lx, 0.006, lz));
+  });
+  // Side stretcher rails (front + back, spanning x)
+  [d/2-0.05, -(d/2-0.05)].forEach(rz => {
+    const rail = cylAt(0.012, 0.012, w-0.1, 10, metal, 0, 0.14, rz); rail.rotation.z = Math.PI/2; g.add(rail);
+  });
+  // Side bag hook (-Z front side)
+  g.add(box(0.02, 0.05, 0.02, metal, w/2-0.05, 0.42, -(d/2-0.02)));
+  return g;
+}
+function buildBlackboard({ color='#1f4a37', w=3.0, d=0.06, h=1.2 } = {}) {
+  const g = new THREE.Group();
+  const frame = mat('#7a5230', 0.6, 0.05);   // wooden frame
+  const cy = 1.25;   // board center height
+  // Board surface
+  const board = box(w, h, 0.02, mat(color, 0.92, 0), 0, cy, 0); board.userData.colorable = true; g.add(board);
+  // Wooden frame
+  g.add(box(w+0.06, 0.05, 0.05, frame, 0, cy+h/2+0.01, 0));   // top
+  g.add(box(w+0.06, 0.06, 0.05, frame, 0, cy-h/2-0.01, 0));   // bottom
+  g.add(box(0.05, h+0.08, 0.05, frame, -w/2-0.02, cy, 0));    // left
+  g.add(box(0.05, h+0.08, 0.05, frame,  w/2-0.02 + 0.04, cy, 0)); // right
+  // Chalk tray
+  g.add(box(w, 0.03, 0.1, frame, 0, cy-h/2-0.04, 0.05));
+  g.add(box(w, 0.03, 0.02, frame, 0, cy-h/2-0.015, 0.095));   // tray lip
+  // Chalk pieces + eraser
+  ['#f4f4f0','#f4f4f0','#f7d0d0','#d0e8f7'].forEach((c,i)=>{
+    const ch = cylAt(0.008,0.008,0.06,8, mat(c,0.8), -0.4+i*0.12, cy-h/2-0.02, 0.06); ch.rotation.z=Math.PI/2; g.add(ch);
+  });
+  g.add(box(0.13, 0.04, 0.06, mat('#3a3a40',0.7), 0.5, cy-h/2-0.02, 0.06));   // eraser
+  // Faint chalk writing hints
+  g.add(box(0.7, 0.012, 0.004, mat('#cfd8d0',0.9), -w*0.28, cy+h*0.2, 0.012));
+  g.add(box(0.5, 0.012, 0.004, mat('#cfd8d0',0.9), -w*0.30, cy+h*0.05, 0.012));
+  g.add(box(0.9, 0.012, 0.004, mat('#cfd8d0',0.9),  w*0.1,  cy-h*0.1, 0.012));
+  return g;
+}
+function buildZabuton({ color='#7a3540', w=0.55, d=0.55, h=0.08 } = {}) {
+  const g = new THREE.Group();
+  const fabric = fabricMat(color);
+  // Cushion body (puffy rounded)
+  const cushion = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.045, 4), fabric);
+  cushion.position.set(0, h/2, 0); cushion.castShadow = true; cushion.receiveShadow = true; cushion.userData.colorable = true; g.add(cushion);
+  // Center tuft button
+  const btn = cyl(0.025, 0.025, 0.015, 12, fabricMat(shade(color,0.8)));
+  btn.position.set(0, h-0.005, 0); g.add(btn);
+  // Edge seam piping (4 sides)
+  const piping = fabricMat(shade(color,0.82));
+  g.add(box(w, 0.014, 0.014, piping, 0, h*0.5, d/2-0.005));
+  g.add(box(w, 0.014, 0.014, piping, 0, h*0.5, -(d/2-0.005)));
+  g.add(box(0.014, 0.014, d, piping, w/2-0.005, h*0.5, 0));
+  g.add(box(0.014, 0.014, d, piping, -(w/2-0.005), h*0.5, 0));
+  // Corner tassels
+  [[w/2-0.04,d/2-0.04],[w/2-0.04,-(d/2-0.04)],[-(w/2-0.04),d/2-0.04],[-(w/2-0.04),-(d/2-0.04)]].forEach(([tx,tz])=>{
+    g.add(cylAt(0.008,0.012,0.03,6, fabricMat(shade(color,0.7)), tx, h*0.4, tz));
+  });
+  return g;
+}
+export { buildArmchair, buildBed, buildBench, buildBlackboard, buildBookshelf, buildBunkBed, buildCafeChair, buildCafeTable, buildChest, buildCoffeeTable, buildConsoleTable, buildDesk, buildDeskLamp, buildDiningChair, buildDiningTable, buildDresser, buildFloorLamp, buildGlassCabinet, buildHangerRack, buildKotatsu, buildLoungeChair, buildMonitor, buildOfficeChair, buildOttoman, buildPendantLamp, buildPiano, buildRoundCoffeeTable, buildRoundRug, buildRoundTableSm, buildRug, buildSchoolDesk, buildSideTable, buildSofa3, buildSofaL, buildStackingChair, buildStool, buildTV, buildTVBoard, buildTableLamp, buildUpholsteredChair, buildWallArt, buildWallClock, buildWardrobe, buildWindsorChair, buildZabuton };

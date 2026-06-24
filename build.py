@@ -25,6 +25,7 @@ JS_FILES = [
     'js/builders/office.js',
     'js/builders/lab.js',
     'js/builders/instruments.js',
+    'js/builders/outdoor.js',
     'js/catalog.js',
     'js/presets.js',
     'js/app.js',
