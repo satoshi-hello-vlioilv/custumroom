@@ -207,4 +207,168 @@ function buildWallTV({ color='#1c1c1f', w=1.3, d=0.08, h=0.8 } = {}) {
 }
 
 
-export { buildBathSet, buildBathtub, buildCloset, buildCupboard, buildFridge, buildGasStove, buildHandBasin, buildKitchenCounter, buildMicrowave, buildRiceCooker, buildShoeCabinet, buildToilet, buildVanity, buildWallTV, buildWasher };
+function buildWallAC({ color='#f2f2f0', w=0.9, d=0.2, h=0.28 } = {}) {
+  const g = new THREE.Group();
+  const cy = 1.97;
+  // Body
+  const bodyMesh = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.022, 3), mat(color, 0.45, 0.05));
+  bodyMesh.position.set(0, cy, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true; bodyMesh.userData.colorable = true; g.add(bodyMesh);
+  // Front-face horizontal intake slats (7)
+  const slatMat = mat(shade(color, 0.78), 0.55);
+  for (let i = 0; i < 7; i++) {
+    g.add(box(w - 0.06, 0.009, 0.006, slatMat, 0, cy + h * 0.22 - i * 0.023, d / 2 + 0.002));
+  }
+  // Bottom output louver
+  const louver = box(w - 0.04, 0.022, 0.09, mat(shade(color, 0.82), 0.5), 0, cy - h * 0.38, d / 2 - 0.015);
+  louver.rotation.x = 0.42; g.add(louver);
+  // Top intake grille (4 boxes evenly spaced in z)
+  const grilleMat = mat(shade(color, 0.88), 0.5);
+  const grilleZStart = -d / 2 + 0.012;
+  const grilleZStep = (d - 0.024) / 3;
+  for (let i = 0; i < 4; i++) {
+    g.add(box(w - 0.1, 0.007, 0.016, grilleMat, 0, cy + h / 2 + 0.003, grilleZStart + i * grilleZStep));
+  }
+  // LED display strip (right side)
+  g.add(box(0.14, 0.014, 0.005, mat('#18283c', 0.6, 0.1), w * 0.27, cy + h * 0.1, d / 2 + 0.003));
+  // Glow box
+  g.add(box(0.07, 0.009, 0.007, mat('#0099dd', 0.3, 0.5), w * 0.27, cy + h * 0.1, d / 2 + 0.004));
+  // IR sensor
+  const sensor = cyl(0.007, 0.007, 0.006, 8, mat('#0a0e14', 0.6));
+  sensor.rotation.x = Math.PI / 2; sensor.position.set(-w * 0.4, cy, d / 2 + 0.003); g.add(sensor);
+  return g;
+}
+
+function buildEspressoMachine({ color='#2a2a2e', w=0.3, d=0.38, h=0.42 } = {}) {
+  const g = new THREE.Group();
+  const bodyMat = mat(color, 0.3, 0.65, { env: 0.9 });
+  const chromeMat = mat('#c8ccd0', 0.15, 0.85, { env: 1.1 });
+  // Drip tray
+  g.add(box(w-0.02, 0.022, d-0.06, mat('#2a2a2e', 0.45, 0.5), 0, 0.011, 0.02));
+  // Tray grate
+  g.add(box(w-0.06, 0.008, d-0.12, mat('#3a3a3e', 0.5, 0.6), 0, 0.024, 0.02));
+  // Main body
+  const body = new THREE.Mesh(roundedBoxGeom(w-0.02, h-0.06, d-0.04, 0.022, 3), bodyMat);
+  body.position.set(0, 0.03+(h-0.06)/2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  // Water reservoir (rear)
+  g.add(box(w-0.08, h*0.62, 0.06, mat(shade(color,1.4), 0.35, 0.4), 0, 0.06+h*0.31, -d/2+0.04));
+  // Front panel area (buttons)
+  g.add(box(w-0.08, h*0.22, 0.012, mat('#1a1a1e', 0.5, 0.3), 0, 0.03+h-0.06-h*0.12, d/2-0.06-0.008));
+  const btn1 = cylAt(0.012,0.012,0.014,10,chromeMat, -0.055, 0.03+h-0.07, d/2-0.055); btn1.rotation.x = Math.PI/2; g.add(btn1);
+  const btn2 = cylAt(0.012,0.012,0.014,10,chromeMat,  0.055, 0.03+h-0.07, d/2-0.055); btn2.rotation.x = Math.PI/2; g.add(btn2);
+  // Group head barrel
+  const barrel = cylAt(0.032,0.032,0.055,14,chromeMat, 0, 0.14, d/2-0.04); barrel.rotation.x = Math.PI/2; g.add(barrel);
+  // Diffuser disk
+  const diffuser = cylAt(0.028,0.028,0.01,14,mat('#1a1a1e',0.5,0.4), 0, 0.14, d/2); diffuser.rotation.x = Math.PI/2; g.add(diffuser);
+  // Portafilter handle
+  g.add(box(0.045, 0.018, 0.18, mat('#4a3020', 0.7), 0, 0.1, d/2+0.06));
+  const pfl1 = cylAt(0.01,0.01,0.04,8,chromeMat, -0.02, 0.085, d/2+0.0); g.add(pfl1);
+  const pfl2 = cylAt(0.01,0.01,0.04,8,chromeMat,  0.02, 0.085, d/2+0.0); g.add(pfl2);
+  // Steam wand base joint
+  const swBase = cylAt(0.012,0.012,0.025,8,chromeMat, w/2-0.04, 0.25, 0.04); g.add(swBase);
+  // Steam wand
+  const wand = box(0.012, 0.12, 0.012, chromeMat, w/2+0.02, 0.18, 0.06); wand.rotation.z = 0.45; g.add(wand);
+  // Steam wand tip
+  g.add(cylAt(0.008,0.006,0.025,8,chromeMat, w/2+0.04, 0.11, 0.09));
+  // Pressure gauge face
+  const gauge = cylAt(0.024,0.024,0.008,16,mat('#f0f0e8',0.6), -w*0.28, 0.03+h*0.62, d/2-0.055); gauge.rotation.x = Math.PI/2; g.add(gauge);
+  // Gauge inner dial
+  const dial = cylAt(0.018,0.018,0.01,16,mat('#1a3060',0.4), -w*0.28, 0.03+h*0.62, d/2-0.055); dial.rotation.x = Math.PI/2; dial.position.z += 0.005; g.add(dial);
+  return g;
+}
+
+function buildDishwasher({ color='#e0e0dc', w=0.6, d=0.6, h=0.85 } = {}) {
+  const g = new THREE.Group();
+  const steelMat = mat('#c4c8cc', 0.22, 0.72, { env: 0.8 });
+  const bodyMat = mat(color, 0.5, 0.06);
+  // Main cabinet
+  const cab = box(w, h, d, bodyMat, 0, h/2, 0); cab.userData.colorable = true; g.add(cab);
+  // Front door panel
+  g.add(box(w-0.02, h-0.08, 0.04, steelMat, 0, (h-0.08)/2, d/2-0.01));
+  // Door handle bar
+  g.add(box(w-0.1, 0.03, 0.04, mat('#9aa0a4',0.25,0.8,{env:0.9}), 0, h-0.07, d/2+0.01));
+  // Control panel strip (top of door)
+  g.add(box(w-0.02, 0.06, 0.045, mat('#2a2a2f', 0.4, 0.2), 0, h-0.04, d/2-0.008));
+  // Status LED row
+  const ledColors = [0x00cc44, 0xff8800, 0x0088ff];
+  const ledXPos = [-0.05, 0, 0.05];
+  ledColors.forEach((lc, i) => {
+    const led = cylAt(0.005,0.005,0.006,6,new THREE.MeshStandardMaterial({color:lc,roughness:0.4,metalness:0.1,emissive:lc,emissiveIntensity:0.5}), ledXPos[i], h-0.04, d/2);
+    led.rotation.x = Math.PI/2; g.add(led);
+  });
+  // Bottom vent
+  g.add(box(w-0.04, 0.02, 0.035, mat('#1a1a1e',0.6), 0, 0.013, d/2+0.005));
+  // Top cap
+  g.add(box(w, 0.02, d, mat(shade(color,0.88),0.45), 0, h-0.01, 0));
+  return g;
+}
+
+function buildLockerUnit({ color='#8a9a9e', w=1.2, d=0.45, h=1.85 } = {}) {
+  const g = new THREE.Group();
+  const metalMat = mat(color, 0.38, 0.55, { env: 0.7 });
+  const darkMat = mat('#2a2a2e', 0.5, 0.3);
+  // Body
+  const body = box(w, h, d, metalMat, 0, h/2, 0); body.userData.colorable = true; g.add(body);
+  // Base plinth
+  g.add(box(w, 0.05, d+0.02, mat(shade(color,0.72),0.45,0.4), 0, 0.025, 0));
+  // Top cap
+  g.add(box(w+0.02, 0.03, d+0.02, mat(shade(color,0.8),0.4,0.5), 0, h+0.015, 0));
+  // 3 door panels
+  for (let i = 0; i < 3; i++) {
+    const lockerX = -w/3 + (i+0.5)*w/3;
+    const door = box(w/3-0.025, h-0.14, 0.03, mat(shade(color,1.12),0.42,0.5), lockerX, h/2, d/2+0.005);
+    door.userData.colorable = true; g.add(door);
+    // Ventilation slots
+    for (let j = 0; j < 3; j++) {
+      g.add(box(w/3-0.1, 0.018, 0.035, darkMat, lockerX, h-0.12-j*0.04, d/2+0.006));
+    }
+    // Handle
+    g.add(box(0.06, 0.025, 0.04, mat('#9aa0a4',0.25,0.8,{env:0.9}), lockerX+0.09, h/2, d/2+0.028));
+    // Number plate
+    g.add(box(0.06, 0.04, 0.004, mat('#f5f0e0',0.8), lockerX-0.06, h-0.07, d/2+0.022));
+  }
+  // Vertical dividers
+  [-w/6, w/6].forEach(dx => {
+    g.add(box(0.012, h, 0.035, mat(shade(color,0.72),0.4), dx, h/2, d/2+0.002));
+  });
+  // Floor channel drain hint
+  g.add(box(w-0.08, 0.005, d-0.08, mat('#1a1a1e',0.7), 0, 0.052, 0));
+  return g;
+}
+
+function buildVendingMachine({ color='#e8e0d8', w=0.75, d=0.35, h=1.85 } = {}) {
+  const g = new THREE.Group();
+  const bodyMat = mat(color, 0.45, 0.1, { env: 0.3 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xb8d4e0, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.35 });
+  const darkMat = mat('#1a1a1e', 0.5, 0.2);
+  // Cabinet body
+  const cab = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.025, 3), bodyMat);
+  cab.position.set(0, h/2, 0); cab.castShadow = true; cab.userData.colorable = true; g.add(cab);
+  // Display window
+  g.add(plainBox(w-0.14, h*0.52, 0.016, glassMat, 0, h*0.64, d/2-0.005));
+  // Product rows behind glass
+  const productColors = ['#e8242a','#f5a623','#4a90e2','#7ed321','#d0021b'];
+  for (let j = 0; j < 4; j++) {
+    g.add(box(w-0.22, 0.08, 0.04, mat(productColors[j%5], 0.7), 0, h*0.42+j*0.1, d/2-0.04));
+  }
+  // Interior glow
+  const glow = new THREE.Mesh(new THREE.BoxGeometry(w-0.2, h*0.48, 0.01), new THREE.MeshBasicMaterial({ color: 0xfff8e0, transparent: true, opacity: 0.3 }));
+  glow.position.set(0, h*0.62, d/2-0.06); g.add(glow);
+  // Payment panel
+  g.add(box(0.18, h*0.22, 0.04, mat('#1a1a1e',0.4), w*0.28, h*0.28, d/2-0.002));
+  // Panel screen
+  g.add(box(0.12, 0.08, 0.008, mat('#0a1828',0.3,0.15), w*0.28, h*0.34, d/2+0.022));
+  // Coin slot
+  g.add(box(0.06, 0.012, 0.012, darkMat, w*0.28, h*0.26, d/2+0.022));
+  // Bill slot
+  g.add(box(0.09, 0.018, 0.012, darkMat, w*0.28, h*0.22, d/2+0.022));
+  // Dispense slot
+  g.add(box(w-0.16, 0.05, 0.06, mat(shade(color,0.7),0.5), 0, 0.16, d/2-0.01));
+  g.add(box(w-0.24, 0.04, 0.04, darkMat, 0, 0.16, d/2+0.006));
+  // Coin return
+  g.add(box(0.055, 0.04, 0.04, darkMat, -w*0.32, h*0.16, d/2-0.002));
+  // Decorative stripe
+  g.add(box(0.06, h-0.1, 0.025, mat('#e8242a', 0.6), -w/2+0.06, h/2, d/2-0.003));
+  return g;
+}
+
+export { buildBathSet, buildBathtub, buildCloset, buildCupboard, buildDishwasher, buildEspressoMachine, buildFridge, buildGasStove, buildHandBasin, buildKitchenCounter, buildLockerUnit, buildMicrowave, buildRiceCooker, buildShoeCabinet, buildToilet, buildVanity, buildVendingMachine, buildWallAC, buildWallTV, buildWasher };

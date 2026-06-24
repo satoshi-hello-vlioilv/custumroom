@@ -4353,6 +4353,170 @@ function buildWallTV({ color='#1c1c1f', w=1.3, d=0.08, h=0.8 } = {}) {
 }
 
 
+function buildWallAC({ color='#f2f2f0', w=0.9, d=0.2, h=0.28 } = {}) {
+  const g = new THREE.Group();
+  const cy = 1.97;
+  // Body
+  const bodyMesh = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.022, 3), mat(color, 0.45, 0.05));
+  bodyMesh.position.set(0, cy, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true; bodyMesh.userData.colorable = true; g.add(bodyMesh);
+  // Front-face horizontal intake slats (7)
+  const slatMat = mat(shade(color, 0.78), 0.55);
+  for (let i = 0; i < 7; i++) {
+    g.add(box(w - 0.06, 0.009, 0.006, slatMat, 0, cy + h * 0.22 - i * 0.023, d / 2 + 0.002));
+  }
+  // Bottom output louver
+  const louver = box(w - 0.04, 0.022, 0.09, mat(shade(color, 0.82), 0.5), 0, cy - h * 0.38, d / 2 - 0.015);
+  louver.rotation.x = 0.42; g.add(louver);
+  // Top intake grille (4 boxes evenly spaced in z)
+  const grilleMat = mat(shade(color, 0.88), 0.5);
+  const grilleZStart = -d / 2 + 0.012;
+  const grilleZStep = (d - 0.024) / 3;
+  for (let i = 0; i < 4; i++) {
+    g.add(box(w - 0.1, 0.007, 0.016, grilleMat, 0, cy + h / 2 + 0.003, grilleZStart + i * grilleZStep));
+  }
+  // LED display strip (right side)
+  g.add(box(0.14, 0.014, 0.005, mat('#18283c', 0.6, 0.1), w * 0.27, cy + h * 0.1, d / 2 + 0.003));
+  // Glow box
+  g.add(box(0.07, 0.009, 0.007, mat('#0099dd', 0.3, 0.5), w * 0.27, cy + h * 0.1, d / 2 + 0.004));
+  // IR sensor
+  const sensor = cyl(0.007, 0.007, 0.006, 8, mat('#0a0e14', 0.6));
+  sensor.rotation.x = Math.PI / 2; sensor.position.set(-w * 0.4, cy, d / 2 + 0.003); g.add(sensor);
+  return g;
+}
+
+function buildEspressoMachine({ color='#2a2a2e', w=0.3, d=0.38, h=0.42 } = {}) {
+  const g = new THREE.Group();
+  const bodyMat = mat(color, 0.3, 0.65, { env: 0.9 });
+  const chromeMat = mat('#c8ccd0', 0.15, 0.85, { env: 1.1 });
+  // Drip tray
+  g.add(box(w-0.02, 0.022, d-0.06, mat('#2a2a2e', 0.45, 0.5), 0, 0.011, 0.02));
+  // Tray grate
+  g.add(box(w-0.06, 0.008, d-0.12, mat('#3a3a3e', 0.5, 0.6), 0, 0.024, 0.02));
+  // Main body
+  const body = new THREE.Mesh(roundedBoxGeom(w-0.02, h-0.06, d-0.04, 0.022, 3), bodyMat);
+  body.position.set(0, 0.03+(h-0.06)/2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  // Water reservoir (rear)
+  g.add(box(w-0.08, h*0.62, 0.06, mat(shade(color,1.4), 0.35, 0.4), 0, 0.06+h*0.31, -d/2+0.04));
+  // Front panel area (buttons)
+  g.add(box(w-0.08, h*0.22, 0.012, mat('#1a1a1e', 0.5, 0.3), 0, 0.03+h-0.06-h*0.12, d/2-0.06-0.008));
+  const btn1 = cylAt(0.012,0.012,0.014,10,chromeMat, -0.055, 0.03+h-0.07, d/2-0.055); btn1.rotation.x = Math.PI/2; g.add(btn1);
+  const btn2 = cylAt(0.012,0.012,0.014,10,chromeMat,  0.055, 0.03+h-0.07, d/2-0.055); btn2.rotation.x = Math.PI/2; g.add(btn2);
+  // Group head barrel
+  const barrel = cylAt(0.032,0.032,0.055,14,chromeMat, 0, 0.14, d/2-0.04); barrel.rotation.x = Math.PI/2; g.add(barrel);
+  // Diffuser disk
+  const diffuser = cylAt(0.028,0.028,0.01,14,mat('#1a1a1e',0.5,0.4), 0, 0.14, d/2); diffuser.rotation.x = Math.PI/2; g.add(diffuser);
+  // Portafilter handle
+  g.add(box(0.045, 0.018, 0.18, mat('#4a3020', 0.7), 0, 0.1, d/2+0.06));
+  const pfl1 = cylAt(0.01,0.01,0.04,8,chromeMat, -0.02, 0.085, d/2+0.0); g.add(pfl1);
+  const pfl2 = cylAt(0.01,0.01,0.04,8,chromeMat,  0.02, 0.085, d/2+0.0); g.add(pfl2);
+  // Steam wand base joint
+  const swBase = cylAt(0.012,0.012,0.025,8,chromeMat, w/2-0.04, 0.25, 0.04); g.add(swBase);
+  // Steam wand
+  const wand = box(0.012, 0.12, 0.012, chromeMat, w/2+0.02, 0.18, 0.06); wand.rotation.z = 0.45; g.add(wand);
+  // Steam wand tip
+  g.add(cylAt(0.008,0.006,0.025,8,chromeMat, w/2+0.04, 0.11, 0.09));
+  // Pressure gauge face
+  const gauge = cylAt(0.024,0.024,0.008,16,mat('#f0f0e8',0.6), -w*0.28, 0.03+h*0.62, d/2-0.055); gauge.rotation.x = Math.PI/2; g.add(gauge);
+  // Gauge inner dial
+  const dial = cylAt(0.018,0.018,0.01,16,mat('#1a3060',0.4), -w*0.28, 0.03+h*0.62, d/2-0.055); dial.rotation.x = Math.PI/2; dial.position.z += 0.005; g.add(dial);
+  return g;
+}
+
+function buildDishwasher({ color='#e0e0dc', w=0.6, d=0.6, h=0.85 } = {}) {
+  const g = new THREE.Group();
+  const steelMat = mat('#c4c8cc', 0.22, 0.72, { env: 0.8 });
+  const bodyMat = mat(color, 0.5, 0.06);
+  // Main cabinet
+  const cab = box(w, h, d, bodyMat, 0, h/2, 0); cab.userData.colorable = true; g.add(cab);
+  // Front door panel
+  g.add(box(w-0.02, h-0.08, 0.04, steelMat, 0, (h-0.08)/2, d/2-0.01));
+  // Door handle bar
+  g.add(box(w-0.1, 0.03, 0.04, mat('#9aa0a4',0.25,0.8,{env:0.9}), 0, h-0.07, d/2+0.01));
+  // Control panel strip (top of door)
+  g.add(box(w-0.02, 0.06, 0.045, mat('#2a2a2f', 0.4, 0.2), 0, h-0.04, d/2-0.008));
+  // Status LED row
+  const ledColors = [0x00cc44, 0xff8800, 0x0088ff];
+  const ledXPos = [-0.05, 0, 0.05];
+  ledColors.forEach((lc, i) => {
+    const led = cylAt(0.005,0.005,0.006,6,new THREE.MeshStandardMaterial({color:lc,roughness:0.4,metalness:0.1,emissive:lc,emissiveIntensity:0.5}), ledXPos[i], h-0.04, d/2);
+    led.rotation.x = Math.PI/2; g.add(led);
+  });
+  // Bottom vent
+  g.add(box(w-0.04, 0.02, 0.035, mat('#1a1a1e',0.6), 0, 0.013, d/2+0.005));
+  // Top cap
+  g.add(box(w, 0.02, d, mat(shade(color,0.88),0.45), 0, h-0.01, 0));
+  return g;
+}
+
+function buildLockerUnit({ color='#8a9a9e', w=1.2, d=0.45, h=1.85 } = {}) {
+  const g = new THREE.Group();
+  const metalMat = mat(color, 0.38, 0.55, { env: 0.7 });
+  const darkMat = mat('#2a2a2e', 0.5, 0.3);
+  // Body
+  const body = box(w, h, d, metalMat, 0, h/2, 0); body.userData.colorable = true; g.add(body);
+  // Base plinth
+  g.add(box(w, 0.05, d+0.02, mat(shade(color,0.72),0.45,0.4), 0, 0.025, 0));
+  // Top cap
+  g.add(box(w+0.02, 0.03, d+0.02, mat(shade(color,0.8),0.4,0.5), 0, h+0.015, 0));
+  // 3 door panels
+  for (let i = 0; i < 3; i++) {
+    const lockerX = -w/3 + (i+0.5)*w/3;
+    const door = box(w/3-0.025, h-0.14, 0.03, mat(shade(color,1.12),0.42,0.5), lockerX, h/2, d/2+0.005);
+    door.userData.colorable = true; g.add(door);
+    // Ventilation slots
+    for (let j = 0; j < 3; j++) {
+      g.add(box(w/3-0.1, 0.018, 0.035, darkMat, lockerX, h-0.12-j*0.04, d/2+0.006));
+    }
+    // Handle
+    g.add(box(0.06, 0.025, 0.04, mat('#9aa0a4',0.25,0.8,{env:0.9}), lockerX+0.09, h/2, d/2+0.028));
+    // Number plate
+    g.add(box(0.06, 0.04, 0.004, mat('#f5f0e0',0.8), lockerX-0.06, h-0.07, d/2+0.022));
+  }
+  // Vertical dividers
+  [-w/6, w/6].forEach(dx => {
+    g.add(box(0.012, h, 0.035, mat(shade(color,0.72),0.4), dx, h/2, d/2+0.002));
+  });
+  // Floor channel drain hint
+  g.add(box(w-0.08, 0.005, d-0.08, mat('#1a1a1e',0.7), 0, 0.052, 0));
+  return g;
+}
+
+function buildVendingMachine({ color='#e8e0d8', w=0.75, d=0.35, h=1.85 } = {}) {
+  const g = new THREE.Group();
+  const bodyMat = mat(color, 0.45, 0.1, { env: 0.3 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xb8d4e0, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.35 });
+  const darkMat = mat('#1a1a1e', 0.5, 0.2);
+  // Cabinet body
+  const cab = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.025, 3), bodyMat);
+  cab.position.set(0, h/2, 0); cab.castShadow = true; cab.userData.colorable = true; g.add(cab);
+  // Display window
+  g.add(plainBox(w-0.14, h*0.52, 0.016, glassMat, 0, h*0.64, d/2-0.005));
+  // Product rows behind glass
+  const productColors = ['#e8242a','#f5a623','#4a90e2','#7ed321','#d0021b'];
+  for (let j = 0; j < 4; j++) {
+    g.add(box(w-0.22, 0.08, 0.04, mat(productColors[j%5], 0.7), 0, h*0.42+j*0.1, d/2-0.04));
+  }
+  // Interior glow
+  const glow = new THREE.Mesh(new THREE.BoxGeometry(w-0.2, h*0.48, 0.01), new THREE.MeshBasicMaterial({ color: 0xfff8e0, transparent: true, opacity: 0.3 }));
+  glow.position.set(0, h*0.62, d/2-0.06); g.add(glow);
+  // Payment panel
+  g.add(box(0.18, h*0.22, 0.04, mat('#1a1a1e',0.4), w*0.28, h*0.28, d/2-0.002));
+  // Panel screen
+  g.add(box(0.12, 0.08, 0.008, mat('#0a1828',0.3,0.15), w*0.28, h*0.34, d/2+0.022));
+  // Coin slot
+  g.add(box(0.06, 0.012, 0.012, darkMat, w*0.28, h*0.26, d/2+0.022));
+  // Bill slot
+  g.add(box(0.09, 0.018, 0.012, darkMat, w*0.28, h*0.22, d/2+0.022));
+  // Dispense slot
+  g.add(box(w-0.16, 0.05, 0.06, mat(shade(color,0.7),0.5), 0, 0.16, d/2-0.01));
+  g.add(box(w-0.24, 0.04, 0.04, darkMat, 0, 0.16, d/2+0.006));
+  // Coin return
+  g.add(box(0.055, 0.04, 0.04, darkMat, -w*0.32, h*0.16, d/2-0.002));
+  // Decorative stripe
+  g.add(box(0.06, h-0.1, 0.025, mat('#e8242a', 0.6), -w/2+0.06, h/2, d/2-0.003));
+  return g;
+}
+
 
 // ===== js/builders/office.js =====
 
@@ -4526,6 +4690,158 @@ function buildRoundTable({ color='#8a5a2b', w=0.9, d=0.9, h=0.74 } = {}) {
   return g;
 }
 
+
+function buildCopier({ color='#e2e2de', w=0.62, d=0.56, h=1.08 } = {}) {
+  const g = new THREE.Group();
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xaaccdd, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.5 });
+  // Lower body
+  const lower = box(w, h * 0.55, d, mat(color, 0.52, 0.04), 0, h * 0.55 / 2, 0); lower.userData.colorable = true; g.add(lower);
+  // Paper cassette gap lines (2)
+  const cassMat = mat(shade(color, 0.80), 0.5);
+  [0.09, 0.21].forEach(cy => g.add(box(w - 0.04, 0.016, d * 0.9, cassMat, 0, cy, 0)));
+  // Cassette handle tab
+  g.add(box(0.16, 0.014, 0.014, mat(shade(color, 0.75), 0.5), 0.08, 0.15, d / 2 + 0.004));
+  // Scanner bed (upper section)
+  const scannerY = h * 0.55 + h * 0.06;
+  const scannerMesh = box(w, h * 0.12, d, mat(shade(color, 0.92), 0.45), 0, scannerY, 0); scannerMesh.userData.colorable = true; g.add(scannerMesh);
+  // Glass platen on scanner top
+  g.add(plainBox(w - 0.06, 0.015, d - 0.06, glassMat, 0, scannerY + h * 0.06 + 0.0075, 0));
+  // ADF lid
+  const adfY = scannerY + h * 0.06 + h * 0.045;
+  const adf = box(w - 0.02, h * 0.09, d - 0.02, mat(shade(color, 0.86), 0.48), 0, adfY, 0); adf.userData.colorable = true; g.add(adf);
+  // Crease line at front edge of ADF
+  g.add(box(w - 0.04, 0.006, 0.006, mat(shade(color, 0.72), 0.6), 0, adfY + h * 0.045 - 0.004, d / 2 - 0.02));
+  // Control panel (raised on right side, tilted)
+  const panelY = h * 0.6 + h * 0.12 + h * 0.09 + h * 0.095;
+  const panel = box(w * 0.52, h * 0.19, d * 0.46, mat(shade(color, 0.95), 0.45, 0.02), w * 0.16, panelY, -d * 0.08); panel.userData.colorable = true; panel.rotation.x = -0.22; g.add(panel);
+  // LCD on panel
+  g.add(box(w * 0.36, h * 0.12, 0.012, mat('#0a1828', 0.85), w * 0.16, panelY, -d * 0.08 + d * 0.23 + 0.006));
+  g.add(box(w * 0.34, h * 0.10, 0.010, mat('#1a4575', 0.7, 0.2), w * 0.16, panelY, -d * 0.08 + d * 0.23 + 0.001));
+  // Output tray (between scanner and ADF)
+  const tray = box(w - 0.02, 0.018, d * 0.62, mat(shade(color, 0.88), 0.5), 0, scannerY + h * 0.06 + 0.009, d * 0.1);
+  tray.rotation.x = 0.12; g.add(tray);
+  // Base feet (4 corners)
+  const feetMat = mat('#2a2a2f', 0.7);
+  [[-w / 2 + 0.04, -d / 2 + 0.04], [w / 2 - 0.04, -d / 2 + 0.04], [-w / 2 + 0.04, d / 2 - 0.04], [w / 2 - 0.04, d / 2 - 0.04]].forEach(([fx, fz]) => {
+    g.add(box(0.055, 0.018, 0.055, feetMat, fx, 0.009, fz));
+  });
+  return g;
+}
+
+function buildProjector({ color='#2a2a2f', w=0.3, d=0.25, h=0.12 } = {}) {
+  const g = new THREE.Group();
+  // Body
+  const bodyMesh = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.012, 3), mat(color, 0.42, 0.18, { env: 0.5 }));
+  bodyMesh.position.y = h / 2; bodyMesh.castShadow = true; bodyMesh.receiveShadow = true; bodyMesh.userData.colorable = true; g.add(bodyMesh);
+  // Lens barrel
+  const barrel = cyl(0.038, 0.034, 0.055, 18, mat('#101014', 0.28, 0.6, { env: 1.0 }));
+  barrel.rotation.x = Math.PI / 2; barrel.position.set(-w * 0.2, h * 0.5, d / 2 + 0.012); g.add(barrel);
+  // Lens glass
+  const lensMat = new THREE.MeshStandardMaterial({ color: 0x112244, roughness: 0.03, metalness: 0.15, transparent: true, opacity: 0.85 });
+  const lensGlass = cyl(0.026, 0.026, 0.01, 18, lensMat);
+  lensGlass.rotation.x = Math.PI / 2; lensGlass.position.set(-w * 0.2, h * 0.5, d / 2 + 0.037); g.add(lensGlass);
+  // Top exhaust vents (5)
+  const ventMat = mat(shade(color, 0.6), 0.6);
+  const ventZStart = -d / 2 + 0.025;
+  const ventZStep = (d - 0.05) / 4;
+  for (let i = 0; i < 5; i++) {
+    g.add(box(w - 0.06, 0.005, 0.012, ventMat, 0, h + 0.002, ventZStart + i * ventZStep));
+  }
+  // Front LED indicator
+  const led = cyl(0.005, 0.005, 0.007, 8, mat('#00cc44', 0.5));
+  led.rotation.x = Math.PI / 2; led.position.set(w * 0.36, h * 0.52, d / 2 + 0.003); g.add(led);
+  // Adjustment wheel (right side)
+  const wheel = cyl(0.018, 0.018, 0.022, 10, mat('#3a3a42', 0.6, 0.1));
+  wheel.rotation.z = Math.PI / 2; wheel.position.set(w / 2 + 0.011, h * 0.5, 0); g.add(wheel);
+  return g;
+}
+
+function buildProjectorScreen({ color='#f5f5f2', w=1.8, d=0.05, h=1.4 } = {}) {
+  const g = new THREE.Group();
+  // Housing at top
+  g.add(box(w + 0.08, 0.08, 0.08, mat('#2e2e2e', 0.5), 0, 2.2, 0));
+  // Screen surface (DoubleSide)
+  const screenMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.86, metalness: 0, side: THREE.DoubleSide });
+  const screenMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 1.32, 0.008), screenMat);
+  screenMesh.position.set(0, 1.50, 0); screenMesh.castShadow = true; screenMesh.receiveShadow = true; screenMesh.userData.colorable = true; g.add(screenMesh);
+  // Black border frame
+  const borderMat = mat('#1a1a1a', 0.6);
+  g.add(box(w + 0.04, 0.028, 0.01, borderMat, 0, 2.16 + 0.014, 0));   // top
+  g.add(box(w + 0.04, 0.028, 0.01, borderMat, 0, 0.84 - 0.014, 0));   // bottom
+  g.add(box(0.028, 1.32 + 0.056, 0.01, borderMat, -w / 2 - 0.014, 1.50, 0)); // left
+  g.add(box(0.028, 1.32 + 0.056, 0.01, borderMat,  w / 2 + 0.014, 1.50, 0)); // right
+  // Side pull strings
+  const strMat = mat('#3a3a3a', 0.7);
+  g.add(box(0.012, 0.2, 0.012, strMat, -(w / 2 + 0.04), 2.16 - 0.1, 0));
+  g.add(box(0.012, 0.2, 0.012, strMat,   w / 2 + 0.04,  2.16 - 0.1, 0));
+  return g;
+}
+
+function buildATM({ color='#2a2a2e', w=0.65, d=0.55, h=1.7 } = {}) {
+  const g = new THREE.Group();
+  const bodyMat = mat(color, 0.42, 0.2, {env:0.4});
+  const silverMat = mat('#9aa0a8', 0.28, 0.65, {env:0.8});
+  const darkMat = mat('#0e0e12', 0.45, 0.1);
+  const screenMat = new THREE.MeshStandardMaterial({color:0x0a1828, roughness:0.08, metalness:0.2});
+
+  // Lower cabinet body
+  const lowerBody = new THREE.Mesh(roundedBoxGeom(w, h*0.52, d, 0.022, 3), bodyMat);
+  lowerBody.position.set(0, h*0.26, 0); lowerBody.castShadow = true; lowerBody.userData.colorable = true; g.add(lowerBody);
+
+  // Upper terminal (slightly narrower, set back slightly)
+  const upperBody = new THREE.Mesh(roundedBoxGeom(w-0.06, h*0.48, d-0.04, 0.022, 3), bodyMat);
+  upperBody.position.set(0, h*0.52+h*0.24, -0.02); upperBody.castShadow = true; upperBody.userData.colorable = true; g.add(upperBody);
+
+  // Privacy shield at top
+  g.add(box(w, 0.025, 0.08, mat(shade(color,0.72),0.5,0.3), 0, h-0.025, d/2-0.04-0.02));
+
+  // Screen
+  g.add(plainBox(w-0.12, h*0.22, 0.012, screenMat, 0, h*0.52+h*0.22, d/2-0.03-0.02));
+
+  // Screen glow
+  const screenGlow = new THREE.Mesh(new THREE.PlaneGeometry(w-0.16, h*0.20), new THREE.MeshBasicMaterial({color:0x1a4070, transparent:true, opacity:0.8}));
+  screenGlow.position.set(0, h*0.52+h*0.22, d/2-0.03-0.02+0.007); g.add(screenGlow);
+
+  // Screen glow highlight
+  const screenHighlight = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.08), new THREE.MeshBasicMaterial({color:0x4a80c0, transparent:true, opacity:0.4}));
+  screenHighlight.position.set(-0.1, h*0.52+h*0.26, d/2-0.03-0.02+0.007+0.001); g.add(screenHighlight);
+
+  // Card slot
+  g.add(box(0.12, 0.014, 0.03, darkMat, 0, h*0.52+h*0.1, d/2-0.022-0.02));
+  // Card slot label stripe
+  g.add(box(0.12, 0.008, 0.004, mat('#ff8800',0.6), 0, h*0.52+h*0.1+0.011, d/2-0.022-0.02));
+
+  // Numeric keypad
+  g.add(box(0.16, 0.14, 0.025, mat('#1a1a20',0.4,0.15), 0, h*0.52+h*0.06, d/2-0.022-0.02));
+  // Key buttons (3x4 grid)
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 3; c++) {
+      g.add(cylAt(0.012, 0.012, 0.008, 10, silverMat, -0.04+c*0.04, h*0.52+h*0.10-r*0.032, d/2-0.014-0.02));
+    }
+  }
+
+  // Cash dispense slot
+  g.add(box(0.22, 0.025, 0.04, darkMat, 0, h*0.38, d/2-0.01));
+  // Cash dispense inner glow
+  g.add(box(0.18, 0.018, 0.02, mat('#ccaa00',0.8,0,{env:0}), 0, h*0.38, d/2));
+
+  // Receipt slot
+  g.add(box(0.08, 0.012, 0.028, darkMat, w*0.22, h*0.35, d/2-0.01));
+
+  // Deposit slot
+  g.add(box(0.14, 0.022, 0.03, darkMat, 0, h*0.30, d/2-0.01));
+
+  // Accessibility pin bar
+  g.add(box(0.18, 0.016, 0.016, silverMat, 0, h*0.25, d/2+0.005));
+
+  // Lower skirt/base
+  g.add(box(w+0.02, 0.04, d+0.02, mat(shade(color,0.65),0.5,0.2), 0, 0.02, 0));
+
+  // Brand logo area
+  g.add(box(w-0.16, 0.04, 0.008, mat('#1a3a6a',0.5), 0, h*0.52-0.06, d/2-0.01));
+
+  return g;
+}
 
 
 // ===== js/builders/lab.js =====
@@ -5339,10 +5655,14 @@ const FURNITURE_DEFS = [
   { id:'bathtub',  cat:'sanitary', name:'浴槽',          icon:'fa-bath',            w:0.8, d:1.6,  h:0.6, colorIdx:4, build:buildBathtub },
   { id:'bathset',  cat:'sanitary', name:'ユニットバス',  icon:'fa-shower',          w:1.6, d:1.6,  h:2.2, colorIdx:10, build:buildBathSet },
   { id:'walltv',   cat:'deco',     name:'壁掛けテレビ',  icon:'fa-tv',              w:1.3, d:0.08, h:0.8, colorIdx:2, build:buildWallTV, wallMount:true },
+  { id:'wallac',   cat:'household', name:'壁掛けエアコン',   icon:'fa-wind',         w:0.9, d:0.2,  h:0.28, colorIdx:10, build:buildWallAC,           wallMount:true },
   // ---- office ----
   { id:'conftable',  cat:'office',  name:'会議テーブル',      icon:'fa-table',             w:3.6, d:1.2,  h:0.74, colorIdx:8,  build:buildConferenceTable },
   { id:'whiteboard', cat:'office',  name:'ホワイトボード',    icon:'fa-chalkboard',        w:1.5, d:0.04, h:1.4,  colorIdx:1,  build:buildWhiteboard, wallMount:true },
+  { id:'projector',cat:'office',  name:'プロジェクター',    icon:'fa-video',        w:0.3, d:0.25, h:0.12, colorIdx:2,  build:buildProjector,         stack:true },
+  { id:'projscreen',cat:'office', name:'プロジェクタースクリーン',icon:'fa-rectangle-xmark', w:1.8, d:0.05, h:1.4, colorIdx:1, build:buildProjectorScreen, wallMount:true },
   { id:'filingcab',  cat:'office',  name:'ファイリングキャビネット', icon:'fa-folder',     w:0.46,d:0.62, h:1.32, colorIdx:10, build:buildFilingCabinet },
+  { id:'copier',   cat:'office',  name:'コピー機',          icon:'fa-print',        w:0.62,d:0.56, h:1.08, colorIdx:10, build:buildCopier },
   { id:'reception',  cat:'office',  name:'受付カウンター',    icon:'fa-concierge-bell',    w:2.4, d:0.7,  h:1.1,  colorIdx:1,  build:buildReceptionCounter },
   // ---- museum ----
   { id:'displaycase',cat:'museum',  name:'展示ケース',        icon:'fa-box-open',          w:0.88,d:0.52, h:1.3,  colorIdx:10, build:buildDisplayCase },
@@ -5449,6 +5769,17 @@ const FURNITURE_DEFS = [
   { id:'alumcoil_export', cat:'factory',name:'輸出梱包アルミコイル', icon:'fa-pallet',               w:1.2,  d:1.2,  h:1.0,   colorIdx:8,  build:buildExportAlumCoil },
   { id:'alumcoil_side',  cat:'factory', name:'横倒しアルミコイル',   icon:'fa-circle',               w:0.8,  d:1.0,  h:0.8,   colorIdx:10, build:buildAlumCoilSide },
   { id:'worker',         cat:'factory', name:'作業員',              icon:'fa-person-walking',        w:0.5,  d:0.5,  h:1.8,   colorIdx:7,  build:buildWorker },
+  // ---- 家具追加 ----
+  { id:'monitor',       cat:'office',   name:'PCモニター',          icon:'fa-desktop',        w:0.52, d:0.18, h:0.44, colorIdx:2,  build:buildMonitor,         stack:true },
+  { id:'kotatsu',       cat:'table',    name:'こたつ',              icon:'fa-table',          w:0.9,  d:0.9,  h:0.38, colorIdx:0,  build:buildKotatsu },
+  { id:'dresser',       cat:'storage',  name:'ドレッサー',          icon:'fa-mirror',         w:0.9,  d:0.44, h:1.4,  colorIdx:1,  build:buildDresser },
+  { id:'hangerrack',    cat:'storage',  name:'ハンガーラック',      icon:'fa-shirt',          w:1.0,  d:0.4,  h:1.75, colorIdx:7,  build:buildHangerRack },
+  { id:'piano',         cat:'deco',     name:'アップライトピアノ',  icon:'fa-music',          w:1.45, d:0.6,  h:1.22, colorIdx:2,  build:buildPiano },
+  { id:'espresso',      cat:'kitchen',  name:'エスプレッソマシン',  icon:'fa-mug-hot',        w:0.3,  d:0.38, h:0.42, colorIdx:7,  build:buildEspressoMachine, stack:true },
+  { id:'dishwasher',    cat:'kitchen',  name:'食洗機',              icon:'fa-soap',           w:0.6,  d:0.6,  h:0.85, colorIdx:10, build:buildDishwasher },
+  { id:'locker',        cat:'storage',  name:'ロッカー',            icon:'fa-lock',           w:1.2,  d:0.45, h:1.85, colorIdx:6,  build:buildLockerUnit },
+  { id:'vendingmachine',cat:'shop',     name:'自動販売機',          icon:'fa-coins',          w:0.75, d:0.35, h:1.85, colorIdx:3,  build:buildVendingMachine },
+  { id:'atm',           cat:'shop',     name:'ATM',                 icon:'fa-landmark',       w:0.65, d:0.55, h:1.7,  colorIdx:2,  build:buildATM },
 ];
 
 
@@ -5500,8 +5831,9 @@ const PRESETS = [
       P('ctrlpanel',   -13.5,  -9.0,  90, '#e8e2d6'),
       P('ctrlpanel',   -13.5,  -7.0,  90, '#e8e2d6'),
       P('walltv',      -13.5,  -8.0,  90, '#2a2a2a'),
-      P('desk',         -9.5,  -7.5,   0, '#f3ece0'),
-      P('ochr',         -9.5,  -6.8,   0),
+      P('desk',         -9.5,  -7.5, 180, '#f3ece0'),
+      P('ochr',         -9.5,  -6.8, 180),
+      P('locker',       -8.2, -10.5,   0, '#5a6370'),  // 作業員ロッカー (南壁沿い)
       P('sansevieria', -13.5,  -5.5),
 
       // ===== 生産ライン: 溶解炉 (西端, rotY=0=南向き) =====
@@ -5657,7 +5989,7 @@ const PRESETS = [
   },
   {
     id: 'office', name: 'オープンオフィス', icon: 'fa-briefcase', cat: 'オフィス',
-    desc: '14m×10mのオープンプラン。受付・会議コーナー・執務エリアを完備。',
+    desc: '14m×10mのオープンプラン。受付・会議コーナー・執務エリア・コピー機・エアコンを完備。',
     room: { w: 14, d: 10 }, floorType: 'carpet', wallType: 'white',
     walls: {
       north: [{ t:0.5, w:2.0, kind:'auto_door' }],
@@ -5683,12 +6015,12 @@ const PRESETS = [
       P('sofa3',      -4.0,  2.8,   0, '#6f9e74'),
       P('ctable',     -4.0,  1.9),
       // 執務エリア (左)
-      P('desk',  -5.5, -0.5, 180, '#f3ece0'), P('ochr', -5.5, 0.2, 0),
-      P('desk',  -5.5, -2.0, 180, '#f3ece0'), P('ochr', -5.5,-1.3, 0),
-      P('desk',  -5.5, -3.5, 180, '#f3ece0'), P('ochr', -5.5,-2.8, 0),
-      P('desk',  -2.5, -0.5,   0, '#f3ece0'), P('ochr', -2.5,-1.2, 180),
-      P('desk',  -2.5, -2.0,   0, '#f3ece0'), P('ochr', -2.5,-2.7, 180),
-      P('desk',  -2.5, -3.5,   0, '#f3ece0'), P('ochr', -2.5,-4.2, 180),
+      P('desk',  -5.5, -0.5, 180, '#f3ece0'), P('ochr', -5.5, 0.2, 180), P('monitor', -5.5, -0.7, 0, '#2a2a2a'),
+      P('desk',  -5.5, -2.0, 180, '#f3ece0'), P('ochr', -5.5,-1.3, 180), P('monitor', -5.5, -2.2, 0, '#2a2a2a'),
+      P('desk',  -5.5, -3.5, 180, '#f3ece0'), P('ochr', -5.5,-2.8, 180), P('monitor', -5.5, -3.7, 0, '#2a2a2a'),
+      P('desk',  -2.5, -0.5,   0, '#f3ece0'), P('ochr', -2.5,-1.2,   0), P('monitor', -2.5, -0.3, 180, '#2a2a2a'),
+      P('desk',  -2.5, -2.0,   0, '#f3ece0'), P('ochr', -2.5,-2.7,   0), P('monitor', -2.5, -1.8, 180, '#2a2a2a'),
+      P('desk',  -2.5, -3.5,   0, '#f3ece0'), P('ochr', -2.5,-4.2,   0), P('monitor', -2.5, -3.3, 180, '#2a2a2a'),
       P('filingcab', -6.7, -1.0, 90, '#7a8fa0'),
       P('filingcab', -6.7, -2.5, 90, '#7a8fa0'),
       P('filingcab', -6.7, -4.0, 90, '#7a8fa0'),
@@ -5699,13 +6031,16 @@ const PRESETS = [
       P('dchr', 3.2, -2.5, 90, '#5b5048'), P('dchr', 5.8, -2.5, 270, '#5b5048'),
       P('dchr', 3.2, -0.5, 90, '#5b5048'), P('dchr', 5.8, -0.5, 270, '#5b5048'),
       P('whiteboard', 6.8, -3.8, 90),
-      P('walltv',     6.8,  0.3, 90),
+      P('walltv',     6.8,  0.3, 270, '#2a2a2a'),   // 東壁 → 西向き (修正)
       P('benjamin',   6.5, -4.5),
+      P('copier',    -6.2, -4.6, 90, '#e2e2de'),    // 西壁際コピー機 (東向き)
+      P('wallac',    -3.5, -4.8,   0),               // 北壁エアコン西側 (南向き)
+      P('wallac',     3.5, -4.8,   0),               // 北壁エアコン東側 (南向き)
     ],
   },
   {
     id: 'conference', name: '会議室', icon: 'fa-chalkboard-user', cat: 'オフィス',
-    desc: '8m×6mの中規模会議室。大型テーブル・ホワイトボード・プレゼン用TVを配置。',
+    desc: '8m×6mの中規模会議室。大型テーブル・ホワイトボード・プロジェクターとスクリーンを配置。',
     room: { w: 8, d: 6 }, floorType: 'carpet', wallType: 'white',
     walls: {
       north: [{ t:0.5, w:1.0, kind:'door' }],
@@ -5720,7 +6055,9 @@ const PRESETS = [
       P('dchr', -0.6, -0.6,   0, '#5b5048'), P('dchr',  0.6, -0.6,   0, '#5b5048'),
       P('dchr', -0.6,  0.6, 180, '#5b5048'), P('dchr',  0.6,  0.6, 180, '#5b5048'),
       P('whiteboard', -3.7, 0.8, 90),
-      P('walltv',      3.7, 0.0, 270, '#2a2a2a'),
+      P('projscreen',  3.8,  0.0, 270),                        // 東壁スクリーン (西向き)
+      P('projector',   0.8,  0.0, 90, '#2a2a2a'),              // テーブル上プロジェクター (東向き)
+      P('wallac',      0.0,  2.8, 180),                        // 南壁エアコン (北向き)
       P('filingcab',  -3.6, -2.5, 0, '#7a8fa0'),
       P('filingcab',  -2.7, -2.5, 0, '#7a8fa0'),
       P('sansevieria', 3.5, -2.5),
@@ -5808,6 +6145,11 @@ const PRESETS = [
       // 雑誌棚 (右壁)
       P('shelfrack',  5.5,  1.0, 270, '#e0d8cc'),
       P('shelfrack',  5.5, -0.5, 270, '#e0d8cc'),
+      // 自動販売機 (西壁沿い)
+      P('vendingmachine', -5.5, 0.0, 90, '#e83028'),
+      P('vendingmachine', -5.5, 1.5, 90, '#1a6bbf'),
+      // ATM (レジ横)
+      P('atm', -5.5, 3.0, 90, '#e8e2d6'),
       P('bamboo', -5.5, 3.5),
     ],
   },
@@ -5837,9 +6179,9 @@ const PRESETS = [
       P('microwave',-3.5, -4.6, 0),
       // カウンター席
       P('barcounter', -4.5, -2.2, 0, '#5b3a22'),
-      P('barstool', -5.2, -1.5, 0, '#5b5048'),
-      P('barstool', -4.5, -1.5, 0, '#5b5048'),
-      P('barstool', -3.8, -1.5, 0, '#5b5048'),
+      P('barstool', -5.2, -1.5, 180, '#5b5048'),
+      P('barstool', -4.5, -1.5, 180, '#5b5048'),
+      P('barstool', -3.8, -1.5, 180, '#5b5048'),
       // ダイニングテーブル
       // 手前3卓 (レストランチェア)
       P('roundtable', -3.5, 0.5, 0, '#8a5a2b'),
@@ -5892,9 +6234,10 @@ const PRESETS = [
       // バーカウンター
       P('barcounter',  0.0, -1.2, 0, '#5b3a22'),
       P('barcounter', -3.6, -1.2, 90, '#5b3a22'),
-      P('barstool', -1.0, -0.4, 0, '#5b5048'),
-      P('barstool',  0.0, -0.4, 0, '#5b5048'),
-      P('barstool',  1.0, -0.4, 0, '#5b5048'),
+      P('espresso',   -0.8, -1.2, 0, '#1a1a1a'),  // バーカウンター上エスプレッソマシン
+      P('barstool', -1.0, -0.4, 180, '#5b5048'),
+      P('barstool',  0.0, -0.4, 180, '#5b5048'),
+      P('barstool',  1.0, -0.4, 180, '#5b5048'),
       // 小テーブル (テラス席イメージ)
       P('cafetable', -3.0, 1.0, 0), P('cafechr', -3.8, 1.0, 90, '#6a4830'), P('cafechr', -2.2, 1.0, 270, '#6a4830'),
       P('cafetable', -0.5, 1.0, 0), P('cafechr', -1.3, 1.0, 90, '#6a4830'), P('cafechr',  0.3, 1.0, 270, '#6a4830'),
@@ -5994,7 +6337,7 @@ const PRESETS = [
       P('microscope', -4.0, 1.2, 180, '#2a2e34'),
       P('glassware',  -2.5, 1.2, 180),
       // デスク作業
-      P('desk', -5.2, 2.6, 90, '#f3ece0'), P('ochr', -4.4, 2.6, 270),
+      P('desk', -5.2, 2.6, 270, '#f3ece0'), P('ochr', -4.4, 2.6, 270),
       P('whiteboard', -5.7, 0.0, 90),
       // 防振定盤エリア (右区画)
       P('conftable', 3.5, -1.5, 0, '#3a4250'),
@@ -6060,6 +6403,7 @@ const PRESETS = [
       // 管理コーナー (左仕切り内)
       P('desk',  -5.8, 3.6, 0, '#f3ece0'), P('ochr', -5.8, 2.9, 0),
       P('ctrlpanel', -3.2, 3.4, 180, '#e8e2d6'),
+      P('locker', -6.2, 3.0, 90, '#5a6370'),   // 作業員ロッカー
       P('sansevieria', -6.2, 4.4),
     ],
   },
@@ -6076,9 +6420,10 @@ const PRESETS = [
     },
     partitions: [],
     items: [
+      P('wallac', 0.0, -2.3, 0),                     // 北壁エアコン (南向き)
       P('sbed', -2.0, -1.2, 0, '#5b86b8'), P('stable', -2.0, 0.4),
       P('wardrobe', -2.5, 1.6, 90), P('desk', 1.6, -2.0, 180),
-      P('ochr', 1.6, -1.4, 0), P('desklamp', 1.6, -2.0, 180, '#2a2a2a'),
+      P('ochr', 1.6, -1.4, 180), P('desklamp', 1.6, -2.0, 180, '#2a2a2a'),
       P('shelf', -0.2, -2.2, 0), P('pothos', -0.2, -2.2, 0),
       P('sofa1', 1.9, 1.4, 270, '#6f9e74'), P('ctable', 0.9, 1.4),
       P('tablelamp', 0.9, 1.4), P('rug', 1.0, 1.0, 0, '#3f5d7a'),
@@ -6090,25 +6435,26 @@ const PRESETS = [
     desc: '玄関〜水回り〜LDK〜寝室を備えた一戸建てプラン。家族向けのフル装備レイアウト。',
     room: { w: 12, d: 10 },
     walls: {
-      north: [{ t:0.15, w:0.9, kind:'door' }],
+      north: [{ t:0.83, w:1.2, kind:'window' }],
       east:  [{ t:0.12, w:1.2, kind:'window' }, { t:0.4, w:1.2, kind:'window' }, { t:0.65, w:1.2, kind:'window' }, { t:0.85, w:1.2, kind:'window' }],
-      south: [{ t:0.75, w:1.2, kind:'window' }],
+      south: [{ t:0.15, w:1.0, kind:'door' }, { t:0.75, w:1.2, kind:'window' }],
       west:  [{ t:0.12, w:0.8, kind:'window' }, { t:0.42, w:0.8, kind:'window' }, { t:0.68, w:0.8, kind:'window' }],
     },
     partitions: [
       // 左ゾーン縦仕切り (水回り/玄関 と 中央LDK を分ける)
       { x1: -2.5, z1: -5.0, x2: -2.5, z2: -1.0 },
-      { x1: -2.5, z1: -1.0, x2: -2.5, z2: 0.0, openings: [{ t: 0.5, w: 0.9, kind: 'fusuma' }] },
-      { x1: -2.5, z1: 0.0, x2: -2.5, z2: 5.0 },
+      { x1: -2.5, z1: -1.0, x2: -2.5, z2: 0.0, openings: [{ t: 0.5, w: 0.9, kind: 'fusuma' }] }, // 洗面所↔ダイニング
+      { x1: -2.5, z1: 0.0, x2: -2.5, z2: 3.0 },
+      { x1: -2.5, z1: 3.0, x2: -2.5, z2: 4.0, openings: [{ t: 0.5, w: 0.9, kind: 'door' }] },    // 玄関ホール↔LDK 動線
+      { x1: -2.5, z1: 4.0, x2: -2.5, z2: 5.0 },
       // 左ゾーン内の横仕切り (浴室 / 洗面所 / トイレ / 玄関)
       { x1: -6.0, z1: -2.0, x2: -2.5, z2: -2.0, openings: [{ t: 0.2, w: 0.8, kind: 'bath_door' }] },
       { x1: -6.0, z1: 1.0, x2: -2.5, z2: 1.0, openings: [{ t: 0.2, w: 0.8, kind: 'toilet_door' }] },
       { x1: -6.0, z1: 2.6, x2: -2.5, z2: 2.6, openings: [{ t: 0.75, w: 0.8, kind: 'door' }] },
-      // 中央↔右 (LDK と 寝室/リビング) 縦仕切り
+      // 中央↔右 (LDK と 寝室/リビング) 縦仕切り — z=0.5〜5 は開口(LDKの繋がり)
       { x1: 2.0, z1: -5.0, x2: 2.0, z2: -2.6 },
-      { x1: 2.0, z1: -2.6, x2: 2.0, z2: -1.5, openings: [{ t: 0.5, w: 0.9, kind: 'fusuma' }] },
-      { x1: 2.0, z1: -1.5, x2: 2.0, z2: 0.5, openings: [{ t: 0.5, w: 0.9, kind: 'shoji' }] },
-      // 寝室の横仕切り
+      { x1: 2.0, z1: -2.6, x2: 2.0, z2: 0.5 },
+      // 寝室の横仕切り (TVの壁掛け面・x=4.5〜6 は寝室↔リビング通路)
       { x1: 2.0, z1: -2.6, x2: 4.5, z2: -2.6 },
     ],
     floors: [
@@ -6140,14 +6486,18 @@ const PRESETS = [
       P('dtable', -0.4, -1.4, 0, '#8a5a2b'),
       P('dchr', -1.3, -1.4, 90, '#5b5048'), P('dchr', 0.5, -1.4, 270, '#5b5048'),
       P('dchr', -0.4, -2.1, 0, '#5b5048'), P('dchr', -0.4, -0.7, 180, '#5b5048'),
-      // リビング (右)
-      P('sofa3', 3.4, 3.6, 180, '#b9714a'), P('sofa1', 5.2, 2.4, 270, '#b9714a'),
-      P('ctable', 3.4, 2.4, 0), P('rug', 3.6, 2.6, 0, '#5b5048'),
-      P('walltv', 3.6, 0.0, 0, '#3a332b'),
-      P('lamp', 5.5, 4.4), P('monstera', 5.5, 0.3),
+      // エアコン
+      P('wallac', 5.8, 1.5, 270),                   // リビング東壁 (西向き)
+      P('wallac', -0.2, -4.8, 0),                   // キッチン北壁 (南向き)
+      // リビング (右) — TVは寝室との間仕切り壁(z=-2.6)に壁掛け、ソファは北向きで対面
+      P('walltv', 3.5, -2.45, 0, '#3a332b'),
+      P('sofa3', 3.5, 2.2, 180, '#b9714a'), P('sofa1', 5.4, 1.0, 270, '#b9714a'),
+      P('ctable', 3.5, 0.4, 0), P('rug', 3.6, 0.9, 0, '#5b5048'),
+      P('lamp', 2.7, 3.5), P('monstera', 5.5, 4.2),
       // 寝室 (右上)
       P('dbed', 4.2, -3.9, 0, '#5b86b8'), P('stable', 2.7, -4.6),
       P('closet', 5.0, -2.9, 180, '#f3ece0'), P('zzplant', 2.6, -2.9),
+      P('dresser', 2.7, -3.6, 90, '#f3ece0'),  // 東向き (西壁にミラー面)
     ],
   },
 ];
