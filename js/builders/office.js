@@ -174,4 +174,90 @@ function buildRoundTable({ color='#8a5a2b', w=0.9, d=0.9, h=0.74 } = {}) {
 }
 
 
-export { buildBarCounter, buildBarStool, buildConferenceTable, buildDisplayCase, buildFilingCabinet, buildInfoPanel, buildPedestal, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard };
+function buildCopier({ color='#e2e2de', w=0.62, d=0.56, h=1.08 } = {}) {
+  const g = new THREE.Group();
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xaaccdd, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.5 });
+  // Lower body
+  const lower = box(w, h * 0.55, d, mat(color, 0.52, 0.04), 0, h * 0.55 / 2, 0); lower.userData.colorable = true; g.add(lower);
+  // Paper cassette gap lines (2)
+  const cassMat = mat(shade(color, 0.80), 0.5);
+  [0.09, 0.21].forEach(cy => g.add(box(w - 0.04, 0.016, d * 0.9, cassMat, 0, cy, 0)));
+  // Cassette handle tab
+  g.add(box(0.16, 0.014, 0.014, mat(shade(color, 0.75), 0.5), 0.08, 0.15, d / 2 + 0.004));
+  // Scanner bed (upper section)
+  const scannerY = h * 0.55 + h * 0.06;
+  const scannerMesh = box(w, h * 0.12, d, mat(shade(color, 0.92), 0.45), 0, scannerY, 0); scannerMesh.userData.colorable = true; g.add(scannerMesh);
+  // Glass platen on scanner top
+  g.add(plainBox(w - 0.06, 0.015, d - 0.06, glassMat, 0, scannerY + h * 0.06 + 0.0075, 0));
+  // ADF lid
+  const adfY = scannerY + h * 0.06 + h * 0.045;
+  const adf = box(w - 0.02, h * 0.09, d - 0.02, mat(shade(color, 0.86), 0.48), 0, adfY, 0); adf.userData.colorable = true; g.add(adf);
+  // Crease line at front edge of ADF
+  g.add(box(w - 0.04, 0.006, 0.006, mat(shade(color, 0.72), 0.6), 0, adfY + h * 0.045 - 0.004, d / 2 - 0.02));
+  // Control panel (raised on right side, tilted)
+  const panelY = h * 0.6 + h * 0.12 + h * 0.09 + h * 0.095;
+  const panel = box(w * 0.52, h * 0.19, d * 0.46, mat(shade(color, 0.95), 0.45, 0.02), w * 0.16, panelY, -d * 0.08); panel.userData.colorable = true; panel.rotation.x = -0.22; g.add(panel);
+  // LCD on panel
+  g.add(box(w * 0.36, h * 0.12, 0.012, mat('#0a1828', 0.85), w * 0.16, panelY, -d * 0.08 + d * 0.23 + 0.006));
+  g.add(box(w * 0.34, h * 0.10, 0.010, mat('#1a4575', 0.7, 0.2), w * 0.16, panelY, -d * 0.08 + d * 0.23 + 0.001));
+  // Output tray (between scanner and ADF)
+  const tray = box(w - 0.02, 0.018, d * 0.62, mat(shade(color, 0.88), 0.5), 0, scannerY + h * 0.06 + 0.009, d * 0.1);
+  tray.rotation.x = 0.12; g.add(tray);
+  // Base feet (4 corners)
+  const feetMat = mat('#2a2a2f', 0.7);
+  [[-w / 2 + 0.04, -d / 2 + 0.04], [w / 2 - 0.04, -d / 2 + 0.04], [-w / 2 + 0.04, d / 2 - 0.04], [w / 2 - 0.04, d / 2 - 0.04]].forEach(([fx, fz]) => {
+    g.add(box(0.055, 0.018, 0.055, feetMat, fx, 0.009, fz));
+  });
+  return g;
+}
+
+function buildProjector({ color='#2a2a2f', w=0.3, d=0.25, h=0.12 } = {}) {
+  const g = new THREE.Group();
+  // Body
+  const bodyMesh = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.012, 3), mat(color, 0.42, 0.18, { env: 0.5 }));
+  bodyMesh.position.y = h / 2; bodyMesh.castShadow = true; bodyMesh.receiveShadow = true; bodyMesh.userData.colorable = true; g.add(bodyMesh);
+  // Lens barrel
+  const barrel = cyl(0.038, 0.034, 0.055, 18, mat('#101014', 0.28, 0.6, { env: 1.0 }));
+  barrel.rotation.x = Math.PI / 2; barrel.position.set(-w * 0.2, h * 0.5, d / 2 + 0.012); g.add(barrel);
+  // Lens glass
+  const lensMat = new THREE.MeshStandardMaterial({ color: 0x112244, roughness: 0.03, metalness: 0.15, transparent: true, opacity: 0.85 });
+  const lensGlass = cyl(0.026, 0.026, 0.01, 18, lensMat);
+  lensGlass.rotation.x = Math.PI / 2; lensGlass.position.set(-w * 0.2, h * 0.5, d / 2 + 0.037); g.add(lensGlass);
+  // Top exhaust vents (5)
+  const ventMat = mat(shade(color, 0.6), 0.6);
+  const ventZStart = -d / 2 + 0.025;
+  const ventZStep = (d - 0.05) / 4;
+  for (let i = 0; i < 5; i++) {
+    g.add(box(w - 0.06, 0.005, 0.012, ventMat, 0, h + 0.002, ventZStart + i * ventZStep));
+  }
+  // Front LED indicator
+  const led = cyl(0.005, 0.005, 0.007, 8, mat('#00cc44', 0.5));
+  led.rotation.x = Math.PI / 2; led.position.set(w * 0.36, h * 0.52, d / 2 + 0.003); g.add(led);
+  // Adjustment wheel (right side)
+  const wheel = cyl(0.018, 0.018, 0.022, 10, mat('#3a3a42', 0.6, 0.1));
+  wheel.rotation.z = Math.PI / 2; wheel.position.set(w / 2 + 0.011, h * 0.5, 0); g.add(wheel);
+  return g;
+}
+
+function buildProjectorScreen({ color='#f5f5f2', w=1.8, d=0.05, h=1.4 } = {}) {
+  const g = new THREE.Group();
+  // Housing at top
+  g.add(box(w + 0.08, 0.08, 0.08, mat('#2e2e2e', 0.5), 0, 2.2, 0));
+  // Screen surface (DoubleSide)
+  const screenMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.86, metalness: 0, side: THREE.DoubleSide });
+  const screenMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 1.32, 0.008), screenMat);
+  screenMesh.position.set(0, 1.50, 0); screenMesh.castShadow = true; screenMesh.receiveShadow = true; screenMesh.userData.colorable = true; g.add(screenMesh);
+  // Black border frame
+  const borderMat = mat('#1a1a1a', 0.6);
+  g.add(box(w + 0.04, 0.028, 0.01, borderMat, 0, 2.16 + 0.014, 0));   // top
+  g.add(box(w + 0.04, 0.028, 0.01, borderMat, 0, 0.84 - 0.014, 0));   // bottom
+  g.add(box(0.028, 1.32 + 0.056, 0.01, borderMat, -w / 2 - 0.014, 1.50, 0)); // left
+  g.add(box(0.028, 1.32 + 0.056, 0.01, borderMat,  w / 2 + 0.014, 1.50, 0)); // right
+  // Side pull strings
+  const strMat = mat('#3a3a3a', 0.7);
+  g.add(box(0.012, 0.2, 0.012, strMat, -(w / 2 + 0.04), 2.16 - 0.1, 0));
+  g.add(box(0.012, 0.2, 0.012, strMat,   w / 2 + 0.04,  2.16 - 0.1, 0));
+  return g;
+}
+
+export { buildBarCounter, buildBarStool, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard };

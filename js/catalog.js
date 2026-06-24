@@ -1,9 +1,9 @@
 import { buildArmchair, buildBed, buildBench, buildBookshelf, buildBunkBed, buildCafeChair, buildCafeTable, buildChest, buildCoffeeTable, buildConsoleTable, buildDesk, buildDeskLamp, buildDiningChair, buildDiningTable, buildFloorLamp, buildGlassCabinet, buildLoungeChair, buildOfficeChair, buildOttoman, buildPendantLamp, buildRoundCoffeeTable, buildRoundRug, buildRoundTableSm, buildRug, buildSideTable, buildSofa3, buildSofaL, buildStackingChair, buildStool, buildTV, buildTVBoard, buildTableLamp, buildUpholsteredChair, buildWallArt, buildWallClock, buildWardrobe, buildWindsorChair } from './builders/furniture.js';
-import { buildBathSet, buildBathtub, buildCloset, buildCupboard, buildFridge, buildGasStove, buildHandBasin, buildKitchenCounter, buildMicrowave, buildRiceCooker, buildShoeCabinet, buildToilet, buildVanity, buildWallTV, buildWasher } from './builders/household.js';
+import { buildBathSet, buildBathtub, buildCloset, buildCupboard, buildFridge, buildGasStove, buildHandBasin, buildKitchenCounter, buildMicrowave, buildRiceCooker, buildShoeCabinet, buildToilet, buildVanity, buildWallAC, buildWallTV, buildWasher } from './builders/household.js';
 import { buildAlumCoilSide, buildAluminumCoil, buildBandedAlumCoil, buildCNCMachine, buildCNCMachiningCenter, buildControlPanel, buildConveyor, buildDrum, buildExportAlumCoil, buildFireExtinguisher, buildForklift, buildIndustrialFurnace, buildIndustrialRobot, buildIndustrialRobotLg, buildInjectionMolder, buildJibCrane, buildLargeHydraulicPress, buildPackagedAlumCoil, buildPalletRack, buildResinPallet, buildScrapBucket, buildSteelPallet, buildTensileTestMachine, buildToolCabinet, buildWoodPallet, buildWorkbench, buildWorker } from './builders/industrial.js';
 import { buildHPLC, buildIncubator, buildLabOven, buildSpectrophotometer, buildUltrasonicCleaner, buildVacuumPump } from './builders/instruments.js';
 import { build3DPrinter, buildAnalyticalBalance, buildBandSaw, buildBenchGrinder, buildCentrifuge, buildChemShelf, buildDrillPress, buildFumeHood, buildGlassware, buildHydraulicPress, buildLabBench, buildLaserCutter, buildLathe, buildMicroscope, buildMillingMachine, buildOscilloscope, buildScrollSaw, buildTestBench, buildToolRack, buildWelderStation } from './builders/lab.js';
-import { buildBarCounter, buildBarStool, buildConferenceTable, buildDisplayCase, buildFilingCabinet, buildInfoPanel, buildPedestal, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard } from './builders/office.js';
+import { buildBarCounter, buildBarStool, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard } from './builders/office.js';
 import { buildBamboo, buildBenjamin, buildCactus, buildDracaena, buildFicusUmbellata, buildMonstera, buildOlive, buildPlant, buildPothos, buildRhapis, buildSansevieria, buildStrelitzia, buildSucculent, buildZZPlant } from './builders/plants.js';
 
 const FURNITURE_DEFS = [
@@ -47,10 +47,14 @@ const FURNITURE_DEFS = [
   { id:'bathtub',  cat:'sanitary', name:'浴槽',          icon:'fa-bath',            w:0.8, d:1.6,  h:0.6, colorIdx:4, build:buildBathtub },
   { id:'bathset',  cat:'sanitary', name:'ユニットバス',  icon:'fa-shower',          w:1.6, d:1.6,  h:2.2, colorIdx:10, build:buildBathSet },
   { id:'walltv',   cat:'deco',     name:'壁掛けテレビ',  icon:'fa-tv',              w:1.3, d:0.08, h:0.8, colorIdx:2, build:buildWallTV, wallMount:true },
+  { id:'wallac',   cat:'household', name:'壁掛けエアコン',   icon:'fa-wind',         w:0.9, d:0.2,  h:0.28, colorIdx:10, build:buildWallAC,           wallMount:true },
   // ---- office ----
   { id:'conftable',  cat:'office',  name:'会議テーブル',      icon:'fa-table',             w:3.6, d:1.2,  h:0.74, colorIdx:8,  build:buildConferenceTable },
   { id:'whiteboard', cat:'office',  name:'ホワイトボード',    icon:'fa-chalkboard',        w:1.5, d:0.04, h:1.4,  colorIdx:1,  build:buildWhiteboard, wallMount:true },
+  { id:'projector',cat:'office',  name:'プロジェクター',    icon:'fa-video',        w:0.3, d:0.25, h:0.12, colorIdx:2,  build:buildProjector,         stack:true },
+  { id:'projscreen',cat:'office', name:'プロジェクタースクリーン',icon:'fa-rectangle-xmark', w:1.8, d:0.05, h:1.4, colorIdx:1, build:buildProjectorScreen, wallMount:true },
   { id:'filingcab',  cat:'office',  name:'ファイリングキャビネット', icon:'fa-folder',     w:0.46,d:0.62, h:1.32, colorIdx:10, build:buildFilingCabinet },
+  { id:'copier',   cat:'office',  name:'コピー機',          icon:'fa-print',        w:0.62,d:0.56, h:1.08, colorIdx:10, build:buildCopier },
   { id:'reception',  cat:'office',  name:'受付カウンター',    icon:'fa-concierge-bell',    w:2.4, d:0.7,  h:1.1,  colorIdx:1,  build:buildReceptionCounter },
   // ---- museum ----
   { id:'displaycase',cat:'museum',  name:'展示ケース',        icon:'fa-box-open',          w:0.88,d:0.52, h:1.3,  colorIdx:10, build:buildDisplayCase },

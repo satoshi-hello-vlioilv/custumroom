@@ -207,4 +207,35 @@ function buildWallTV({ color='#1c1c1f', w=1.3, d=0.08, h=0.8 } = {}) {
 }
 
 
-export { buildBathSet, buildBathtub, buildCloset, buildCupboard, buildFridge, buildGasStove, buildHandBasin, buildKitchenCounter, buildMicrowave, buildRiceCooker, buildShoeCabinet, buildToilet, buildVanity, buildWallTV, buildWasher };
+function buildWallAC({ color='#f2f2f0', w=0.9, d=0.2, h=0.28 } = {}) {
+  const g = new THREE.Group();
+  const cy = 1.97;
+  // Body
+  const bodyMesh = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.022, 3), mat(color, 0.45, 0.05));
+  bodyMesh.position.set(0, cy, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true; bodyMesh.userData.colorable = true; g.add(bodyMesh);
+  // Front-face horizontal intake slats (7)
+  const slatMat = mat(shade(color, 0.78), 0.55);
+  for (let i = 0; i < 7; i++) {
+    g.add(box(w - 0.06, 0.009, 0.006, slatMat, 0, cy + h * 0.22 - i * 0.023, d / 2 + 0.002));
+  }
+  // Bottom output louver
+  const louver = box(w - 0.04, 0.022, 0.09, mat(shade(color, 0.82), 0.5), 0, cy - h * 0.38, d / 2 - 0.015);
+  louver.rotation.x = 0.42; g.add(louver);
+  // Top intake grille (4 boxes evenly spaced in z)
+  const grilleMat = mat(shade(color, 0.88), 0.5);
+  const grilleZStart = -d / 2 + 0.012;
+  const grilleZStep = (d - 0.024) / 3;
+  for (let i = 0; i < 4; i++) {
+    g.add(box(w - 0.1, 0.007, 0.016, grilleMat, 0, cy + h / 2 + 0.003, grilleZStart + i * grilleZStep));
+  }
+  // LED display strip (right side)
+  g.add(box(0.14, 0.014, 0.005, mat('#18283c', 0.6, 0.1), w * 0.27, cy + h * 0.1, d / 2 + 0.003));
+  // Glow box
+  g.add(box(0.07, 0.009, 0.007, mat('#0099dd', 0.3, 0.5), w * 0.27, cy + h * 0.1, d / 2 + 0.004));
+  // IR sensor
+  const sensor = cyl(0.007, 0.007, 0.006, 8, mat('#0a0e14', 0.6));
+  sensor.rotation.x = Math.PI / 2; sensor.position.set(-w * 0.4, cy, d / 2 + 0.003); g.add(sensor);
+  return g;
+}
+
+export { buildBathSet, buildBathtub, buildCloset, buildCupboard, buildFridge, buildGasStove, buildHandBasin, buildKitchenCounter, buildMicrowave, buildRiceCooker, buildShoeCabinet, buildToilet, buildVanity, buildWallAC, buildWallTV, buildWasher };
