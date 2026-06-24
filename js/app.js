@@ -177,6 +177,8 @@ const FLOOR_SWATCH = {
   carpet:'#c9c2b4', tatami:'#cdbf86', genkan:'#ddd6c8',
   terracotta:'#c8724a', stone:'#8a8480',
   rubber:'#303030', checker_plate:'#7a8090', epoxy:'#3a7040',
+  oil_concrete:'#82888c', worn_painted:'#41566b', rusty_metal:'#6b5a4a',
+  safety_line:'#9a8a3a', cracked_concrete:'#9c988f',
   dirt:'#8a6a47', grass:'#5f8a44', lawn:'#6fa050'
 };
 function floorSwatch(type) { return FLOOR_SWATCH[type] || '#caa46d'; }

@@ -574,6 +574,283 @@ function makeStoneTexture() {
   return t;
 }
 
+// ============================================================ 工場床（汚し系）
+// Shared helper: scatter fine aggregate / grime speckle over the whole canvas.
+function _grimeSpeckle(ctx, s, count, base, spread, alpha) {
+  for (let i = 0; i < count; i++) {
+    const v = base + (Math.random() - 0.5) * spread;
+    ctx.fillStyle = `rgba(${v|0},${v|0},${v|0},${alpha * Math.random()})`;
+    ctx.fillRect(Math.random()*s, Math.random()*s, 1 + Math.random()*1.5, 1 + Math.random()*1.5);
+  }
+}
+// Shared helper: an irregular soft blob (oil/grease/water stain) at (x,y).
+function _stainBlob(ctx, x, y, r, col, a) {
+  const g = ctx.createRadialGradient(x, y, 1, x, y, r);
+  g.addColorStop(0, `rgba(${col},${a})`);
+  g.addColorStop(0.55, `rgba(${col},${a*0.55})`);
+  g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  // wobbly edge so stains never look like perfect circles
+  const steps = 18;
+  for (let i = 0; i <= steps; i++) {
+    const ang = (i/steps) * Math.PI * 2;
+    const rr = r * (0.7 + Math.random()*0.45);
+    const px = x + Math.cos(ang)*rr, py = y + Math.sin(ang)*rr;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+// 油染みコンクリート — worn shop-floor concrete with grease blotches & tyre skids
+function makeOilStainConcreteTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  // uneven concrete base — broad tonal clouds
+  ctx.fillStyle = '#8d9296'; ctx.fillRect(0, 0, s, s);
+  for (let i = 0; i < 60; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 70 + Math.random()*150;
+    const lite = Math.random() < 0.5;
+    _stainBlob(ctx, x, y, r, lite ? '160,166,170' : '110,114,118', 0.06 + Math.random()*0.05);
+  }
+  _grimeSpeckle(ctx, s, 16000, 140, 90, 0.10);
+  // expansion-joint grid
+  ctx.strokeStyle = 'rgba(45,48,52,0.5)'; ctx.lineWidth = 3;
+  for (let i = 0; i < s; i += 256) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(s, i); ctx.stroke();
+  }
+  // grease / oil stains — dark warm-black irregular blobs
+  for (let i = 0; i < 14; i++) {
+    _stainBlob(ctx, Math.random()*s, Math.random()*s, 26 + Math.random()*70, '24,20,16', 0.30 + Math.random()*0.30);
+  }
+  // tyre skid streaks
+  for (let i = 0; i < 7; i++) {
+    const y = Math.random()*s, len = 80 + Math.random()*260, x = Math.random()*s;
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate((Math.random()-0.5)*0.5);
+    ctx.fillStyle = `rgba(20,18,16,${0.12 + Math.random()*0.16})`;
+    ctx.fillRect(0, 0, len, 5 + Math.random()*7);
+    ctx.restore();
+  }
+  // a few hairline cracks
+  ctx.strokeStyle = 'rgba(40,40,42,0.45)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    let x = Math.random()*s, y = Math.random()*s; ctx.beginPath(); ctx.moveTo(x, y);
+    for (let k = 0; k < 7; k++) { x += (Math.random()-0.5)*70; y += (Math.random()-0.5)*70; ctx.lineTo(x, y); }
+    ctx.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+// 塗装剥がれ床 — industrial painted floor (battleship grey-blue) chipped to bare concrete
+function makeWornPaintedFloorTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  // bare concrete underlayer
+  ctx.fillStyle = '#9a9690'; ctx.fillRect(0, 0, s, s);
+  _grimeSpeckle(ctx, s, 9000, 150, 70, 0.08);
+  // paint coat
+  ctx.fillStyle = '#41566b'; ctx.fillRect(0, 0, s, s);
+  // tonal variation of the paint
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 60 + Math.random()*120;
+    _stainBlob(ctx, x, y, r, Math.random()<0.5 ? '90,112,134' : '46,60,76', 0.10);
+  }
+  // chipped / worn patches — punch holes back to concrete using destination-out
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 4 + Math.random()*30;
+    ctx.globalAlpha = 0.35 + Math.random()*0.5;
+    ctx.beginPath();
+    const steps = 12;
+    for (let k = 0; k <= steps; k++) { const a = k/steps*Math.PI*2, rr = r*(0.6+Math.random()*0.5); const px=x+Math.cos(a)*rr, py=y+Math.sin(a)*rr; k===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
+    ctx.closePath(); ctx.fill();
+  }
+  // heavy traffic lane wear down the middle
+  for (let i = 0; i < 30; i++) {
+    ctx.globalAlpha = 0.18 + Math.random()*0.25;
+    ctx.beginPath(); ctx.ellipse(s*0.5 + (Math.random()-0.5)*120, Math.random()*s, 30+Math.random()*60, 12+Math.random()*24, 0, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  // scratches over the paint
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 60; i++) {
+    const x = Math.random()*s, y = Math.random()*s, a = Math.random()*Math.PI, l = 10+Math.random()*40;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+Math.cos(a)*l, y+Math.sin(a)*l); ctx.stroke();
+  }
+  // grime in the seams
+  ctx.strokeStyle = 'rgba(20,22,26,0.5)'; ctx.lineWidth = 3;
+  for (let i = 0; i < s; i += 256) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,s); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(s,i); ctx.stroke(); }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+// 錆びた鉄板床 — steel plate with rust bloom, streaks & worn checker ribs
+function makeRustyMetalTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  // dark steel base with vertical brushed variation
+  ctx.fillStyle = '#5a5a5e'; ctx.fillRect(0, 0, s, s);
+  for (let x = 0; x < s; x += 2) {
+    ctx.fillStyle = `rgba(${90+Math.random()*40|0},${90+Math.random()*40|0},${95+Math.random()*40|0},0.05)`;
+    ctx.fillRect(x, 0, 2, s);
+  }
+  // faint diagonal checker ribs (worn)
+  const sp = 30;
+  for (let d = -s; d < s*2; d += sp) {
+    ctx.strokeStyle = 'rgba(150,150,156,0.18)'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d + s, s); ctx.stroke();
+    ctx.strokeStyle = 'rgba(30,30,33,0.18)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(d+7, 0); ctx.lineTo(d + s+7, s); ctx.stroke();
+  }
+  // plate seams
+  ctx.strokeStyle = 'rgba(25,25,28,0.55)'; ctx.lineWidth = 4;
+  ctx.strokeRect(0.5, 0.5, s-1, s-1);
+  ctx.beginPath(); ctx.moveTo(0, s/2); ctx.lineTo(s, s/2); ctx.stroke();
+  // bolt heads at corners of plate
+  [[12,12],[s-12,12],[12,s-12],[s-12,s-12],[s/2,12],[s/2,s-12]].forEach(([bx,by]) => {
+    const g = ctx.createRadialGradient(bx-2,by-2,1,bx,by,7);
+    g.addColorStop(0,'rgba(190,190,195,0.8)'); g.addColorStop(1,'rgba(40,40,44,0.7)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx,by,6,0,7); ctx.fill();
+  });
+  // rust blooms — orange/brown layered
+  const rustCols = ['150,75,38','120,58,30','176,96,46','92,46,28'];
+  for (let i = 0; i < 22; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 18 + Math.random()*70;
+    _stainBlob(ctx, x, y, r, rustCols[i % rustCols.length], 0.28 + Math.random()*0.35);
+    // gritty rust pitting inside the bloom
+    for (let k = 0; k < 60; k++) {
+      const a = Math.random()*Math.PI*2, rr = Math.random()*r;
+      ctx.fillStyle = `rgba(${80+Math.random()*90|0},${40+Math.random()*40|0},20,${0.15+Math.random()*0.3})`;
+      ctx.fillRect(x+Math.cos(a)*rr, y+Math.sin(a)*rr, 1+Math.random()*2, 1+Math.random()*2);
+    }
+  }
+  // rust streaks bleeding downward
+  for (let i = 0; i < 10; i++) {
+    const x = Math.random()*s, y = Math.random()*s, len = 30+Math.random()*120;
+    const g = ctx.createLinearGradient(x, y, x, y+len);
+    g.addColorStop(0, 'rgba(140,70,35,0.4)'); g.addColorStop(1, 'rgba(140,70,35,0)');
+    ctx.fillStyle = g; ctx.fillRect(x, y, 3+Math.random()*5, len);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+// 安全区画ライン床 — grimy concrete with painted yellow hazard zone lines, scuffed
+function makeSafetyLineFloorTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  // dim concrete base
+  ctx.fillStyle = '#7e8488'; ctx.fillRect(0, 0, s, s);
+  for (let i = 0; i < 50; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 60 + Math.random()*130;
+    _stainBlob(ctx, x, y, r, Math.random()<0.5 ? '150,156,160' : '96,100,104', 0.06);
+  }
+  _grimeSpeckle(ctx, s, 13000, 130, 80, 0.10);
+  // safety zone painted band along edges (faded yellow)
+  const band = 46;
+  function paintBand(drawFn, col) {
+    ctx.save();
+    ctx.fillStyle = col;
+    drawFn();
+    ctx.restore();
+  }
+  // yellow border band (top + left to imply a marked walkway corner, tiles seamlessly)
+  ctx.fillStyle = '#c8a32a';
+  ctx.fillRect(0, 0, s, band);
+  ctx.fillRect(0, 0, band, s);
+  // darker edge keylines on the band
+  ctx.fillStyle = 'rgba(60,48,10,0.5)';
+  ctx.fillRect(0, band-3, s, 3); ctx.fillRect(band-3, 0, 3, s);
+  // wear on the painted band — scuff back toward concrete
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 120; i++) {
+    const onTop = Math.random() < 0.5;
+    const x = onTop ? Math.random()*s : Math.random()*band;
+    const y = onTop ? Math.random()*band : Math.random()*s;
+    ctx.globalAlpha = 0.2 + Math.random()*0.5;
+    ctx.beginPath(); ctx.arc(x, y, 2+Math.random()*7, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  // grime stains over everything
+  for (let i = 0; i < 9; i++) {
+    _stainBlob(ctx, Math.random()*s, Math.random()*s, 24+Math.random()*55, '30,26,22', 0.22+Math.random()*0.2);
+  }
+  // tyre skids crossing the zone
+  for (let i = 0; i < 5; i++) {
+    const x = Math.random()*s, y = Math.random()*s;
+    ctx.save(); ctx.translate(x, y); ctx.rotate((Math.random()-0.5)*0.6);
+    ctx.fillStyle = `rgba(20,18,16,${0.14+Math.random()*0.14})`;
+    ctx.fillRect(0, 0, 100+Math.random()*200, 5+Math.random()*6);
+    ctx.restore();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
+// 古いひび割れコンクリート — heavily aged, cracked & stained slab
+function makeCrackedConcreteTexture() {
+  const s = 512, c = document.createElement('canvas'); c.width = c.height = s;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#a7a39b'; ctx.fillRect(0, 0, s, s);
+  // patchy tonal slabs
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 50 + Math.random()*140;
+    _stainBlob(ctx, x, y, r, Math.random()<0.5 ? '188,184,176' : '128,124,116', 0.07 + Math.random()*0.05);
+  }
+  _grimeSpeckle(ctx, s, 17000, 160, 80, 0.10);
+  // dark water/dirt stains
+  for (let i = 0; i < 10; i++) {
+    _stainBlob(ctx, Math.random()*s, Math.random()*s, 30+Math.random()*80, '70,64,54', 0.16+Math.random()*0.18);
+  }
+  // branching crack network — recursive-ish jagged lines with shadow + highlight
+  function crack(x, y, ang, len, width, depth) {
+    if (depth <= 0 || len < 6) return;
+    const segs = 4 + Math.random()*4;
+    ctx.lineWidth = width;
+    ctx.strokeStyle = 'rgba(40,38,34,0.55)';
+    ctx.beginPath(); ctx.moveTo(x, y);
+    let cx = x, cy = y, ca = ang;
+    for (let i = 0; i < segs; i++) {
+      ca += (Math.random()-0.5)*0.8;
+      cx += Math.cos(ca)*(len/segs); cy += Math.sin(ca)*(len/segs);
+      ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+    // subtle highlight on one side for carved-in depth
+    ctx.lineWidth = Math.max(0.5, width*0.5);
+    ctx.strokeStyle = 'rgba(235,232,226,0.25)';
+    ctx.stroke();
+    // branch
+    if (Math.random() < 0.7) crack(cx, cy, ca + (Math.random()<0.5?0.7:-0.7), len*0.6, Math.max(0.6, width*0.7), depth-1);
+    if (Math.random() < 0.4) crack(cx, cy, ca + (Math.random()<0.5?1.2:-1.2), len*0.5, Math.max(0.5, width*0.6), depth-1);
+  }
+  for (let i = 0; i < 6; i++) {
+    crack(Math.random()*s, Math.random()*s, Math.random()*Math.PI*2, 90+Math.random()*120, 2.2, 4);
+  }
+  // small spalled potholes
+  for (let i = 0; i < 8; i++) {
+    const x = Math.random()*s, y = Math.random()*s, r = 5+Math.random()*14;
+    _stainBlob(ctx, x, y, r, '60,56,48', 0.4);
+    ctx.fillStyle = 'rgba(235,232,226,0.18)';
+    ctx.beginPath(); ctx.arc(x-r*0.3, y-r*0.3, r*0.5, 0, 7); ctx.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANISO;
+  return t;
+}
+
 const woodTex = makeWoodTexture();
 const concreteTex = makeConcreteTexture();
 const wallTexSrc = makeWallTexture();
@@ -595,6 +872,11 @@ const checkerTex = makeCheckerPlateTexture();
 const epoxyTex = makeEpoxyTexture();
 const terracottaTex = makeTerracottaTexture();
 const stoneTex = makeStoneTexture();
+const oilConcreteTex = makeOilStainConcreteTexture();
+const wornPaintedTex = makeWornPaintedFloorTexture();
+const rustyMetalTex = makeRustyMetalTexture();
+const safetyLineTex = makeSafetyLineFloorTexture();
+const crackedConcreteTex = makeCrackedConcreteTexture();
 
 const FLOOR_TYPES = {
   wood:          { name: '木目フローリング',  tex: woodTex,      color: 0xffffff, rough: 0.72, metal: 0.02, per: 2.2 },
@@ -611,6 +893,11 @@ const FLOOR_TYPES = {
   rubber:        { name: 'ゴム床',            tex: rubberTex,    color: 0x808080, rough: 0.95, metal: 0.0,  per: 1.0 },
   checker_plate: { name: '縞鋼板',            tex: checkerTex,   color: 0xaaaaaa, rough: 0.55, metal: 0.5,  per: 1.5 },
   epoxy:         { name: 'エポキシ塗床',      tex: epoxyTex,     color: 0xffffff, rough: 0.25, metal: 0.08, per: 3.0 },
+  oil_concrete:  { name: '油染みコンクリート', tex: oilConcreteTex, color: 0xffffff, rough: 0.86, metal: 0.05, per: 3.0 },
+  worn_painted:  { name: '塗装剥がれ床',      tex: wornPaintedTex, color: 0xffffff, rough: 0.6,  metal: 0.06, per: 2.6 },
+  rusty_metal:   { name: '錆びた鉄板',        tex: rustyMetalTex,  color: 0xffffff, rough: 0.62, metal: 0.45, per: 2.2 },
+  safety_line:   { name: '安全区画ライン床',  tex: safetyLineTex,  color: 0xffffff, rough: 0.82, metal: 0.04, per: 3.2 },
+  cracked_concrete:{ name: 'ひび割れ床',       tex: crackedConcreteTex, color: 0xffffff, rough: 0.94, metal: 0.02, per: 3.0 },
   dirt:          { name: '土',                tex: dirtTex,      color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 2.0 },
   grass:         { name: '草',                tex: grassTex,     color: 0xffffff, rough: 1.0,  metal: 0.0,  per: 1.5 },
   lawn:          { name: '芝生',              tex: lawnTex,      color: 0xffffff, rough: 0.98, metal: 0.0,  per: 1.8 },
@@ -633,4 +920,4 @@ const WALL_TYPES = {
   marble:   { name: '大理石壁',      tex: marbleTex,  color: 0xffffff, rough: 0.2,  metal: 0.05 },
 };
 
-export { makeWoodTexture, makeWallTexture, makeNoiseTexture, makeRugTexture, makeConcreteTexture, makeTileTexture, makeMarbleTexture, makeCarpetTexture, makeTatamiTexture, makeBrickTexture, makePanelTexture, makeGenkanTexture, makeDirtTexture, makeGrassTexture, makeLawnTexture, makeParquetTexture, makeDarkWoodTexture, makeRubberTexture, makeCheckerPlateTexture, makeEpoxyTexture, makeTerracottaTexture, makeStoneTexture, woodTex, concreteTex, wallTexSrc, noiseTex, tileTex, marbleTex, carpetTex, tatamiTex, brickTex, panelTex, genkanTex, dirtTex, grassTex, lawnTex, parquetTex, darkWoodTex, rubberTex, checkerTex, epoxyTex, terracottaTex, stoneTex, FLOOR_TYPES, WALL_TYPES };
+export { makeWoodTexture, makeWallTexture, makeNoiseTexture, makeRugTexture, makeConcreteTexture, makeTileTexture, makeMarbleTexture, makeCarpetTexture, makeTatamiTexture, makeBrickTexture, makePanelTexture, makeGenkanTexture, makeDirtTexture, makeGrassTexture, makeLawnTexture, makeParquetTexture, makeDarkWoodTexture, makeRubberTexture, makeCheckerPlateTexture, makeEpoxyTexture, makeTerracottaTexture, makeStoneTexture, makeOilStainConcreteTexture, makeWornPaintedFloorTexture, makeRustyMetalTexture, makeSafetyLineFloorTexture, makeCrackedConcreteTexture, woodTex, concreteTex, wallTexSrc, noiseTex, tileTex, marbleTex, carpetTex, tatamiTex, brickTex, panelTex, genkanTex, dirtTex, grassTex, lawnTex, parquetTex, darkWoodTex, rubberTex, checkerTex, epoxyTex, terracottaTex, stoneTex, oilConcreteTex, wornPaintedTex, rustyMetalTex, safetyLineTex, crackedConcreteTex, FLOOR_TYPES, WALL_TYPES };
