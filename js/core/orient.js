@@ -22,8 +22,8 @@
 
 // --- 背面を壁に付けるべき床置きアイテム ------------------------------------
 const BACK_TO_WALL = new Set([
-  // table
-  'desk', 'consoletab',
+  // table (desk は自立配置も一般的なため除外: アクセス面チェック(3)と机椅子チェック(7)で担保)
+  'consoletab',
   // sleep
   'sbed', 'dbed', 'bunkbed',
   // storage
@@ -36,8 +36,8 @@ const BACK_TO_WALL = new Set([
   'toilet', 'handbasin', 'vanity', 'washer', 'bathtub', 'bathset',
   // office / shop (island racks/registers stand freely — removed: shelfrack, register, palletrack)
   'filingcab', 'copier', 'reception', 'showcasefridge', 'vendingmachine', 'atm', 'barcounter',
-  // factory (壁付けが自然な棚・盤; palletrack は島ラックのため除外)
-  'toolcab', 'ctrlpanel', 'chemshelf',
+  // factory (壁付けが自然な盤・棚; toolcab は移動式も多いため除外)
+  'ctrlpanel', 'chemshelf',
 ]);
 
 // --- 前面(+Z)に必要なアクセスクリアランス[m]。未指定は 0 (前面チェックなし) -----
@@ -87,10 +87,13 @@ function halfExtents(def, rotY) {
   const r = rotY * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
   return { hw: (def.w * c + def.d * s) / 2, hd: (def.w * s + def.d * c) / 2 };
 }
-// アイテムの「奥行き半分」= 前後方向(±Z)の張り出し
+// アイテムの前面方向への半張り出し (front vec の方向に沿った AABB 半幅)
 function halfDepthAlongFront(def, rotY) {
   const r = rotY * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
-  return (def.d * c + def.w * s) / 2;
+  // hw=x軸半幅, hd=z軸半幅。front=(s,c) なので front方向投影 = hw*s + hd*c
+  const hw = (def.w * c + def.d * s) / 2;
+  const hd = (def.w * s + def.d * c) / 2;
+  return hw * s + hd * c;
 }
 
 // プリセットの壁セグメント(外周4枚+間仕切り)を開口情報付きで返す
@@ -107,7 +110,7 @@ function presetWalls(preset) {
   return walls;
 }
 
-// 点 (x,z) と壁セグメント群との最近接情報。inOpening: 投影点が開口内か
+// 点 (x,z) と壁セグメント群との最近接情報。inOpening: 投影点が開口内か、openingKind: 開口種別
 function nearestWall(walls, x, z) {
   let best = null;
   for (const w of walls) {
@@ -118,12 +121,12 @@ function nearestWall(walls, x, z) {
     s = Math.max(0, Math.min(len, s));
     const px = w.x1 + ux * s, pz = w.z1 + uz * s;
     const dist = Math.hypot(x - px, z - pz);
-    let inOpening = false;
+    let inOpening = false, openingKind = null;
     for (const o of w.ops) {
       const oc = (o.t != null ? o.t : 0.5) * len, ow = (o.w || 0.9);
-      if (Math.abs(s - oc) <= ow / 2) { inOpening = true; break; }
+      if (Math.abs(s - oc) <= ow / 2) { inOpening = true; openingKind = o.kind || null; break; }
     }
-    if (!best || dist < best.dist) best = { dist, px, pz, nx: uz, nz: -ux, inOpening, wall: w };
+    if (!best || dist < best.dist) best = { dist, px, pz, nx: uz, nz: -ux, inOpening, openingKind, wall: w };
   }
   return best;
 }
@@ -209,7 +212,14 @@ function validateLayout(preset, defsById) {
       // 背中合わせ(他什器が背後)も可
       const itemBehind = items.some(o => o !== m && o.use.mount === 'floor' &&
         Math.abs(o.cx - bx) <= o.hw + 0.1 && Math.abs(o.cz - bz) <= o.hd + 0.1);
-      if (!wallBehind && !itemBehind) {
+      if (wallBehind && nw.inOpening) {
+        // 扉位置に背面→通路閉塞の恐れ。窓位置は水回り什器のみ警告
+        const isDoor = nw.openingKind && nw.openingKind.includes('door');
+        const SANITARY = new Set(['vanity','toilet','handbasin','bathtub','bathset','washer']);
+        if (isDoor || SANITARY.has(def.id)) {
+          add('warn', idx, def.id, `背面が壁の${isDoor ? '扉' : '窓'}位置にある — ${nw.openingKind}と干渉`);
+        }
+      } else if (!wallBehind && !itemBehind) {
         add('warn', idx, def.id, `背面を壁に付けるべきだが背後に壁も什器もない (向き rotY=${it.rotY || 0})`);
       }
     }
@@ -226,6 +236,41 @@ function validateLayout(preset, defsById) {
       if (ox > 0.1 && oz > 0.1) {
         add('error', a.idx, a.def.id, `${a.def.id} と ${b.def.id}(#${b.idx}) の設置面が重なっている (${ox.toFixed(2)}×${oz.toFixed(2)}m)`);
       }
+    }
+  }
+
+  // (6) 天井/床置き照明フィクスチャが大型床置き什器フットプリントに重なっていないか
+  // (pendlampなどはFOOTPRINT_SKIPで床置き重複チェック除外のため別途検査)
+  const LARGE_FLOOR_IDS = new Set(['dbed', 'sbed', 'bunkbed', 'bathset', 'bathtub']);
+  const ceilFixtures = items.filter(m => FOOTPRINT_SKIP.has(m.def.id) && m.use.mount !== 'wall');
+  const largeFloorItems = floor.filter(m => LARGE_FLOOR_IDS.has(m.def.id));
+  for (const fix of ceilFixtures) {
+    for (const fl of largeFloorItems) {
+      const { ox, oz } = overlapAABB(fix, fl);
+      if (ox > 0.05 && oz > 0.05) {
+        add('warn', fix.idx, fix.def.id,
+          `${fix.def.id} が ${fl.def.id}(#${fl.idx}) のフットプリント内に重なっている — 天井照明と大型家具の干渉`);
+      }
+    }
+  }
+
+  // (7) 椅子がデスク(desk)の背面側に置かれていないか
+  // 椅子ごとに最近傍desksを探し、その背面側にある場合のみ警告
+  const CHR_IDS = new Set(['ochr', 'dchr']);
+  const deskItems = items.filter(m => m.def.id === 'desk');
+  for (const ch of items) {
+    if (!CHR_IDS.has(ch.def.id)) continue;
+    let nearest = null, nearestDist = 9999;
+    for (const dk of deskItems) {
+      const d = Math.hypot(ch.cx - dk.cx, ch.cz - dk.cz);
+      if (d < nearestDist) { nearestDist = d; nearest = dk; }
+    }
+    if (!nearest || nearestDist > 1.4) continue;
+    // デスク前面方向と椅子位置の内積: 負→椅子がデスク背面側
+    const dot = (ch.cx - nearest.cx) * nearest.front.x + (ch.cz - nearest.cz) * nearest.front.z;
+    if (dot < -0.2) {
+      add('warn', ch.idx, ch.def.id,
+        `椅子が最近傍desk(#${nearest.idx})のアクセス面と逆の背面側にある — 向き不整合`);
     }
   }
 
