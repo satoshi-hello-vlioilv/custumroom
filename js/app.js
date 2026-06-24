@@ -78,6 +78,13 @@ function applyFloorSpec(material, type, w, d) {
   material.color.set(spec.color);
   material.roughness = spec.rough; material.metalness = spec.metal;
   material.envMapIntensity = 0.35;
+  if (spec.macro) {
+    const rm = spec.macro.clone(); rm.needsUpdate = true;
+    rm.repeat.set(Math.max(0.5, w / 8.0), Math.max(0.5, d / 8.0));
+    material.roughnessMap = rm;
+  } else {
+    material.roughnessMap = null;
+  }
   material.needsUpdate = true;
 }
 
