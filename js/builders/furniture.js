@@ -491,4 +491,162 @@ function buildOttoman({ color='#6f9e74', w=0.6, d=0.6, h=0.4 } = {}) {
 }
 
 
-export { buildArmchair, buildBed, buildBench, buildBookshelf, buildBunkBed, buildCafeChair, buildCafeTable, buildChest, buildCoffeeTable, buildConsoleTable, buildDesk, buildDeskLamp, buildDiningChair, buildDiningTable, buildFloorLamp, buildGlassCabinet, buildLoungeChair, buildOfficeChair, buildOttoman, buildPendantLamp, buildRoundCoffeeTable, buildRoundRug, buildRoundTableSm, buildRug, buildSideTable, buildSofa3, buildSofaL, buildStackingChair, buildStool, buildTV, buildTVBoard, buildTableLamp, buildUpholsteredChair, buildWallArt, buildWallClock, buildWardrobe, buildWindsorChair };
+function buildMonitor({ color='#1c1c20', w=0.52, d=0.18, h=0.44 } = {}) {
+  const g = new THREE.Group();
+  const metal = mat('#8a9098', 0.25, 0.8, {env:0.9});
+  // Base plate
+  const base = box(0.22, 0.02, 0.18, metal, 0, 0.01, 0.01); g.add(base);
+  // Neck/stem
+  g.add(box(0.038, 0.12, 0.038, metal, 0, 0.09, 0.01));
+  // Tilt arm
+  g.add(box(0.06, 0.036, 0.06, metal, 0, 0.17, 0.01));
+  // Panel back housing
+  const panel = new THREE.Mesh(roundedBoxGeom(w, 0.29, 0.03, 0.01, 3), mat(color, 0.4, 0.3));
+  panel.position.set(0, 0.30, 0.02); panel.castShadow = true; panel.userData.colorable = true; g.add(panel);
+  // Screen surface
+  g.add(box(w-0.04, 0.265, 0.01, mat('#080a0e', 0.08, 0.2), 0, 0.30, 0.036));
+  // Screen glow
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(w-0.06, 0.245), new THREE.MeshBasicMaterial({color:0x2a4a7a, transparent:true, opacity:0.65}));
+  glow.position.set(0, 0.30, 0.042); g.add(glow);
+  // Screen glow2 highlight
+  const glow2 = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), new THREE.MeshBasicMaterial({color:0x6090c0, transparent:true, opacity:0.30}));
+  glow2.position.set(-w*0.2, 0.33, 0.043); g.add(glow2);
+  // Top bezel strip
+  g.add(box(w, 0.012, 0.03, mat(shade(color,0.85), 0.4, 0.25), 0, 0.45, 0.02));
+  // Power LED
+  const led = cyl(0.004, 0.004, 0.006, 6, mat('#0066ff', 0.5));
+  led.rotation.x = Math.PI/2; led.position.set(w*0.4, 0.16, 0.037); g.add(led);
+  return g;
+}
+function buildKotatsu({ color='#8a5a2b', w=0.9, d=0.9, h=0.37 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.65, 0.02, {env:0.3});
+  // 4 short legs
+  [[ w/2-0.06,  d/2-0.06], [ w/2-0.06, -(d/2-0.06)],
+   [-(w/2-0.06), d/2-0.06], [-(w/2-0.06), -(d/2-0.06)]].forEach(([lx,lz]) => {
+    g.add(box(0.06, 0.30, 0.06, wood, lx, 0.15, lz));
+  });
+  // Lower cross-frame (ヤグラ) — two horizontal bars
+  g.add(box(w-0.14, 0.03, 0.05, wood, 0, 0.14,  d/4));
+  g.add(box(w-0.14, 0.03, 0.05, wood, 0, 0.14, -d/4));
+  // Two side bars
+  g.add(box(0.05, 0.03, d-0.14, wood,  w/4, 0.14, 0));
+  g.add(box(0.05, 0.03, d-0.14, wood, -w/4, 0.14, 0));
+  // Heater unit
+  g.add(box(0.22, 0.05, 0.22, mat('#2a2a2a', 0.7), 0, 0.12, 0));
+  // Table top
+  const top = box(w, 0.04, d, mat(shade(color, 0.92), 0.55, 0.02), 0, h-0.02, 0);
+  top.userData.colorable = true; g.add(top);
+  // Top frame strip
+  g.add(box(w+0.01, 0.012, d+0.01, mat(shade(color,0.78), 0.5), 0, h, 0));
+  // Futon (布団)
+  const futon = new THREE.Mesh(roundedBoxGeom(w+0.26, 0.1, d+0.26, 0.06, 4), fabricMat('#c8b49a'));
+  futon.position.set(0, 0.30, 0); futon.material.opacity = 1.0; futon.userData.colorable = true; g.add(futon);
+  return g;
+}
+function buildDresser({ color='#f3ece0', w=0.9, d=0.44, h=1.4 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.62, 0.02);
+  const metal = mat('#9aa0a4', 0.2, 0.8, {env:0.9});
+  // 4 thin tapered legs
+  [[ w/2-0.06,  d/2-0.06], [ w/2-0.06, -(d/2-0.06)],
+   [-(w/2-0.06), d/2-0.06], [-(w/2-0.06), -(d/2-0.06)]].forEach(([lx,lz]) => {
+    g.add(box(0.04, 0.12, 0.04, mat(shade(color,0.7), 0.6), lx, 0.06, lz));
+  });
+  // Lower body (drawer cabinet)
+  const body = box(w, 0.56, d, wood, 0, 0.12+0.28, 0); body.userData.colorable = true; g.add(body);
+  // 3 drawer fronts
+  [0.18, 0.34, 0.50].forEach(dy => {
+    const dr = box(w-0.06, 0.16, 0.025, mat(shade(color,1.08), 0.6), 0, dy, d/2+0.008);
+    dr.userData.colorable = true; g.add(dr);
+    // Drawer handle
+    const hdl = cyl(0.006, 0.006, 0.15, 8, metal);
+    hdl.rotation.y = Math.PI/2; hdl.position.set(0, dy, d/2+0.028); g.add(hdl);
+  });
+  // Counter top surface
+  g.add(box(w+0.02, 0.03, d+0.02, mat(shade(color,0.88), 0.55), 0, 0.705, 0));
+  // Mirror shelf tray
+  g.add(box(w-0.16, 0.04, d*0.38, mat(shade(color,0.82), 0.58), 0, 0.74, d*0.12));
+  // Mirror back plate
+  g.add(box(w-0.12, 0.64, 0.04, mat(shade(color,0.72), 0.5), 0, 1.07, -d/2+0.02));
+  // Mirror surface
+  g.add(box(w-0.18, 0.58, 0.012, mat('#c8d8e0', 0.04, 0.9, {env:1.3}), 0, 1.07, -d/2+0.04));
+  // Mirror side posts
+  g.add(box(0.035, 0.68, 0.04, wood,  (w/2-0.09), 1.07, -d/2+0.02));
+  g.add(box(0.035, 0.68, 0.04, wood, -(w/2-0.09), 1.07, -d/2+0.02));
+  // Small perfume bottle on tray
+  g.add(cylAt(0.025, 0.022, 0.08, 10, mat('#d4a0b0', 0.3, 0.1), 0.16, 0.76, d*0.12));
+  return g;
+}
+function buildHangerRack({ color='#8a7a6a', w=1.0, d=0.38, h=1.75 } = {}) {
+  const g = new THREE.Group();
+  const metal = mat('#5a5a5a', 0.35, 0.65, {env:0.8});
+  const wood = mat(color, 0.65, 0.02);
+  // Base board
+  const base = box(w, 0.025, d, wood, 0, 0.012, 0); base.userData.colorable = true; g.add(base);
+  // 2 vertical side poles
+  g.add(cylAt(0.018, 0.018, 1.64, 12, metal,  (w/2-0.04), 0.84, 0));
+  g.add(cylAt(0.018, 0.018, 1.64, 12, metal, -(w/2-0.04), 0.84, 0));
+  // Horizontal top bar
+  const topBar = cylAt(0.014, 0.014, w-0.08, 12, metal, 0, 1.58, 0);
+  topBar.rotation.z = Math.PI/2; g.add(topBar);
+  // Lower shelf
+  const shelf = box(w-0.08, 0.022, d-0.08, wood, 0, 0.32, 0); shelf.userData.colorable = true; g.add(shelf);
+  // Diagonal braces
+  [[ (w/2-0.04),  0.01], [ (w/2-0.04), -0.01],
+   [-(w/2-0.04),  0.01], [-(w/2-0.04), -0.01]].forEach(([bx, bz], i) => {
+    const brace = box(0.014, 0.014, 0.36, metal, bx, 0.17, bz);
+    brace.rotation.x = (i % 2 === 0 ? 0.4 : -0.4); g.add(brace);
+  });
+  // 3 clothes hangers on top bar
+  [-0.25, 0, 0.25].forEach(hx => {
+    g.add(box(0.18, 0.007, 0.007, metal, hx, 1.62, 0));
+    const hook = cyl(0.007, 0.007, 0.08, 6, metal); hook.position.set(hx, 1.595, 0); g.add(hook);
+    // diagonal arms of hanger
+    g.add(box(0.092, 0.006, 0.006, metal, hx-0.046, 1.614, 0));
+    g.add(box(0.092, 0.006, 0.006, metal, hx+0.046, 1.614, 0));
+  });
+  return g;
+}
+function buildPiano({ color='#1a1010', w=1.45, d=0.6, h=1.22 } = {}) {
+  const g = new THREE.Group();
+  const darkWood = mat(color, 0.55, 0.1, {env:0.5});
+  const ivory = mat('#f8f4e8', 0.75, 0.0);
+  const ebony = mat('#0a0808', 0.4, 0.05);
+  // Main cabinet body
+  const body = box(w, h-0.05, d-0.08, darkWood, 0, (h-0.05)/2, -0.04); body.userData.colorable = true; g.add(body);
+  // Front panel above keys
+  const frontPanel = box(w-0.06, 0.36, 0.055, darkWood, 0, 0.90, d/2-0.022); frontPanel.userData.colorable = true; g.add(frontPanel);
+  // Key bed
+  g.add(box(w-0.1, 0.06, 0.22, mat('#e8e4d8', 0.72), 0, 0.715, d/2-0.1));
+  // White keys
+  for (let i = 0; i < 13; i++) {
+    g.add(box(0.086, 0.055, 0.168, ivory, -w/2+0.14+i*0.094, 0.745, d/2-0.09));
+  }
+  // Black keys
+  const bkPos = [1,2,4,5,6,8,9,11];
+  bkPos.forEach(i => g.add(box(0.052, 0.064, 0.1, ebony, -w/2+0.165+i*0.094, 0.755, d/2-0.065)));
+  // Key fallboard (angled open)
+  const fallboard = box(w-0.1, 0.014, 0.24, darkWood, 0, 0.78, d/2-0.18);
+  fallboard.rotation.x = -0.35; g.add(fallboard);
+  // Music desk
+  const musicDesk = box(w-0.12, 0.22, 0.012, darkWood, 0, 1.04, d/2-0.13);
+  musicDesk.rotation.x = -0.35; g.add(musicDesk);
+  // Music desk ledge
+  g.add(box(w-0.12, 0.012, 0.04, darkWood, 0, 0.94, d/2-0.05));
+  // Top lid
+  g.add(box(w, 0.018, d-0.04, darkWood, 0, h-0.02, -0.02));
+  // 2 front legs
+  g.add(box(0.06, 0.12, 0.055, darkWood,  (w/2-0.08), 0.06, d/2-0.04));
+  g.add(box(0.06, 0.12, 0.055, darkWood, -(w/2-0.08), 0.06, d/2-0.04));
+  // Pedal bracket
+  g.add(box(0.32, 0.06, 0.06, mat('#8a9098', 0.3, 0.7), 0, 0.04, d/2-0.08));
+  // 3 pedals
+  [-0.08, 0, 0.08].forEach(px => {
+    const pedal = cyl(0.018, 0.018, 0.025, 10, mat('#c0c8d0', 0.2, 0.8, {env:1.0}));
+    pedal.rotation.x = Math.PI/2; pedal.position.set(px, 0.06, d/2-0.06); g.add(pedal);
+  });
+  return g;
+}
+
+export { buildArmchair, buildBed, buildBench, buildBookshelf, buildBunkBed, buildCafeChair, buildCafeTable, buildChest, buildCoffeeTable, buildConsoleTable, buildDesk, buildDeskLamp, buildDiningChair, buildDiningTable, buildDresser, buildFloorLamp, buildGlassCabinet, buildHangerRack, buildKotatsu, buildLoungeChair, buildMonitor, buildOfficeChair, buildOttoman, buildPendantLamp, buildPiano, buildRoundCoffeeTable, buildRoundRug, buildRoundTableSm, buildRug, buildSideTable, buildSofa3, buildSofaL, buildStackingChair, buildStool, buildTV, buildTVBoard, buildTableLamp, buildUpholsteredChair, buildWallArt, buildWallClock, buildWardrobe, buildWindsorChair };
