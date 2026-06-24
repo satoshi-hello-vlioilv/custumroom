@@ -802,6 +802,7 @@ function placeFurniture(def, position, rotY, color, record = true) {
   group.userData.isPlacedItem = true; group.userData.defId = def.id;
   group.traverse(c => { if (c.isMesh) { c.castShadow = showShadows; c.receiveShadow = showShadows; } });
   scene.add(group);
+  group.updateMatrixWorld(true); // ensure world matrix is current so subsequent stack raycasts (computeRestY) hit this item
   const item = { group, defId: def.id, position: position.clone(), rotY, color };
   placedItems.push(item); updateItemCount();
   setupItemInteractor(item);

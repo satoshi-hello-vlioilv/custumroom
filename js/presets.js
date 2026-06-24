@@ -1,7 +1,7 @@
 import { FURNITURE_DEFS } from './catalog.js';
 import { COLORS } from './core/helpers.js';
 
-function P(defId, x, z, rot = 0, color) { const def = FURNITURE_DEFS.find(d => d.id === defId); return { defId, x, z, rotY: rot, color: color ?? COLORS[def.colorIdx] }; }
+function P(defId, x, z, rot = 0, color, y) { const def = FURNITURE_DEFS.find(d => d.id === defId); const o = { defId, x, z, rotY: rot, color: color ?? COLORS[def.colorIdx] }; if (y != null) o.y = y; return o; }
 const PRESETS = [
   // ===== アルミ製造工場 (デフォルト) =====
   {
@@ -229,13 +229,15 @@ const PRESETS = [
       P('monstera',    4.5,  4.5),
       P('sofa3',      -4.0,  2.8,   0, '#6f9e74'),
       P('ctable',     -4.0,  1.9),
-      // 執務エリア (左)
-      P('desk',  -5.5, -0.5, 180, '#f3ece0'), P('ochr', -5.5, 0.2, 180), P('monitor', -5.5, -0.7, 0, '#2a2a2a'),
-      P('desk',  -5.5, -2.0, 180, '#f3ece0'), P('ochr', -5.5,-1.3, 180), P('monitor', -5.5, -2.2, 0, '#2a2a2a'),
-      P('desk',  -5.5, -3.5, 180, '#f3ece0'), P('ochr', -5.5,-2.8, 180), P('monitor', -5.5, -3.7, 0, '#2a2a2a'),
-      P('desk',  -2.5, -0.5,   0, '#f3ece0'), P('ochr', -2.5,-1.2,   0), P('monitor', -2.5, -0.3, 180, '#2a2a2a'),
-      P('desk',  -2.5, -2.0,   0, '#f3ece0'), P('ochr', -2.5,-2.7,   0), P('monitor', -2.5, -1.8, 180, '#2a2a2a'),
-      P('desk',  -2.5, -3.5,   0, '#f3ece0'), P('ochr', -2.5,-4.2,   0), P('monitor', -2.5, -3.3, 180, '#2a2a2a'),
+      // 執務エリア (左) — 対向島型 (3席×2列が背中合わせ、向かい合って着席)
+      // 北列: ユーザーは北側、南向き(rotY=0)。机は引き出しが北を向く(rotY=180)。モニターは机南端で北向き(rotY=180)
+      P('desk', -5.5, -2.35, 180, '#f3ece0'), P('ochr', -5.5, -3.0, 0), P('monitor', -5.5, -2.1, 180, '#2a2a2a', 0.75),
+      P('desk', -3.8, -2.35, 180, '#f3ece0'), P('ochr', -3.8, -3.0, 0), P('monitor', -3.8, -2.1, 180, '#2a2a2a', 0.75),
+      P('desk', -2.1, -2.35, 180, '#f3ece0'), P('ochr', -2.1, -3.0, 0), P('monitor', -2.1, -2.1, 180, '#2a2a2a', 0.75),
+      // 南列: ユーザーは南側、北向き(rotY=180)。机は引き出しが南を向く(rotY=0)。モニターは机北端で南向き(rotY=0)
+      P('desk', -5.5, -1.65, 0, '#f3ece0'), P('ochr', -5.5, -1.0, 180), P('monitor', -5.5, -1.9, 0, '#2a2a2a', 0.75),
+      P('desk', -3.8, -1.65, 0, '#f3ece0'), P('ochr', -3.8, -1.0, 180), P('monitor', -3.8, -1.9, 0, '#2a2a2a', 0.75),
+      P('desk', -2.1, -1.65, 0, '#f3ece0'), P('ochr', -2.1, -1.0, 180), P('monitor', -2.1, -1.9, 0, '#2a2a2a', 0.75),
       P('filingcab', -6.7, -1.0, 90, '#7a8fa0'),
       P('filingcab', -6.7, -2.5, 90, '#7a8fa0'),
       P('filingcab', -6.7, -4.0, 90, '#7a8fa0'),
