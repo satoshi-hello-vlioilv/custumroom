@@ -260,4 +260,70 @@ function buildProjectorScreen({ color='#f5f5f2', w=1.8, d=0.05, h=1.4 } = {}) {
   return g;
 }
 
-export { buildBarCounter, buildBarStool, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard };
+function buildATM({ color='#2a2a2e', w=0.65, d=0.55, h=1.7 } = {}) {
+  const g = new THREE.Group();
+  const bodyMat = mat(color, 0.42, 0.2, {env:0.4});
+  const silverMat = mat('#9aa0a8', 0.28, 0.65, {env:0.8});
+  const darkMat = mat('#0e0e12', 0.45, 0.1);
+  const screenMat = new THREE.MeshStandardMaterial({color:0x0a1828, roughness:0.08, metalness:0.2});
+
+  // Lower cabinet body
+  const lowerBody = new THREE.Mesh(roundedBoxGeom(w, h*0.52, d, 0.022, 3), bodyMat);
+  lowerBody.position.set(0, h*0.26, 0); lowerBody.castShadow = true; lowerBody.userData.colorable = true; g.add(lowerBody);
+
+  // Upper terminal (slightly narrower, set back slightly)
+  const upperBody = new THREE.Mesh(roundedBoxGeom(w-0.06, h*0.48, d-0.04, 0.022, 3), bodyMat);
+  upperBody.position.set(0, h*0.52+h*0.24, -0.02); upperBody.castShadow = true; upperBody.userData.colorable = true; g.add(upperBody);
+
+  // Privacy shield at top
+  g.add(box(w, 0.025, 0.08, mat(shade(color,0.72),0.5,0.3), 0, h-0.025, d/2-0.04-0.02));
+
+  // Screen
+  g.add(plainBox(w-0.12, h*0.22, 0.012, screenMat, 0, h*0.52+h*0.22, d/2-0.03-0.02));
+
+  // Screen glow
+  const screenGlow = new THREE.Mesh(new THREE.PlaneGeometry(w-0.16, h*0.20), new THREE.MeshBasicMaterial({color:0x1a4070, transparent:true, opacity:0.8}));
+  screenGlow.position.set(0, h*0.52+h*0.22, d/2-0.03-0.02+0.007); g.add(screenGlow);
+
+  // Screen glow highlight
+  const screenHighlight = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.08), new THREE.MeshBasicMaterial({color:0x4a80c0, transparent:true, opacity:0.4}));
+  screenHighlight.position.set(-0.1, h*0.52+h*0.26, d/2-0.03-0.02+0.007+0.001); g.add(screenHighlight);
+
+  // Card slot
+  g.add(box(0.12, 0.014, 0.03, darkMat, 0, h*0.52+h*0.1, d/2-0.022-0.02));
+  // Card slot label stripe
+  g.add(box(0.12, 0.008, 0.004, mat('#ff8800',0.6), 0, h*0.52+h*0.1+0.011, d/2-0.022-0.02));
+
+  // Numeric keypad
+  g.add(box(0.16, 0.14, 0.025, mat('#1a1a20',0.4,0.15), 0, h*0.52+h*0.06, d/2-0.022-0.02));
+  // Key buttons (3x4 grid)
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 3; c++) {
+      g.add(cylAt(0.012, 0.012, 0.008, 10, silverMat, -0.04+c*0.04, h*0.52+h*0.10-r*0.032, d/2-0.014-0.02));
+    }
+  }
+
+  // Cash dispense slot
+  g.add(box(0.22, 0.025, 0.04, darkMat, 0, h*0.38, d/2-0.01));
+  // Cash dispense inner glow
+  g.add(box(0.18, 0.018, 0.02, mat('#ccaa00',0.8,0,{env:0}), 0, h*0.38, d/2));
+
+  // Receipt slot
+  g.add(box(0.08, 0.012, 0.028, darkMat, w*0.22, h*0.35, d/2-0.01));
+
+  // Deposit slot
+  g.add(box(0.14, 0.022, 0.03, darkMat, 0, h*0.30, d/2-0.01));
+
+  // Accessibility pin bar
+  g.add(box(0.18, 0.016, 0.016, silverMat, 0, h*0.25, d/2+0.005));
+
+  // Lower skirt/base
+  g.add(box(w+0.02, 0.04, d+0.02, mat(shade(color,0.65),0.5,0.2), 0, 0.02, 0));
+
+  // Brand logo area
+  g.add(box(w-0.16, 0.04, 0.008, mat('#1a3a6a',0.5), 0, h*0.52-0.06, d/2-0.01));
+
+  return g;
+}
+
+export { buildATM, buildBarCounter, buildBarStool, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard };
