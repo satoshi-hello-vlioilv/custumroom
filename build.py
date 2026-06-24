@@ -15,6 +15,7 @@ import os
 # Dependency order: each file is processed once, in this sequence
 JS_FILES = [
     'js/core/util.js',
+    'js/core/orient.js',
     'js/core/scene.js',
     'js/core/textures.js',
     'js/core/helpers.js',

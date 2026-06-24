@@ -6,6 +6,7 @@ import { makeWoodTexture, makeWallTexture, makeNoiseTexture, makeRugTexture, mak
 import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost } from './core/helpers.js';
 import { FURNITURE_DEFS } from './catalog.js';
 import { P, PRESETS } from './presets.js';
+import { validateAllPresets } from './core/orient.js';
 
 
 // Graceful degradation: verify WebGL before constructing the renderer
@@ -2289,5 +2290,13 @@ async function boot() {
     setStatus('準備完了 — 家具を配置、またはプリセットを選択');
   }
   setTimeout(() => { document.getElementById('loading').classList.add('hidden'); }, 650);
+
+  // Validate all preset layouts for orientation/placement inconsistencies
+  const _orientIssues = validateAllPresets(PRESETS, FURNITURE_DEFS);
+  const _orientErrors = _orientIssues.filter(i => i.severity === 'error');
+  const _orientWarns  = _orientIssues.filter(i => i.severity === 'warn');
+  _orientErrors.forEach(i => console.warn(`[orient] ${i.preset}#${i.index} ${i.defId}: ${i.message}`));
+  _orientWarns.forEach(i => console.info(`[orient] ${i.preset}#${i.index} ${i.defId}: ${i.message}`));
+  if (_orientIssues.length > 0) console.log(`[orient] ${_orientErrors.length} error(s), ${_orientWarns.length} warning(s) across ${PRESETS.length} presets`);
 }
 boot();
