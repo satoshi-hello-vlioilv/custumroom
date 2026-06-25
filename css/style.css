@@ -698,6 +698,13 @@ body {
 [data-tip] { position: relative; }
 #global-tooltip { position: fixed; background: rgba(47,42,34,0.93); color: #fff; padding: 5px 10px; border-radius: 7px; font-size: 11px; white-space: nowrap; pointer-events: none; z-index: 9999; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.22); transition: opacity 0.08s; }
 
+/* カタログ項目ホバー時の3Dプレビュー */
+#ghost-preview { position: fixed; z-index: 10000; display: none; pointer-events: none; width: 188px; height: 188px; border-radius: 14px; overflow: hidden;
+  background: radial-gradient(circle at 50% 36%, #fcf8f0 0%, #ece4d4 68%, #ddd4c1 100%);
+  box-shadow: 0 10px 30px rgba(40,34,24,0.30), inset 0 0 0 1px rgba(120,108,86,0.20); }
+#ghost-preview canvas { display: block; width: 188px; height: 188px; }
+#ghost-preview .gp-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 5px 8px 6px; text-align: center; font-size: 11px; font-weight: 600; color: #fff; letter-spacing: .2px; background: linear-gradient(transparent, rgba(47,42,34,0.62)); }
+
 .loading-overlay { position: absolute; inset: 0; background: var(--bg-panel); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-4); z-index: 50; transition: opacity 0.5s ease; }
 .loading-overlay.hidden { opacity: 0; pointer-events: none; }
 .spinner { width: 38px; height: 38px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }

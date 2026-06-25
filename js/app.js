@@ -1189,6 +1189,86 @@ function openPresetModal() {
 }
 function closePresetModal() { document.getElementById('preset-modal').classList.remove('open'); }
 
+// ============================================================ 3D ホバープレビュー (カタログ選択補助)
+// カタログ項目にマウスオーバーすると、その家具の3Dモデルを小窓でくるくる表示する。
+const ghostPreview = (() => {
+  let rdr = null, scn, cam, pivot, modelGroup = null, el, nameEl, curId = null, raf = 0, showT = 0, failed = false, spin = 0;
+  function ensure() {
+    if (rdr || failed) return rdr;
+    el = document.getElementById('ghost-preview');
+    if (!el) { failed = true; return null; }
+    const cvs = el.querySelector('canvas');
+    nameEl = el.querySelector('.gp-name');
+    try { rdr = new THREE.WebGLRenderer({ canvas: cvs, antialias: true, alpha: true }); }
+    catch (e) { failed = true; return null; }
+    rdr.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    rdr.setSize(188, 188, false);
+    rdr.outputColorSpace = THREE.SRGBColorSpace;
+    rdr.toneMapping = THREE.ACESFilmicToneMapping; rdr.toneMappingExposure = 1.05;
+    scn = new THREE.Scene();
+    scn.environment = scene.environment;   // メインシーンのIBLを流用して素材を綺麗に
+    scn.add(new THREE.AmbientLight(0xffffff, 0.5));
+    scn.add(new THREE.HemisphereLight(0xfff4e0, 0xc8b89a, 0.5));
+    const key = new THREE.DirectionalLight(0xfff2dd, 1.05); key.position.set(3, 5, 4); scn.add(key);
+    const fill = new THREE.DirectionalLight(0xcfe0ff, 0.35); fill.position.set(-4, 2, -3); scn.add(fill);
+    cam = new THREE.PerspectiveCamera(34, 1, 0.03, 100);
+    pivot = new THREE.Group(); scn.add(pivot);
+    window.addEventListener('scroll', hide, true);   // スクロールで追従ずれしないよう一旦隠す
+    return rdr;
+  }
+  function clearModel() {
+    if (!modelGroup) return;
+    pivot.remove(modelGroup);
+    modelGroup.traverse(o => { if (o.isMesh && o.geometry) o.geometry.dispose(); if (o.isLight && o.dispose) o.dispose(); });
+    modelGroup = null;
+  }
+  function buildFor(def) {
+    clearModel();
+    let m;
+    try { m = def.build({ color: COLORS[def.colorIdx], w: def.w, d: def.d, h: def.h }); }
+    catch (e) { return false; }
+    const bbox = new THREE.Box3().setFromObject(m);
+    if (!isFinite(bbox.min.x) || !isFinite(bbox.max.x)) return false;
+    const center = bbox.getCenter(new THREE.Vector3()), size = bbox.getSize(new THREE.Vector3());
+    m.position.set(-center.x, -center.y, -center.z);   // bbox中心を原点へ
+    pivot.add(m); modelGroup = m;
+    const maxDim = Math.max(size.x, size.y, size.z, 0.3), dist = maxDim * 1.85 + 0.35;
+    cam.position.set(dist * 0.72, dist * 0.6, dist * 0.92); cam.lookAt(0, 0, 0);
+    return true;
+  }
+  function position(anchorEl) {
+    const r = anchorEl.getBoundingClientRect(), S = 188;
+    let left = r.right + 12, top = r.top + r.height / 2 - S / 2;
+    if (left + S > window.innerWidth - 6) left = r.left - S - 12;
+    left = Math.max(6, left);
+    top = Math.max(6, Math.min(top, window.innerHeight - S - 6));
+    el.style.left = left + 'px'; el.style.top = top + 'px';
+  }
+  function loop() {
+    if (!el || el.style.display === 'none') { raf = 0; return; }
+    raf = requestAnimationFrame(loop);
+    spin += 0.014; pivot.rotation.set(0.12, spin, 0);
+    rdr.render(scn, cam);
+  }
+  function hide() {
+    clearTimeout(showT);
+    if (el) el.style.display = 'none';
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+  }
+  function show(def, anchorEl) {
+    if (!ensure()) return;
+    clearTimeout(showT);
+    showT = setTimeout(() => {
+      if (curId !== def.id) { if (!buildFor(def)) { hide(); return; } curId = def.id; spin = -0.55; }
+      if (nameEl) nameEl.textContent = `${def.name}  ${def.w}×${def.d}×${def.h}m`;
+      position(anchorEl);
+      el.style.display = 'block';
+      if (!raf) loop();
+    }, 55);
+  }
+  return { show, hide };
+})();
+
 // ============================================================ CATALOG UI
 function buildCatalog(filter = '', cat = 'all') {
   const list = document.getElementById('furniture-list'); list.innerHTML = '';
@@ -1211,7 +1291,9 @@ function buildCatalog(filter = '', cat = 'all') {
     const item = document.createElement('div'); item.className = 'furniture-item'; item.dataset.id = def.id;
     item.innerHTML = `<div class="fitem-icon"><i class="fa-solid ${def.icon}"></i></div>
       <div class="fitem-info"><div class="fitem-name">${def.name}</div><div class="fitem-size">${def.w}m × ${def.d}m</div></div>`;
-    item.addEventListener('click', () => { if (state==='PLACING' && currentDef===def) { cancelPlacement(); return; } deselect(); startPlacement(def); });
+    item.addEventListener('mouseenter', () => ghostPreview.show(def, item));
+    item.addEventListener('mouseleave', () => ghostPreview.hide());
+    item.addEventListener('click', () => { ghostPreview.hide(); if (state==='PLACING' && currentDef===def) { cancelPlacement(); return; } deselect(); startPlacement(def); });
     list.appendChild(item);
   });
 }
