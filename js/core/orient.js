@@ -57,6 +57,8 @@ const ACCESS = {
   // カウンター・機器
   reception: 0.6, copier: 0.5, register: 0.6, barcounter: 0.6, shelfrack: 0.5,
   showcasefridge: 0.5, vendingmachine: 0.5, atm: 0.6,
+  // 前面に投入扉/作業面を持つ大型機械 (前面が壁/室外を向くと作業不可)
+  ind_furnace: 0.6,
 };
 
 // --- stack のうち必ず什器の上に載るべきもの (床に落ちたら不整合) --------------
@@ -65,6 +67,9 @@ const FOOTPRINT_SKIP = new Set(['pendlamp', 'tablelamp', 'desklamp', 'lamp', 'fl
 
 // --- 人物フィギュア: 任意の場所に立つため干渉/動線チェックの対象外 ----------------
 const PERSON_IDS = new Set(['girl', 'boy', 'woman', 'man', 'toddler', 'worker']);
+
+// --- ユニットバス: 局所 -X / -Z に固体壁面を持つ。角で部屋壁と一体化させる ----------
+const UNIT_BATH = new Set(['bathset']);
 
 // --- 着座して必ずテーブル/作業面に「対面」すべき椅子 (対面方向チェック対象) ------
 // sofa/bench/stool/loungechair/zabuton はオープン方向や TV に向くため対象外
@@ -341,6 +346,28 @@ function validateLayout(preset, defsById) {
               `${m.def.id} が開口(${o.kind || 'door'})前の通行クリアランスを塞いでいる — 動線阻害`);
           }
         }
+      }
+    }
+  }
+
+  // (9) ユニットバス(bathset): 2枚の固体壁面(局所 -X, -Z)が部屋壁と一体化し、その裏に開口が無いこと
+  for (const m of items) {
+    if (!UNIT_BATH.has(m.def.id)) continue;
+    const r = (m.it.rotY || 0) * Math.PI / 180, cos = Math.cos(r), sin = Math.sin(r);
+    // 固体面の外向き法線(world) と中心までの半張り出し
+    const faces = [
+      { nx: -cos, nz: sin,  off: m.def.w / 2, name: '-X' },   // 局所 -X 面
+      { nx: -sin, nz: -cos, off: m.def.d / 2, name: '-Z' },   // 局所 -Z 面
+    ];
+    for (const f of faces) {
+      const fx = m.cx + f.nx * f.off, fz = m.cz + f.nz * f.off;
+      const nw = nearestWall(walls, fx, fz);
+      if (!nw || nw.dist > 0.35) {
+        add('warn', m.idx, m.def.id,
+          `ユニットバスの壁面(${f.name})が部屋の壁と一体化していない (壁まで ${nw ? nw.dist.toFixed(2) : '∞'}m) — 角に密着配置を`);
+      } else if (nw.inOpening) {
+        add('error', m.idx, m.def.id,
+          `ユニットバスの壁面(${f.name})の裏に開口(${nw.openingKind || '扉/窓'})がある — 壁面背後に扉/窓を置かない`);
       }
     }
   }

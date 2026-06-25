@@ -442,6 +442,8 @@ const ACCESS = {
   // カウンター・機器
   reception: 0.6, copier: 0.5, register: 0.6, barcounter: 0.6, shelfrack: 0.5,
   showcasefridge: 0.5, vendingmachine: 0.5, atm: 0.6,
+  // 前面に投入扉/作業面を持つ大型機械 (前面が壁/室外を向くと作業不可)
+  ind_furnace: 0.6,
 };
 
 // --- stack のうち必ず什器の上に載るべきもの (床に落ちたら不整合) --------------
@@ -450,6 +452,9 @@ const FOOTPRINT_SKIP = new Set(['pendlamp', 'tablelamp', 'desklamp', 'lamp', 'fl
 
 // --- 人物フィギュア: 任意の場所に立つため干渉/動線チェックの対象外 ----------------
 const PERSON_IDS = new Set(['girl', 'boy', 'woman', 'man', 'toddler', 'worker']);
+
+// --- ユニットバス: 局所 -X / -Z に固体壁面を持つ。角で部屋壁と一体化させる ----------
+const UNIT_BATH = new Set(['bathset']);
 
 // --- 着座して必ずテーブル/作業面に「対面」すべき椅子 (対面方向チェック対象) ------
 // sofa/bench/stool/loungechair/zabuton はオープン方向や TV に向くため対象外
@@ -726,6 +731,28 @@ function validateLayout(preset, defsById) {
               `${m.def.id} が開口(${o.kind || 'door'})前の通行クリアランスを塞いでいる — 動線阻害`);
           }
         }
+      }
+    }
+  }
+
+  // (9) ユニットバス(bathset): 2枚の固体壁面(局所 -X, -Z)が部屋壁と一体化し、その裏に開口が無いこと
+  for (const m of items) {
+    if (!UNIT_BATH.has(m.def.id)) continue;
+    const r = (m.it.rotY || 0) * Math.PI / 180, cos = Math.cos(r), sin = Math.sin(r);
+    // 固体面の外向き法線(world) と中心までの半張り出し
+    const faces = [
+      { nx: -cos, nz: sin,  off: m.def.w / 2, name: '-X' },   // 局所 -X 面
+      { nx: -sin, nz: -cos, off: m.def.d / 2, name: '-Z' },   // 局所 -Z 面
+    ];
+    for (const f of faces) {
+      const fx = m.cx + f.nx * f.off, fz = m.cz + f.nz * f.off;
+      const nw = nearestWall(walls, fx, fz);
+      if (!nw || nw.dist > 0.35) {
+        add('warn', m.idx, m.def.id,
+          `ユニットバスの壁面(${f.name})が部屋の壁と一体化していない (壁まで ${nw ? nw.dist.toFixed(2) : '∞'}m) — 角に密着配置を`);
+      } else if (nw.inOpening) {
+        add('error', m.idx, m.def.id,
+          `ユニットバスの壁面(${f.name})の裏に開口(${nw.openingKind || '扉/窓'})がある — 壁面背後に扉/窓を置かない`);
       }
     }
   }
@@ -7759,7 +7786,7 @@ const PRESETS = [
       // 帯鋸・溶接・工業炉 (追加機械)
       P('bandsaw',    6.5,  2.5, 270, '#4f7a52'),
       P('welder',     5.5,  2.0, 0,   '#3a4a5a'),
-      P('ind_furnace', 0.5,  4.5, 0,  '#2a2a2a'),  // pallerackとの重なりを解消
+      P('ind_furnace', -6.0, -0.25, 90, '#2a2a2a'),  // 西壁沿い・投入扉(前面)を東(通路)へ。窓間に収め室外貫通を解消
       // 管理コーナー (左仕切り内)
       P('desk',  -5.8, 3.1, 0, '#f3ece0'), P('ochr', -5.8, 3.8, 180),  // 椅子を机の南側・北向きに
       P('ctrlpanel', -6.7, 3.5, 90, '#e8e2d6'),  // 西壁に背面→東向き(ドア前を塞がない)
@@ -7798,7 +7825,7 @@ const PRESETS = [
       north: [{ t:0.83, w:1.2, kind:'window' }],
       east:  [{ t:0.12, w:1.2, kind:'window' }, { t:0.4, w:1.2, kind:'window' }, { t:0.65, w:1.2, kind:'window' }, { t:0.85, w:1.2, kind:'window' }],
       south: [{ t:0.15, w:1.0, kind:'door' }, { t:0.75, w:1.2, kind:'window' }],
-      west:  [{ t:0.12, w:0.8, kind:'window' }, { t:0.42, w:0.8, kind:'window' }, { t:0.68, w:0.8, kind:'window' }],
+      west:  [{ t:0.42, w:0.8, kind:'window' }, { t:0.68, w:0.8, kind:'window' }],  // t=0.12窓は撤去(ユニットバス壁面の裏に当たるため)
     },
     partitions: [
       // 左ゾーン縦仕切り (水回り/玄関 と 中央LDK を分ける)
@@ -7834,8 +7861,8 @@ const PRESETS = [
       P('toilet', -5.5, 1.25, 90, '#e8e2d6'), P('handbasin', -5.7, 2.4, 90),
       // 洗面所 (左) — vanityは西壁の窓(t=0.42,z≈-0.8)・浴室扉(z=-2)・トイレ扉(z=1)を全て避けた中央へ
       P('vanity', -5.6, 0.0, 90, '#e8e2d6'), P('washer', -3.0, -1.4, 0, '#e8e2d6'),
-      // 浴室 (左上)
-      P('bathset', -4.6, -3.9, 0, '#e8e2d6'),
+      // 浴室 (左上) — ユニットバスを北西の角に密着 (西壁・北壁=固体壁面と一体化、開口側=南/東へ)
+      P('bathset', -5.2, -4.2, 0, '#e8e2d6'),
       // キッチン (中央上) — システムキッチン壁付け
       P('kitchen', -0.3, -4.6, 0, '#e8e2d6'),
       P('stove', 0.9, -4.6, 0, '#3a332b'),
@@ -7962,16 +7989,16 @@ const PRESETS = [
       west:  [],
     },
     partitions: [
-      // バスルーム (北西) の囲い
-      { x1: -1.3, z1: -2.5, x2: -1.3, z2: -0.3, openings: [{ t: 0.78, w: 0.75, kind: 'door' }] },
+      // バスルーム (北西) の囲い。扉は1枚=浴室ドアのみ
+      { x1: -1.3, z1: -2.5, x2: -1.3, z2: -0.3, openings: [{ t: 0.78, w: 0.75, kind: 'bath_door' }] },
       { x1: -3.5, z1: -0.3, x2: -1.3, z2: -0.3 },
     ],
     floors: [
       { x1: -3.5, z1: -2.5, x2: -1.3, z2: -0.3, type: 'tile' },  // バスルーム
     ],
     items: [
-      // バスルーム
-      P('bathset', -2.4, -1.35, 90, '#e8e2d6'),
+      // ユニットバス: 西壁・北壁の角に密着 (固体壁面=室壁と一体化、開口側=東の扉/南へ)
+      P('bathset', -2.7, -1.7, 0, '#e8e2d6'),
       // ベッド (ヘッドボード北壁)
       P('dbed', 0.7, -1.3, 0, '#3f5d7a'),
       P('stable', -0.5, -2.0), P('stable', 1.9, -2.0),
@@ -8140,6 +8167,13 @@ function registerWall(mesh) {
   mesh.userData.fadeNormal = n;
   // transparent: true must be set in the material constructor to avoid shader recompilation.
   // We enforce this in buildRoom() and buildPartition() so nothing extra needed here.
+  // Glass / frosted panes (素材がガラス) must stay see-through even when walls are set opaque:
+  // tag them so updateWalls() caps their opacity at their natural (>=30% transparent) value.
+  const mop = mesh.material && mesh.material.opacity;
+  if (mesh.material && mesh.material.transparent && mop != null && mop < 0.6) {
+    mesh.userData.glassPane = true;
+    mesh.userData.baseOpacity = mop;
+  }
   wallMeshes.push(mesh);
 }
 
@@ -9420,7 +9454,8 @@ function initUI() {
   const edWallTypeSel = document.getElementById('ed-wall-type');
   const edOpeningKindSel = document.getElementById('ed-opening-kind');
   if (edWallTypeSel) edWallTypeSel.addEventListener('change', () => {});
-  if (edOpeningKindSel) edOpeningKindSel.addEventListener('change', () => {});
+  // 全ての扉種類(シーン設定付き)を開口タイプ選択に展開
+  if (edOpeningKindSel) { edOpeningKindSel.innerHTML = openingKindOptionsHTML('door'); edOpeningKindSel.addEventListener('change', () => {}); }
   document.getElementById('editor-clear').addEventListener('click', () => { roomPlan = { cells: new Map(), walls: [] }; syncPlanTo3D(); });
   document.getElementById('editor-rect').addEventListener('click', () => { roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType); syncPlanTo3D(); });
   document.getElementById('editor-apply').addEventListener('click', closeEditor);
@@ -9601,6 +9636,8 @@ function updateWalls() {
       if (d > 0.15) target = w.userData.isPartition ? 0.45 : 0.0;
       else target = 1.0;
     }
+    // Glass panes never go fully opaque — keep them at least ~30% transparent (素材がガラス)
+    if (w.userData.glassPane) target = Math.min(target, w.userData.baseOpacity);
     m.opacity += (target - m.opacity) * 0.18;
     // transparent is already true in the constructor — never toggle it (would need needsUpdate)
     w.visible = m.opacity > 0.02;
@@ -10056,7 +10093,25 @@ function edCanvasCssPos(sx, sy) {
            top:  (rect.top - area.top) + (sy / edCanvas.height) * rect.height };
 }
 
-const OPENING_KIND_LABELS = { door: 'ドア（片開き）', double_door: '両開きドア', glass_door: 'ガラス引戸', auto_door: '自動ドア', window: '窓' };
+// 開口(扉/窓)の種類レジストリ。各扉が「使えるシーン(用途カテゴリ)」設定を持つ。
+const OPENING_KINDS = {
+  door:        { label: 'ドア（片開き）', scenes: ['住宅', 'オフィス', '店舗', '工場', '特殊'] },
+  double_door: { label: '両開きドア',     scenes: ['店舗', 'オフィス', '特殊'] },
+  glass_door:  { label: 'ガラス引戸',     scenes: ['オフィス', '店舗', '工場', '特殊'] },
+  auto_door:   { label: '自動ドア',       scenes: ['店舗', 'オフィス', '特殊'] },
+  bath_door:   { label: '浴室ドア',       scenes: ['住宅'] },
+  toilet_door: { label: 'トイレドア',     scenes: ['住宅'] },
+  lab_door:    { label: '実験室ドア',     scenes: ['特殊'] },
+  fusuma:      { label: '襖（ふすま）',   scenes: ['住宅'] },
+  shoji:       { label: '障子',           scenes: ['住宅'] },
+  window:      { label: '窓',             scenes: ['住宅', 'オフィス', '店舗', '工場', '特殊'] },
+};
+const OPENING_KIND_LABELS = Object.fromEntries(Object.entries(OPENING_KINDS).map(([k, v]) => [k, v.label]));
+// 種類セレクト用の<option>群 (使えるシーンを併記)
+function openingKindOptionsHTML(selected) {
+  return Object.entries(OPENING_KINDS).map(([k, v]) =>
+    `<option value="${k}"${k === selected ? ' selected' : ''}>${v.label}（${v.scenes.join('・')}）</option>`).join('');
+}
 function handleDoorClick(w) {
   const hit = edFindWall(w.x, w.z, 16);
   if (!hit) { closeDoorPop(); return; }
@@ -10086,8 +10141,7 @@ function openDoorPop() {
   const { wall, op } = sel, kind = op.kind || 'door';
   const showHinge = SWING_KINDS.has(kind);
   const showSwing = SWING_KINDS.has(kind) || DOUBLE_KINDS.has(kind);
-  const opts = Object.entries(OPENING_KIND_LABELS).map(([k, lbl]) =>
-    `<option value="${k}"${k === kind ? ' selected' : ''}>${lbl}</option>`).join('');
+  const opts = openingKindOptionsHTML(kind);
   pop.innerHTML = `
     <div class="ed-pop-head"><i class="fa-solid fa-door-open"></i><span>開口の編集</span>
       <button class="ed-pop-x" data-act="close" title="閉じる"><i class="fa-solid fa-xmark"></i></button></div>

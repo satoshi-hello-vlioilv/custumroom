@@ -67,6 +67,13 @@ function registerWall(mesh) {
   mesh.userData.fadeNormal = n;
   // transparent: true must be set in the material constructor to avoid shader recompilation.
   // We enforce this in buildRoom() and buildPartition() so nothing extra needed here.
+  // Glass / frosted panes (素材がガラス) must stay see-through even when walls are set opaque:
+  // tag them so updateWalls() caps their opacity at their natural (>=30% transparent) value.
+  const mop = mesh.material && mesh.material.opacity;
+  if (mesh.material && mesh.material.transparent && mop != null && mop < 0.6) {
+    mesh.userData.glassPane = true;
+    mesh.userData.baseOpacity = mop;
+  }
   wallMeshes.push(mesh);
 }
 
@@ -1347,7 +1354,8 @@ function initUI() {
   const edWallTypeSel = document.getElementById('ed-wall-type');
   const edOpeningKindSel = document.getElementById('ed-opening-kind');
   if (edWallTypeSel) edWallTypeSel.addEventListener('change', () => {});
-  if (edOpeningKindSel) edOpeningKindSel.addEventListener('change', () => {});
+  // 全ての扉種類(シーン設定付き)を開口タイプ選択に展開
+  if (edOpeningKindSel) { edOpeningKindSel.innerHTML = openingKindOptionsHTML('door'); edOpeningKindSel.addEventListener('change', () => {}); }
   document.getElementById('editor-clear').addEventListener('click', () => { roomPlan = { cells: new Map(), walls: [] }; syncPlanTo3D(); });
   document.getElementById('editor-rect').addEventListener('click', () => { roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType); syncPlanTo3D(); });
   document.getElementById('editor-apply').addEventListener('click', closeEditor);
@@ -1528,6 +1536,8 @@ function updateWalls() {
       if (d > 0.15) target = w.userData.isPartition ? 0.45 : 0.0;
       else target = 1.0;
     }
+    // Glass panes never go fully opaque — keep them at least ~30% transparent (素材がガラス)
+    if (w.userData.glassPane) target = Math.min(target, w.userData.baseOpacity);
     m.opacity += (target - m.opacity) * 0.18;
     // transparent is already true in the constructor — never toggle it (would need needsUpdate)
     w.visible = m.opacity > 0.02;
@@ -1983,7 +1993,25 @@ function edCanvasCssPos(sx, sy) {
            top:  (rect.top - area.top) + (sy / edCanvas.height) * rect.height };
 }
 
-const OPENING_KIND_LABELS = { door: 'ドア（片開き）', double_door: '両開きドア', glass_door: 'ガラス引戸', auto_door: '自動ドア', window: '窓' };
+// 開口(扉/窓)の種類レジストリ。各扉が「使えるシーン(用途カテゴリ)」設定を持つ。
+const OPENING_KINDS = {
+  door:        { label: 'ドア（片開き）', scenes: ['住宅', 'オフィス', '店舗', '工場', '特殊'] },
+  double_door: { label: '両開きドア',     scenes: ['店舗', 'オフィス', '特殊'] },
+  glass_door:  { label: 'ガラス引戸',     scenes: ['オフィス', '店舗', '工場', '特殊'] },
+  auto_door:   { label: '自動ドア',       scenes: ['店舗', 'オフィス', '特殊'] },
+  bath_door:   { label: '浴室ドア',       scenes: ['住宅'] },
+  toilet_door: { label: 'トイレドア',     scenes: ['住宅'] },
+  lab_door:    { label: '実験室ドア',     scenes: ['特殊'] },
+  fusuma:      { label: '襖（ふすま）',   scenes: ['住宅'] },
+  shoji:       { label: '障子',           scenes: ['住宅'] },
+  window:      { label: '窓',             scenes: ['住宅', 'オフィス', '店舗', '工場', '特殊'] },
+};
+const OPENING_KIND_LABELS = Object.fromEntries(Object.entries(OPENING_KINDS).map(([k, v]) => [k, v.label]));
+// 種類セレクト用の<option>群 (使えるシーンを併記)
+function openingKindOptionsHTML(selected) {
+  return Object.entries(OPENING_KINDS).map(([k, v]) =>
+    `<option value="${k}"${k === selected ? ' selected' : ''}>${v.label}（${v.scenes.join('・')}）</option>`).join('');
+}
 function handleDoorClick(w) {
   const hit = edFindWall(w.x, w.z, 16);
   if (!hit) { closeDoorPop(); return; }
@@ -2013,8 +2041,7 @@ function openDoorPop() {
   const { wall, op } = sel, kind = op.kind || 'door';
   const showHinge = SWING_KINDS.has(kind);
   const showSwing = SWING_KINDS.has(kind) || DOUBLE_KINDS.has(kind);
-  const opts = Object.entries(OPENING_KIND_LABELS).map(([k, lbl]) =>
-    `<option value="${k}"${k === kind ? ' selected' : ''}>${lbl}</option>`).join('');
+  const opts = openingKindOptionsHTML(kind);
   pop.innerHTML = `
     <div class="ed-pop-head"><i class="fa-solid fa-door-open"></i><span>開口の編集</span>
       <button class="ed-pop-x" data-act="close" title="閉じる"><i class="fa-solid fa-xmark"></i></button></div>
