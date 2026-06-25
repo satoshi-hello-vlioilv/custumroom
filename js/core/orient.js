@@ -44,7 +44,7 @@ const BACK_TO_WALL = new Set([
 const ACCESS = {
   // 着座して何か(机/テーブル)に向くべき椅子・ソファ
   sofa3: 0.3, sofa1: 0.3, sofa2: 0.3, sofalow: 0.3, sofal: 0.3, loungechair: 0.3,
-  dchr: 0.3, ochr: 0.3, cafechr: 0.3, windsorchair: 0.3, stackchr: 0.3, upholchr: 0.3, barstool: 0.3, bench: 0.25,
+  dchr: 0.3, ochr: 0.3, cafechr: 0.3, windsorchair: 0.3, stackchr: 0.3, upholchr: 0.3, barstool: 0.3, bench: 0.25, kidschair: 0.25,
   // 作業面 (前面に着座)
   desk: 0.5, deskrun: 0.5, schooldesk: 0.45,
   // 前面から扉/引き出しを開ける収納
@@ -61,16 +61,19 @@ const ACCESS = {
 
 // --- stack のうち必ず什器の上に載るべきもの (床に落ちたら不整合) --------------
 // ceiling/floor fixtures excluded from footprint overlap check (don't block furniture placement)
-const FOOTPRINT_SKIP = new Set(['pendlamp', 'tablelamp', 'desklamp', 'lamp', 'floorlamp', 'stove']);
+const FOOTPRINT_SKIP = new Set(['pendlamp', 'tablelamp', 'desklamp', 'lamp', 'floorlamp', 'stove', 'balloon']);
+
+// --- 人物フィギュア: 任意の場所に立つため干渉/動線チェックの対象外 ----------------
+const PERSON_IDS = new Set(['girl', 'boy', 'woman', 'man', 'toddler', 'worker']);
 
 // --- 着座して必ずテーブル/作業面に「対面」すべき椅子 (対面方向チェック対象) ------
 // sofa/bench/stool/loungechair/zabuton はオープン方向や TV に向くため対象外
 const DINING_CHAIRS = new Set([
-  'dchr', 'ochr', 'cafechr', 'windsorchair', 'stackchr', 'upholchr', 'barstool',
+  'dchr', 'ochr', 'cafechr', 'windsorchair', 'stackchr', 'upholchr', 'barstool', 'kidschair',
 ]);
 // --- 椅子が対面すべき「テーブル/作業面/カウンター」 ----------------------------
 const TABLE_IDS = new Set([
-  'desk', 'deskrun', 'schooldesk', 'dtable', 'conftable', 'roundtable', 'roundtablesm',
+  'desk', 'deskrun', 'schooldesk', 'kidsdesk', 'dtable', 'conftable', 'roundtable', 'roundtablesm',
   'cafetable', 'kotatsu', 'labbench', 'workbench', 'testbench', 'barcounter', 'roundctab',
 ]);
 // --- 「通り抜ける」開口(扉/襖/障子/自動ドア等)。window は通行しないので対象外 ----
@@ -80,6 +83,7 @@ function isPassage(kind) { return !!kind && !String(kind).includes('window'); }
 const CIRC_IGNORE_CAT = new Set(['seating']);
 const CIRC_IGNORE_ID = new Set([
   'rug', 'roundrug', 'woodpallet', 'steelpallet', 'resinpallet', 'zabuton', 'campfire',
+  'balloon', 'kidschair', 'heartcushion',
 ]);
 
 const SURFACE_ONLY = new Set([
@@ -247,7 +251,8 @@ function validateLayout(preset, defsById) {
   // (5) 床置き什器どうしの footprint 重なり
   // 除外: 椅子・ラグ(h<0.06)・壁/stack・工場設備(隣接/積載が通常)・照明器具
   const floor = items.filter(m => m.use.mount === 'floor' && m.def.cat !== 'seating'
-    && m.def.cat !== 'factory' && !FOOTPRINT_SKIP.has(m.def.id) && (m.def.h || 0) >= 0.06);
+    && m.def.cat !== 'factory' && !FOOTPRINT_SKIP.has(m.def.id) && !PERSON_IDS.has(m.def.id)
+    && m.def.id !== 'kidschair' && (m.def.h || 0) >= 0.06);
   for (let i = 0; i < floor.length; i++) {
     for (let j = i + 1; j < floor.length; j++) {
       const a = floor[i], b = floor[j];
@@ -300,7 +305,8 @@ function validateLayout(preset, defsById) {
   const CLEAR = 0.55;   // 確保したい開口前クリアランス[m]
   const W = preset.room.w / 2, D = preset.room.d / 2;
   const obstacles = items.filter(m => m.use.mount === 'floor'
-    && !CIRC_IGNORE_CAT.has(m.def.cat) && !CIRC_IGNORE_ID.has(m.def.id) && (m.def.h || 0) >= 0.45);
+    && !CIRC_IGNORE_CAT.has(m.def.cat) && !CIRC_IGNORE_ID.has(m.def.id) && !PERSON_IDS.has(m.def.id)
+    && (m.def.h || 0) >= 0.45);
   for (const w of walls) {
     const dxw = w.x2 - w.x1, dzw = w.z2 - w.z1, len = Math.hypot(dxw, dzw);
     if (len < 1e-6) continue;

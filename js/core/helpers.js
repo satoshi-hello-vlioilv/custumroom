@@ -9,7 +9,9 @@ const PART_H    = 2.4;   // interior partition height
 const COLORS = [
   '#c8a06a','#f3ece0','#5b5048','#b9714a','#5b86b8',
   '#6f9e74','#b25c78','#8a6fb0','#8a5a2b','#3f5d7a',
-  '#e8e2d6','#c2b6a3','#f5c020','#4a4f54','#34543f'
+  '#e8e2d6','#c2b6a3','#f5c020','#4a4f54','#34543f',
+  // パステル(キッズ/可愛い系) — 既存indexを崩さないよう末尾に追加
+  '#f7a8c4','#a9e7cf','#c9b3ec','#ffd382','#a9d8f0'
 ];
 
 function roundedBoxGeom(w, h, d, radius = 0.03, seg = 3) {

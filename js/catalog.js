@@ -6,6 +6,7 @@ import { build3DPrinter, buildAnalyticalBalance, buildBandSaw, buildBenchGrinder
 import { buildATM, buildBarCounter, buildBarStool, buildBenchDesk, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildGondolaShelf, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard } from './builders/office.js';
 import { buildBamboo, buildBenjamin, buildCactus, buildDracaena, buildFicusUmbellata, buildMonstera, buildOlive, buildPlant, buildPothos, buildRhapis, buildSansevieria, buildStrelitzia, buildSucculent, buildZZPlant } from './builders/plants.js';
 import { buildCampChair, buildCampfire, buildCoolerBox, buildLantern, buildTent } from './builders/outdoor.js';
+import { buildPerson, buildTeddyBear, buildBunnyPlush, buildUnicornToy, buildBalloon, buildHeartCushion, buildBuildingBlocks, buildToyBox, buildDollhouse, buildCake, buildCupcake, buildKidsBed, buildKidsDesk, buildKidsChair, buildGarland, buildStarWall } from './builders/kawaii.js';
 
 const FURNITURE_DEFS = [
   { id:'sofa3',   cat:'seating', name:'3人掛けソファ',     icon:'fa-couch',          w:2.2, d:0.95, h:0.85, colorIdx:0, build:buildSofa3 },
@@ -186,6 +187,27 @@ const FURNITURE_DEFS = [
   { id:'campfire',    cat:'outdoor',  name:'焚き火',              icon:'fa-fire',           w:0.7,  d:0.7,  h:0.45, colorIdx:2,  build:buildCampfire },
   { id:'coolerbox',   cat:'outdoor',  name:'クーラーボックス',    icon:'fa-box-archive',    w:0.6,  d:0.4,  h:0.42, colorIdx:3,  build:buildCoolerBox },
   { id:'lantern',     cat:'outdoor',  name:'ランタン',            icon:'fa-lightbulb',      w:0.18, d:0.18, h:0.32, colorIdx:14, build:buildLantern,   stack:true },
+  // ---- キッズ / 人物 ----
+  { id:'girl',     cat:'kids', name:'女の子(小学生)',   icon:'fa-child-dress', w:0.5,  d:0.5,  h:1.28, colorIdx:15, build:(o)=>buildPerson({ ...o, h:1.28, style:'twin',  skirt:true, bag:'randoseru', headBig:true, bottom:'#ef7fa6', hair:'#5a3a26', shoe:'#e2607a' }) },
+  { id:'boy',      cat:'kids', name:'男の子(小学生)',   icon:'fa-child',       w:0.5,  d:0.5,  h:1.34, colorIdx:19, build:(o)=>buildPerson({ ...o, h:1.34, style:'short', bag:'randoseru', headBig:true, bottom:'#3a4f68', hair:'#2e2017', shoe:'#3a4f68' }) },
+  { id:'woman',    cat:'kids', name:'女性',             icon:'fa-person-dress',w:0.5,  d:0.5,  h:1.62, colorIdx:6,  build:(o)=>buildPerson({ ...o, h:1.62, style:'long',  skirt:true, bottom:'#7a5a8a', hair:'#3a2a1f', shoe:'#caa' }) },
+  { id:'man',      cat:'kids', name:'男性',             icon:'fa-person',      w:0.5,  d:0.5,  h:1.76, colorIdx:9,  build:(o)=>buildPerson({ ...o, h:1.76, style:'short', bottom:'#37506a', hair:'#241a12', shoe:'#2a2a2a' }) },
+  { id:'toddler',  cat:'kids', name:'幼児',             icon:'fa-baby',        w:0.4,  d:0.4,  h:0.88, colorIdx:16, build:(o)=>buildPerson({ ...o, h:0.88, style:'short', headBig:true, bottom:'#ffd382', hair:'#6a4a30', shoe:'#ff9aa2' }) },
+  { id:'teddy',    cat:'kids', name:'テディベア',        icon:'fa-paw',          w:0.36, d:0.32, h:0.46, colorIdx:0,  build:buildTeddyBear,      stack:true },
+  { id:'bunny',    cat:'kids', name:'うさぎぬいぐるみ',  icon:'fa-paw',          w:0.3,  d:0.3,  h:0.52, colorIdx:1,  build:buildBunnyPlush,     stack:true },
+  { id:'unicorn',  cat:'kids', name:'ユニコーン',        icon:'fa-horse-head',   w:0.5,  d:0.26, h:0.6,  colorIdx:17, build:buildUnicornToy,     stack:true },
+  { id:'balloon',  cat:'kids', name:'風船',              icon:'fa-circle',       w:0.34, d:0.34, h:1.5,  colorIdx:15, build:buildBalloon },
+  { id:'heartcushion', cat:'kids', name:'ハートクッション', icon:'fa-heart',      w:0.5,  d:0.5,  h:0.18, colorIdx:15, build:buildHeartCushion,   stack:true },
+  { id:'blocks',   cat:'kids', name:'つみき',            icon:'fa-cubes',        w:0.3,  d:0.3,  h:0.3,  colorIdx:15, build:buildBuildingBlocks, stack:true },
+  { id:'toybox',   cat:'kids', name:'おもちゃ箱',        icon:'fa-box-open',     w:0.6,  d:0.42, h:0.4,  colorIdx:19, build:buildToyBox },
+  { id:'dollhouse',cat:'kids', name:'ドールハウス',      icon:'fa-house-chimney',w:0.6,  d:0.42, h:0.7,  colorIdx:15, build:buildDollhouse },
+  { id:'cake',     cat:'kids', name:'ホールケーキ',      icon:'fa-cake-candles', w:0.32, d:0.32, h:0.27, colorIdx:1,  build:buildCake,           stack:true },
+  { id:'cupcake',  cat:'kids', name:'カップケーキ',      icon:'fa-cookie',       w:0.14, d:0.14, h:0.17, colorIdx:15, build:buildCupcake,        stack:true },
+  { id:'kidsbed',  cat:'kids', name:'お姫様ベッド',      icon:'fa-bed',          w:1.05, d:1.9,  h:1.72, colorIdx:15, build:buildKidsBed },
+  { id:'kidsdesk', cat:'kids', name:'キッズデスク',      icon:'fa-pen-ruler',    w:0.8,  d:0.5,  h:0.56, colorIdx:19, build:buildKidsDesk },
+  { id:'kidschair',cat:'kids', name:'キッズチェア',      icon:'fa-chair',        w:0.34, d:0.34, h:0.6,  colorIdx:18, build:buildKidsChair },
+  { id:'garland',  cat:'kids', name:'ガーランド',        icon:'fa-ribbon',       w:1.3,  d:0.04, h:0.4,  colorIdx:15, build:buildGarland,  wallMount:true },
+  { id:'starwall', cat:'kids', name:'星の壁飾り',        icon:'fa-star',         w:0.6,  d:0.04, h:0.55, colorIdx:18, build:buildStarWall, wallMount:true },
 ];
 
 
