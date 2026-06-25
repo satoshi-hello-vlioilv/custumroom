@@ -326,4 +326,64 @@ function buildATM({ color='#2a2a2e', w=0.65, d=0.55, h=1.7 } = {}) {
   return g;
 }
 
-export { buildATM, buildBarCounter, buildBarStool, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard };
+// 連続デスク (ベンチデスク): 天板が footprint 全幅を占め、横に並べると隙間なく一続きになる。
+// 脚は端から内側に控えて配置し、連結時に天板どうしが突き合う。アクセス面 = +Z。
+function buildBenchDesk({ color='#e7e1d6', w=1.2, d=0.7, h=0.73 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.55), metal = mat('#6a7078', 0.35, 0.7, { env: 0.8 });
+  // 全幅シームレス天板 (隣とエッジで突き合う)
+  const top = box(w, 0.04, d, wood, 0, h - 0.02, 0); top.userData.colorable = true; g.add(top);
+  g.add(box(w, 0.012, d + 0.004, mat(shade(color, 0.84), 0.5), 0, h - 0.045, 0)); // edge band
+  // 端から控えた A 字金属脚 (前後ポスト+足元レール)。連結列が一体に見える
+  const legInset = 0.1, legH = h - 0.04;
+  [-(w / 2 - legInset), (w / 2 - legInset)].forEach(lx => {
+    g.add(box(0.05, legH, 0.05, metal, lx, legH / 2,  (d / 2 - 0.07)));
+    g.add(box(0.05, legH, 0.05, metal, lx, legH / 2, -(d / 2 - 0.07)));
+    g.add(box(0.06, 0.04, d - 0.06, metal, lx, 0.02, 0));   // foot rail
+  });
+  // 脚を繋ぐビーム (天板下・背側)
+  g.add(box(w - 2 * legInset + 0.05, 0.05, 0.05, metal, 0, h - 0.13, -(d / 2 - 0.09)));
+  // 幕板 (背 -Z 側・膝が +Z から入る)
+  g.add(box(w - 0.05, 0.26, 0.02, wood, 0, h - 0.19, -(d / 2 - 0.04)));
+  // 配線トレイ
+  g.add(box(w - 0.2, 0.05, 0.07, mat('#45454a', 0.6), 0, h - 0.16, -(d / 2 - 0.13)));
+  return g;
+}
+
+// ゴンドラ什器 (両面棚): コンビニ/小売の島什器。両面に商品棚を持ち、端を突き合わせて長い棚列を作る。
+// 中央背板を境に ±Z 両面へ商品が並ぶ。前後どちらからもアクセスする島型 (背面=壁 ではない)。
+function buildGondolaShelf({ color='#d8d2c4', w=1.2, d=0.6, h=1.5 } = {}) {
+  const g = new THREE.Group();
+  const body = mat(color, 0.5, 0.25, { env: 0.5 });
+  const backM = mat(shade(color, 0.9), 0.6);
+  const prodC = ['#d23b3b', '#e0962a', '#3b78d2', '#46a14a', '#caa23a', '#b25c78', '#3aa0a0'];
+  // base plinth (full width — abuts neighbor)
+  g.add(box(w, 0.12, d, mat(shade(color, 0.78), 0.5), 0, 0.06, 0));
+  // central double-sided back panel (spine)
+  g.add(box(w, h - 0.12, 0.05, backM, 0, (h - 0.12) / 2 + 0.12, 0));
+  // end uprights (slightly inset)
+  [-(w / 2 - 0.02), (w / 2 - 0.02)].forEach(lx => g.add(box(0.035, h - 0.12, d, mat(shade(color, 0.68), 0.5), lx, (h - 0.12) / 2 + 0.12, 0)));
+  // shelves on BOTH faces + product blocks
+  const levels = [0.45, 0.78, 1.11, 1.4];
+  levels.forEach((sy, li) => {
+    [1, -1].forEach(sgn => {
+      g.add(box(w - 0.08, 0.03, d / 2 - 0.05, mat(shade(color, 1.02), 0.5), 0, sy, sgn * (d / 4)));         // shelf
+      g.add(box(w - 0.08, 0.05, 0.012, mat(shade(color, 0.7), 0.5), 0, sy + 0.02, sgn * (d / 2 - 0.02)));   // front lip
+      if (li < 3) {
+        let bx = -w / 2 + 0.1;
+        for (let k = 0; bx < w / 2 - 0.1; k++) {
+          const bw = 0.1 + ((k * 5 + li * 3) % 4) * 0.02;
+          if (bx + bw > w / 2 - 0.08) break;
+          const bh = 0.16 + ((k * 7 + li) % 3) * 0.03;
+          g.add(box(bw, bh, d / 2 - 0.1, mat(prodC[(k + li + (sgn > 0 ? 0 : 3)) % prodC.length], 0.7), bx + bw / 2, sy + 0.015 + bh / 2, sgn * (d / 4)));
+          bx += bw + 0.02;
+        }
+      }
+    });
+  });
+  // top header sign band (full width)
+  const hdr = box(w, 0.14, d * 0.34, mat(shade(color, 1.06), 0.45, 0.2), 0, h + 0.07, 0); hdr.userData.colorable = true; g.add(hdr);
+  return g;
+}
+
+export { buildATM, buildBarCounter, buildBarStool, buildBenchDesk, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildGondolaShelf, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard };

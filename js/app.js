@@ -303,26 +303,64 @@ function buildWallSegment(wall) {
   const rawOpenings = wall.openings || (wall.doors || []).map(d => ({ t: d.t, w: d.w, kind: 'door' }));
   const wType = wall.type || 'wall';
 
-  // ---- GLASS WALL: entire segment is a glass panel with thin frame posts ----
+  // ---- GLASS WALL: full-height glazing split around openings (supports glass doors) ----
   if (wType === 'glass') {
-    const glassMat = new THREE.MeshStandardMaterial({
+    const glassMat = () => new THREE.MeshStandardMaterial({
       color: 0xc8e8f4, roughness: 0.04, metalness: 0.15,
       transparent: true, opacity: 0.28, envMapIntensity: 1.4, side: THREE.DoubleSide
     });
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x8a9aa5, roughness: 0.3, metalness: 0.7, transparent: true, opacity: 1.0 });
     const fw = 0.06;
-    // Glass panel
-    const [gcx, gcz] = ptAt(len / 2);
-    const gPanel = new THREE.Mesh(new THREE.BoxGeometry(len - fw * 2, WALL_H - fw, 0.04), glassMat);
-    gPanel.position.set(gcx, WALL_H / 2, gcz); gPanel.rotation.y = rotY;
-    gPanel.castShadow = false; roomGroup.add(gPanel); registerWall(gPanel);
-    // Frame posts at each end + top bar
-    [0, len].forEach(sp => {
-      const [px, pz] = ptAt(sp); const post = new THREE.Mesh(new THREE.BoxGeometry(fw, WALL_H, WALL_T + 0.01), frameMat);
-      post.position.set(px, WALL_H / 2, pz); post.rotation.y = rotY; roomGroup.add(post); registerWall(post);
-    });
+    // Openings along this glass wall
+    const gOpenings = rawOpenings.map(dr => {
+      const dw = dr.w || 0.9, s = clamp(dr.t, 0, 1) * len;
+      return { s0: clamp(s - dw / 2, 0, len), s1: clamp(s + dw / 2, 0, len), kind: dr.kind || 'door' };
+    }).filter(o => o.s1 - o.s0 > 0.05).sort((a, b) => a.s0 - b.s0);
+    // Full-height glazing for a [s0,s1] span
+    const glazing = (s0, s1) => {
+      const pl = s1 - s0; if (pl < 0.04) return;
+      const [cx, cz] = ptAt((s0 + s1) / 2);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(pl - fw, WALL_H - fw, 0.04), glassMat());
+      panel.position.set(cx, WALL_H / 2, cz); panel.rotation.y = rotY; panel.castShadow = false;
+      roomGroup.add(panel); registerWall(panel);
+    };
+    // Vertical mullion at distance s (full height unless h given)
+    const mullion = (s, h = WALL_H) => {
+      const [px, pz] = ptAt(s);
+      const post = new THREE.Mesh(new THREE.BoxGeometry(fw, h, WALL_T + 0.01), frameMat);
+      post.position.set(px, h / 2, pz); post.rotation.y = rotY; roomGroup.add(post); registerWall(post);
+    };
+    // Glazing for solid spans between openings
+    let cursor = 0;
+    gOpenings.forEach(o => { glazing(cursor, o.s0); cursor = o.s1; });
+    glazing(cursor, len);
+    // Top rail (full length) + end mullions
+    const [tcx, tcz] = ptAt(len / 2);
     const topBar = new THREE.Mesh(new THREE.BoxGeometry(len + fw, fw, WALL_T + 0.01), frameMat);
-    topBar.position.set(gcx, WALL_H - fw / 2, gcz); topBar.rotation.y = rotY; roomGroup.add(topBar); registerWall(topBar);
+    topBar.position.set(tcx, WALL_H - fw / 2, tcz); topBar.rotation.y = rotY; roomGroup.add(topBar); registerWall(topBar);
+    mullion(0); mullion(len);
+    // Per-opening: jamb mullions, a transom-height glass leaf, and a head rail
+    gOpenings.forEach(o => {
+      const ow = o.s1 - o.s0; const [ocx, ocz] = ptAt((o.s0 + o.s1) / 2);
+      mullion(o.s0, DOOR_H); mullion(o.s1, DOOR_H);
+      // transom glazing above the door
+      const th = WALL_H - DOOR_H - fw;
+      if (th > 0.05) {
+        const tr = new THREE.Mesh(new THREE.BoxGeometry(ow - fw, th, 0.04), glassMat());
+        tr.position.set(ocx, DOOR_H + fw + th / 2, ocz); tr.rotation.y = rotY; tr.castShadow = false; roomGroup.add(tr); registerWall(tr);
+      }
+      // frameless glass door leaf (closed)
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(ow - 0.05, DOOR_H - 0.05, 0.035), glassMat());
+      leaf.position.set(ocx, (DOOR_H - 0.05) / 2, ocz); leaf.rotation.y = rotY; leaf.castShadow = false;
+      roomGroup.add(leaf); registerWall(leaf);
+      // slim pull handle
+      const [hx, hz] = ptAt(o.s1 - 0.12);
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.05), frameMat);
+      handle.position.set(hx, DOOR_H * 0.5, hz); handle.rotation.y = rotY; roomGroup.add(handle); registerWall(handle);
+      // head rail across the opening
+      const head = new THREE.Mesh(new THREE.BoxGeometry(ow, fw, WALL_T + 0.01), frameMat);
+      head.position.set(ocx, DOOR_H, ocz); head.rotation.y = rotY; roomGroup.add(head); registerWall(head);
+    });
     return;
   }
 
@@ -1011,16 +1049,6 @@ function applyLayout(layout) {
 }
 function loadLayout(json) { try { applyLayout(JSON.parse(json)); toast('レイアウトを読み込みました'); } catch (e) { toast('読み込みに失敗しました'); } }
 function takeScreenshot() { renderer.render(scene, camera); const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'room-planner.png'; a.click(); toast('スクリーンショットを保存しました'); }
-
-function _pot(g, top=0.15, bot=0.10, h=0.26, col='#d8c5a8', segs=20) {
-  const pm = new THREE.Mesh(new THREE.CylinderGeometry(top, bot, h, segs), mat(col, 0.85));
-  pm.position.y = h/2; pm.castShadow = pm.receiveShadow = true; g.add(pm);
-  g.add(cylAt(top+0.01, top, 0.04, segs, mat(shade(col,0.88),0.85), 0, h, 0));
-  g.add(cylAt(top-0.01, top-0.01, 0.02, segs, mat('#3d2b1f',0.98), 0, h+0.01, 0));
-  return h + 0.01; // soil top Y
-}
-
-// モンステラ (Monstera deliciosa) — ヒレのある大型葉
 
 // Floor swatch colors for plan preview
 const PLAN_FLOOR_COLOR = {

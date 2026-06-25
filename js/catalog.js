@@ -3,7 +3,7 @@ import { buildBathSet, buildBathtub, buildCloset, buildCupboard, buildDishwasher
 import { buildAlumCoilSide, buildAluminumCoil, buildBandedAlumCoil, buildCNCMachine, buildCNCMachiningCenter, buildControlPanel, buildConveyor, buildDrum, buildExportAlumCoil, buildFireExtinguisher, buildForklift, buildIndustrialFurnace, buildIndustrialRobot, buildIndustrialRobotLg, buildInjectionMolder, buildJibCrane, buildLargeHydraulicPress, buildPackagedAlumCoil, buildPalletRack, buildResinPallet, buildScrapBucket, buildSteelPallet, buildTensileTestMachine, buildToolCabinet, buildWoodPallet, buildWorkbench, buildWorker } from './builders/industrial.js';
 import { buildHPLC, buildIncubator, buildLabOven, buildSpectrophotometer, buildUltrasonicCleaner, buildVacuumPump } from './builders/instruments.js';
 import { build3DPrinter, buildAnalyticalBalance, buildBandSaw, buildBenchGrinder, buildCentrifuge, buildChemShelf, buildDrillPress, buildFumeHood, buildGlassware, buildHydraulicPress, buildLabBench, buildLaserCutter, buildLathe, buildMicroscope, buildMillingMachine, buildOscilloscope, buildScrollSaw, buildTestBench, buildToolRack, buildWelderStation } from './builders/lab.js';
-import { buildATM, buildBarCounter, buildBarStool, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard } from './builders/office.js';
+import { buildATM, buildBarCounter, buildBarStool, buildBenchDesk, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildGondolaShelf, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard } from './builders/office.js';
 import { buildBamboo, buildBenjamin, buildCactus, buildDracaena, buildFicusUmbellata, buildMonstera, buildOlive, buildPlant, buildPothos, buildRhapis, buildSansevieria, buildStrelitzia, buildSucculent, buildZZPlant } from './builders/plants.js';
 import { buildCampChair, buildCampfire, buildCoolerBox, buildLantern, buildTent } from './builders/outdoor.js';
 
@@ -57,6 +57,8 @@ const FURNITURE_DEFS = [
   { id:'filingcab',  cat:'office',  name:'ファイリングキャビネット', icon:'fa-folder',     w:0.46,d:0.62, h:1.32, colorIdx:10, build:buildFilingCabinet },
   { id:'copier',   cat:'office',  name:'コピー機',          icon:'fa-print',        w:0.62,d:0.56, h:1.08, colorIdx:10, build:buildCopier },
   { id:'reception',  cat:'office',  name:'受付カウンター',    icon:'fa-concierge-bell',    w:2.4, d:0.7,  h:1.1,  colorIdx:1,  build:buildReceptionCounter },
+  { id:'deskrun',    cat:'office',  name:'連続デスク',        icon:'fa-table-columns',     w:1.2, d:0.7,  h:0.73, colorIdx:1,  build:buildBenchDesk },
+  { id:'gondola',    cat:'shop',    name:'ゴンドラ什器(両面)',icon:'fa-shelves',           w:1.2, d:0.6,  h:1.5,  colorIdx:1,  build:buildGondolaShelf },
   // ---- museum ----
   { id:'displaycase',cat:'museum',  name:'展示ケース',        icon:'fa-box-open',          w:0.88,d:0.52, h:1.3,  colorIdx:10, build:buildDisplayCase },
   { id:'pedestal',   cat:'museum',  name:'展示台',            icon:'fa-chess-rook',        w:0.5, d:0.5,  h:1.05, colorIdx:1,  build:buildPedestal },

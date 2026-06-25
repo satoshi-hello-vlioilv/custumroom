@@ -400,13 +400,20 @@ function buildBunkBed({ color='#f3ece0', w=1.05, d=2.05, h=1.65 } = {}) {
   return g;
 }
 function buildPendantLamp({ color='#e0a23b', w=0.4, d=0.4, h=1.2 } = {}) {
+  // 天井から吊り下がるペンダントライト。床(y=0)に置いても天井マウント→笠が頭上(約1.85m)に来る。
   const g = new THREE.Group();
   const metal = mat('#3a332b', 0.3, 0.7, { env: 0.8 }), shade_m = mat(color, 0.5, 0.3);
-  const cord = cyl(0.008, 0.008, h - 0.22, 8, metal); cord.position.set(0, h - (h - 0.22)/2, 0); g.add(cord);
-  const rose = cyl(0.06, 0.06, 0.04, 16, metal); rose.position.set(0, h, 0); g.add(rose);
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), shade_m); dome.position.set(0, 0.22, 0); dome.castShadow = true; dome.userData.colorable = true; g.add(dome);
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), mat('#ffffee', 0.1, 0.0, { emissive: '#ffffcc', emissiveIntensity: 1.5 })); bulb.position.set(0, 0.22, 0); g.add(bulb);
-  const light = new THREE.PointLight(0xfff5cc, 1.2, 4); light.position.set(0, 0.22, 0); g.add(light);
+  const ceilY = WALL_H - 0.02;   // 天井マウント高
+  const shadeY = 1.85;           // 笠(光源)の吊り下げ高さ
+  // ceiling rose
+  const rose = cyl(0.06, 0.06, 0.04, 16, metal); rose.position.set(0, ceilY, 0); g.add(rose);
+  // cord from ceiling down to the shade
+  const cordLen = Math.max(0.1, ceilY - shadeY);
+  const cord = cyl(0.008, 0.008, cordLen, 8, metal); cord.position.set(0, shadeY + cordLen / 2, 0); g.add(cord);
+  // shade dome (open side downward)
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), shade_m); dome.position.set(0, shadeY, 0); dome.castShadow = true; dome.userData.colorable = true; g.add(dome);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), mat('#ffffee', 0.1, 0.0, { emissive: '#ffffcc', emissiveIntensity: 1.5 })); bulb.position.set(0, shadeY - 0.06, 0); g.add(bulb);
+  const light = new THREE.PointLight(0xfff5cc, 1.3, 4.5); light.position.set(0, shadeY - 0.12, 0); g.add(light);
   return g;
 }
 function buildDeskLamp({ color='#3a4250', w=0.3, d=0.3, h=0.5 } = {}) {
@@ -657,10 +664,10 @@ function buildSchoolDesk({ color='#e8c89a', w=0.65, d=0.45, h=0.72 } = {}) {
   const top = box(w, 0.028, d, wood, 0, h, 0); top.userData.colorable = true; g.add(top);
   // Top edge trim
   g.add(box(w+0.01, 0.012, d+0.01, mat(shade(color,0.8),0.55), 0, h-0.018, 0));
-  // Under-desk book tray (open toward -Z = student side)
+  // Under-desk book tray (open toward +Z = student/access side per orient convention)
   const trayY = h - 0.14;
   g.add(box(w-0.06, 0.016, d-0.06, mat(shade(color,0.86),0.55), 0, trayY, 0));   // bottom
-  g.add(box(w-0.06, 0.1, 0.016, mat(shade(color,0.82),0.55), 0, trayY+0.05, d/2-0.04));  // back (+Z)
+  g.add(box(w-0.06, 0.1, 0.016, mat(shade(color,0.82),0.55), 0, trayY+0.05, -(d/2-0.04)));  // back (-Z)
   g.add(box(0.016, 0.1, d-0.06, mat(shade(color,0.82),0.55),  (w/2-0.04), trayY+0.05, 0)); // right side
   g.add(box(0.016, 0.1, d-0.06, mat(shade(color,0.82),0.55), -(w/2-0.04), trayY+0.05, 0)); // left side
   // 4 tubular metal legs + rubber foot caps
@@ -674,8 +681,8 @@ function buildSchoolDesk({ color='#e8c89a', w=0.65, d=0.45, h=0.72 } = {}) {
   [d/2-0.05, -(d/2-0.05)].forEach(rz => {
     const rail = cylAt(0.012, 0.012, w-0.1, 10, metal, 0, 0.14, rz); rail.rotation.z = Math.PI/2; g.add(rail);
   });
-  // Side bag hook (-Z front side)
-  g.add(box(0.02, 0.05, 0.02, metal, w/2-0.05, 0.42, -(d/2-0.02)));
+  // Side bag hook (+Z access/student side)
+  g.add(box(0.02, 0.05, 0.02, metal, w/2-0.05, 0.42, (d/2-0.02)));
   return g;
 }
 function buildBlackboard({ color='#1f4a37', w=3.0, d=0.06, h=1.2 } = {}) {

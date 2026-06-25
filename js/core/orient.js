@@ -34,8 +34,8 @@ const BACK_TO_WALL = new Set([
   'cupboard', 'kitchen', 'stove', 'fridge', 'dishwasher',
   // sanitary
   'toilet', 'handbasin', 'vanity', 'washer', 'bathtub', 'bathset',
-  // office / shop (island racks/registers stand freely — removed: shelfrack, register, palletrack)
-  'filingcab', 'copier', 'reception', 'showcasefridge', 'vendingmachine', 'atm', 'barcounter',
+  // office / shop (island racks/registers/受付 stand freely — removed: shelfrack, register, palletrack, reception)
+  'filingcab', 'copier', 'showcasefridge', 'vendingmachine', 'atm', 'barcounter',
   // factory (壁付けが自然な盤・棚; toolcab は移動式も多いため除外)
   'ctrlpanel', 'chemshelf',
 ]);
@@ -46,7 +46,7 @@ const ACCESS = {
   sofa3: 0.3, sofa1: 0.3, sofa2: 0.3, sofalow: 0.3, sofal: 0.3, loungechair: 0.3,
   dchr: 0.3, ochr: 0.3, cafechr: 0.3, windsorchair: 0.3, stackchr: 0.3, upholchr: 0.3, barstool: 0.3, bench: 0.25,
   // 作業面 (前面に着座)
-  desk: 0.5, schooldesk: 0.45,
+  desk: 0.5, deskrun: 0.5, schooldesk: 0.45,
   // 前面から扉/引き出しを開ける収納
   wardrobe: 0.5, closet: 0.5, chest: 0.45, dresser: 0.45, glasscab: 0.4, locker: 0.4,
   hangerrack: 0.3, shelf: 0.35, shoebox: 0.3, cupboard: 0.4, filingcab: 0.45,
@@ -62,6 +62,25 @@ const ACCESS = {
 // --- stack のうち必ず什器の上に載るべきもの (床に落ちたら不整合) --------------
 // ceiling/floor fixtures excluded from footprint overlap check (don't block furniture placement)
 const FOOTPRINT_SKIP = new Set(['pendlamp', 'tablelamp', 'desklamp', 'lamp', 'floorlamp', 'stove']);
+
+// --- 着座して必ずテーブル/作業面に「対面」すべき椅子 (対面方向チェック対象) ------
+// sofa/bench/stool/loungechair/zabuton はオープン方向や TV に向くため対象外
+const DINING_CHAIRS = new Set([
+  'dchr', 'ochr', 'cafechr', 'windsorchair', 'stackchr', 'upholchr', 'barstool',
+]);
+// --- 椅子が対面すべき「テーブル/作業面/カウンター」 ----------------------------
+const TABLE_IDS = new Set([
+  'desk', 'deskrun', 'schooldesk', 'dtable', 'conftable', 'roundtable', 'roundtablesm',
+  'cafetable', 'kotatsu', 'labbench', 'workbench', 'testbench', 'barcounter', 'roundctab',
+]);
+// --- 「通り抜ける」開口(扉/襖/障子/自動ドア等)。window は通行しないので対象外 ----
+function isPassage(kind) { return !!kind && !String(kind).includes('window'); }
+// --- 動線(扉前クリアランス)チェックで障害物とみなさない床置き ------------------
+// 平たい物(ラグ/パレット)・椅子・装飾植物は通行の主障害から除外
+const CIRC_IGNORE_CAT = new Set(['seating']);
+const CIRC_IGNORE_ID = new Set([
+  'rug', 'roundrug', 'woodpallet', 'steelpallet', 'resinpallet', 'zabuton', 'campfire',
+]);
 
 const SURFACE_ONLY = new Set([
   'monitor', 'espresso', 'microwave', 'ricecook', 'projector', 'desklamp', 'tablelamp',
@@ -254,23 +273,69 @@ function validateLayout(preset, defsById) {
     }
   }
 
-  // (7) 椅子がデスク(desk)の背面側に置かれていないか
-  // 椅子ごとに最近傍desksを探し、その背面側にある場合のみ警告
-  const CHR_IDS = new Set(['ochr', 'dchr']);
-  const deskItems = items.filter(m => m.def.id === 'desk');
+  // (7) 椅子の「対面方向」チェック — 着座系椅子は最寄りのテーブル/作業面に正対すべき
+  // 椅子ごとに最近傍テーブルを(AABB最近点距離で)探し、椅子前面がそのテーブルを向くか検査
+  const tableItems = items.filter(m => TABLE_IDS.has(m.def.id) && m.use.mount === 'floor');
   for (const ch of items) {
-    if (!CHR_IDS.has(ch.def.id)) continue;
-    let nearest = null, nearestDist = 9999;
-    for (const dk of deskItems) {
-      const d = Math.hypot(ch.cx - dk.cx, ch.cz - dk.cz);
-      if (d < nearestDist) { nearestDist = d; nearest = dk; }
+    if (!DINING_CHAIRS.has(ch.def.id) || ch.use.mount !== 'floor') continue;
+    let nearest = null, nearestEdge = 9999;
+    for (const tb of tableItems) {
+      // テーブルAABB上の最近点までの距離
+      const nx = Math.max(tb.cx - tb.hw, Math.min(ch.cx, tb.cx + tb.hw));
+      const nz = Math.max(tb.cz - tb.hd, Math.min(ch.cz, tb.cz + tb.hd));
+      const d = Math.hypot(ch.cx - nx, ch.cz - nz);
+      if (d < nearestEdge) { nearestEdge = d; nearest = tb; }
     }
-    if (!nearest || nearestDist > 1.4) continue;
-    // デスク前面方向と椅子位置の内積: 負→椅子がデスク背面側
-    const dot = (ch.cx - nearest.cx) * nearest.front.x + (ch.cz - nearest.cz) * nearest.front.z;
-    if (dot < -0.2) {
+    if (!nearest || nearestEdge > 0.85) continue;   // テーブルに着いていない椅子は対象外
+    const dx = nearest.cx - ch.cx, dz = nearest.cz - ch.cz, dl = Math.hypot(dx, dz) || 1;
+    const facing = (ch.front.x * dx + ch.front.z * dz) / dl;   // 前面がテーブル中心を向くなら +1
+    if (facing < 0.2) {
       add('warn', ch.idx, ch.def.id,
-        `椅子が最近傍desk(#${nearest.idx})のアクセス面と逆の背面側にある — 向き不整合`);
+        `椅子が正対すべき${nearest.def.id}(#${nearest.idx})と逆/横を向いている — 対面方向の不整合 (rotY=${ch.it.rotY || 0})`);
+    }
+  }
+
+  // (8) 動線(導線)チェック — 扉/通路開口の前に通行を塞ぐ床置き什器がないか
+  // 壁の各通行開口について、開口幅×CLEAR(室内側)のクリアランス帯に侵入する什器を検出
+  const CLEAR = 0.55;   // 確保したい開口前クリアランス[m]
+  const W = preset.room.w / 2, D = preset.room.d / 2;
+  const obstacles = items.filter(m => m.use.mount === 'floor'
+    && !CIRC_IGNORE_CAT.has(m.def.cat) && !CIRC_IGNORE_ID.has(m.def.id) && (m.def.h || 0) >= 0.45);
+  for (const w of walls) {
+    const dxw = w.x2 - w.x1, dzw = w.z2 - w.z1, len = Math.hypot(dxw, dzw);
+    if (len < 1e-6) continue;
+    const ux = dxw / len, uz = dzw / len;          // 壁方向(接線)
+    const isVertical = Math.abs(ux) < 1e-6;        // x一定の縦壁
+    for (const o of (w.ops || [])) {
+      if (!isPassage(o.kind)) continue;
+      const oc = (o.t != null ? o.t : 0.5) * len, ow = (o.w || 0.9);
+      const px = w.x1 + ux * oc, pz = w.z1 + uz * oc;     // 開口中心
+      // 室内側(壁の法線方向)を判定。外周壁は室内中心側のみ、間仕切りは両側を検査
+      const sides = w.isPartition ? [1, -1] : [Math.sign(-(isVertical ? px : pz)) || 1];
+      for (const side of sides) {
+        // クリアランス帯のAABB(全壁が軸平行なので軸平行ボックスで表現可)
+        let bx0, bx1, bz0, bz1;
+        if (isVertical) {
+          const nx = side;   // 法線は±x
+          bx0 = Math.min(px + nx * 0.05, px + nx * CLEAR); bx1 = Math.max(px + nx * 0.05, px + nx * CLEAR);
+          bz0 = pz - ow / 2; bz1 = pz + ow / 2;
+        } else {
+          const nz = side;   // 法線は±z
+          bz0 = Math.min(pz + nz * 0.05, pz + nz * CLEAR); bz1 = Math.max(pz + nz * 0.05, pz + nz * CLEAR);
+          bx0 = px - ow / 2; bx1 = px + ow / 2;
+        }
+        // 外周壁: 室外側(部屋の外)は無視
+        const mxb = (bx0 + bx1) / 2, mzb = (bz0 + bz1) / 2;
+        if (!w.isPartition && (Math.abs(mxb) > W + 0.02 || Math.abs(mzb) > D + 0.02)) continue;
+        for (const m of obstacles) {
+          const ox = Math.min(m.cx + m.hw, bx1) - Math.max(m.cx - m.hw, bx0);
+          const oz = Math.min(m.cz + m.hd, bz1) - Math.max(m.cz - m.hd, bz0);
+          if (ox > 0.12 && oz > 0.12) {
+            add('warn', m.idx, m.def.id,
+              `${m.def.id} が開口(${o.kind || 'door'})前の通行クリアランスを塞いでいる — 動線阻害`);
+          }
+        }
+      }
     }
   }
 

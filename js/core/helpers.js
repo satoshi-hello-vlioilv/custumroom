@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp } from './util.js';
+import { clamp, shade } from './util.js';
 import { noiseTex } from './textures.js';
 
 const GRID_SNAP = 0.5;
@@ -77,4 +77,13 @@ function makeGhost(group) {
 
 function cylAt(rt, rb, h, seg, m, x, y, z) { const c = cyl(rt, rb, h, seg, m); c.position.set(x, y, z); return c; }
 
-export { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost };
+// 植木鉢 + 土。観葉植物ビルダー共通。soil top の Y を返す。
+function _pot(g, top = 0.15, bot = 0.10, h = 0.26, col = '#d8c5a8', segs = 20) {
+  const pm = new THREE.Mesh(new THREE.CylinderGeometry(top, bot, h, segs), mat(col, 0.85));
+  pm.position.y = h / 2; pm.castShadow = pm.receiveShadow = true; g.add(pm);
+  g.add(cylAt(top + 0.01, top, 0.04, segs, mat(shade(col, 0.88), 0.85), 0, h, 0));
+  g.add(cylAt(top - 0.01, top - 0.01, 0.02, segs, mat('#3d2b1f', 0.98), 0, h + 0.01, 0));
+  return h + 0.01; // soil top Y
+}
+
+export { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost, _pot };
