@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { clamp, shade } from '../core/util.js';
-import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost } from '../core/helpers.js';
+import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost, bedding } from '../core/helpers.js';
 
 // ============================================================================
 // kawaii.js — 可愛い系アイテム & 人物バリエーション (キッズ向け)
@@ -263,20 +263,35 @@ function buildCupcake({ color = '#ffb3c6', w = 0.14, d = 0.14, h = 0.16 } = {}) 
 }
 function buildKidsBed({ color = '#fbe3ec', w = 1.05, d = 1.9, h = 1.7 } = {}) {
   const g = new THREE.Group();
-  const frame = mat('#f4b9cf', 0.6), sheet = fabricMat('#fdf6f8'), duvet = fabricMat(color), pillow = fabricMat('#fff');
-  g.add(box(w, 0.22, d, frame, 0, 0.16, 0));               // base
-  const matt = new THREE.Mesh(roundedBoxGeom(w - 0.04, 0.16, d - 0.16, 0.05, 3), sheet); matt.position.set(0, 0.33, 0.02); g.add(matt);
-  const dv = new THREE.Mesh(roundedBoxGeom(w - 0.04, 0.12, d * 0.56, 0.05, 3), duvet); dv.position.set(0, 0.42, 0.28); dv.userData.colorable = true; g.add(dv);
-  g.add(new THREE.Mesh(roundedBoxGeom(w - 0.2, 0.12, 0.34, 0.06, 3), pillow).translateY(0.42).translateZ(-d / 2 + 0.3));
-  // head/foot boards (heart cutout headboard)
-  const hb = new THREE.Mesh(roundedBoxGeom(w, 0.5, 0.1, 0.06, 3), frame); hb.position.set(0, 0.5, -d / 2 + 0.05); g.add(hb);
-  g.add(box(0.16, 0.14, 0.04, mat('#ff8fab', 0.6), 0, 0.62, -d / 2 + 0.11)); // heart on headboard
-  g.add(box(w, 0.3, 0.1, frame, 0, 0.32, d / 2 - 0.05)); // footboard
-  // canopy posts + drape
-  [[-w / 2 + 0.06, -d / 2 + 0.06], [w / 2 - 0.06, -d / 2 + 0.06], [-w / 2 + 0.06, d / 2 - 0.06], [w / 2 - 0.06, d / 2 - 0.06]].forEach(([x, z]) => g.add(cylAt(0.03, 0.03, h, 10, frame, x, h / 2, z)));
-  const canopy = new THREE.Mesh(new THREE.ConeGeometry(w * 0.8, 0.3, 4), fabricMat(shade(color, 1.05))); canopy.rotation.y = Math.PI / 4; canopy.position.set(0, h + 0.02, 0); canopy.material.transparent = true; canopy.material.opacity = 0.85; g.add(canopy);
-  // sheer drape panels
-  [-1, 1].forEach(sgn => { const dr = box(0.02, h * 0.6, 0.5, fabricMat('#fff'), sgn * (w / 2 - 0.06), h * 0.6, -d / 2 + 0.3); dr.material.transparent = true; dr.material.opacity = 0.5; g.add(dr); });
+  const frame = mat('#f4b9cf', 0.6), heartM = mat('#ff8fab', 0.55);
+  // ---- ベース (脚 + 台座) ----
+  [[-w/2+0.08,-d/2+0.1],[w/2-0.08,-d/2+0.1],[-w/2+0.08,d/2-0.1],[w/2-0.08,d/2-0.1]].forEach(([lx,lz]) => g.add(cylAt(0.035, 0.025, 0.18, 10, frame, lx, 0.09, lz)));
+  g.add(box(w-0.03, 0.13, d-0.03, frame, 0, 0.25, 0));
+  // ---- 寝具一式 (共通 bedding) ----
+  g.add(bedding(w-0.06, d-0.06, 0.42, { duvet: color, mattH: 0.14, accent: true, fold: true, throwFoot: false, pillowZ: 0.32 }));
+  // ---- ハート付きヘッドボード + フットボード ----
+  const hb = new THREE.Mesh(roundedBoxGeom(w, 0.52, 0.09, 0.08, 4), frame); hb.position.set(0, 0.56, -d/2 + 0.05); hb.castShadow = true; g.add(hb);
+  // ハート(2球+回転キューブ)
+  [-1, 1].forEach(sgn => g.add(new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), heartM).translateX(sgn*0.05).translateY(0.72).translateZ(-d/2 + 0.1)));
+  const hc = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.05), heartM); hc.position.set(0, 0.66, -d/2 + 0.1); hc.rotation.z = Math.PI/4; g.add(hc);
+  g.add(new THREE.Mesh(roundedBoxGeom(w, 0.26, 0.09, 0.06, 4), frame).translateY(0.34).translateZ(d/2 - 0.05)); // footboard
+  // ---- 天蓋 (4本柱 + コーン屋根 + シアーのドレープ) ----
+  [[-w/2+0.06,-d/2+0.06],[w/2-0.06,-d/2+0.06],[-w/2+0.06,d/2-0.06],[w/2-0.06,d/2-0.06]].forEach(([x,z]) => {
+    g.add(cylAt(0.028, 0.028, h, 12, frame, x, h/2, z));
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 10), frame).translateX(x).translateY(h+0.02).translateZ(z));
+  });
+  const canopy = new THREE.Mesh(new THREE.ConeGeometry(w*0.82, 0.34, 16), fabricMat(shade(color, 1.05)));
+  canopy.position.set(0, h + 0.14, 0); canopy.castShadow = true; g.add(canopy);
+  g.add(new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.014, 8, 14), mat('#ffd86a', 0.4, 0.3)).translateY(h+0.32)); // 天蓋トップ飾り
+  // 四隅から流れるシアー (前2本のみ・透け感)
+  [[-1, d/2-0.06],[1, d/2-0.06]].forEach(([sgn, z]) => {
+    const dr = new THREE.Mesh(roundedBoxGeom(0.03, h*0.62, 0.42, 0.01, 2), fabricMat('#fff'));
+    dr.position.set(sgn*(w/2-0.07), h*0.55, z); dr.material.transparent = true; dr.material.opacity = 0.42; g.add(dr);
+  });
+  [[-1, -d/2+0.06],[1, -d/2+0.06]].forEach(([sgn, z]) => {
+    const dr = new THREE.Mesh(roundedBoxGeom(0.03, h*0.62, 0.42, 0.01, 2), fabricMat('#fff'));
+    dr.position.set(sgn*(w/2-0.07), h*0.55, z); dr.material.transparent = true; dr.material.opacity = 0.42; g.add(dr);
+  });
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }

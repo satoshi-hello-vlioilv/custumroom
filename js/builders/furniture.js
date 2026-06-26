@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { clamp, shade } from '../core/util.js';
-import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost } from '../core/helpers.js';
+import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost, bedding } from '../core/helpers.js';
 import { makeWoodTexture, makeWallTexture, makeNoiseTexture, makeRugTexture, makeConcreteTexture, makeTileTexture, makeMarbleTexture, makeCarpetTexture, makeTatamiTexture, makeBrickTexture, makePanelTexture, makeGenkanTexture, makeDirtTexture, makeGrassTexture, makeLawnTexture, makeParquetTexture, makeDarkWoodTexture, makeRubberTexture, makeCheckerPlateTexture, makeEpoxyTexture, makeTerracottaTexture, makeStoneTexture, woodTex, concreteTex, wallTexSrc, noiseTex, tileTex, marbleTex, carpetTex, tatamiTex, brickTex, panelTex, genkanTex, dirtTex, grassTex, lawnTex, parquetTex, darkWoodTex, rubberTex, checkerTex, epoxyTex, terracottaTex, stoneTex, FLOOR_TYPES, WALL_TYPES } from '../core/textures.js';
 
 function buildSofa3({ color='#c8a06a', w=2.2, d=0.95, h=0.85, seats=3, low=false } = {}) {
@@ -396,30 +396,32 @@ function buildRoundCoffeeTable({ color='#c8a06a', w=0.8, d=0.8, h=0.42 } = {}) {
   return g;
 }
 function buildBunkBed({ color='#f3ece0', w=1.05, d=2.05, h=1.65 } = {}) {
+  // 頭側 = -Z。下段 color / 上段 ブルーの掛け布団。共通の bedding() で寝具を載せる。
   const g = new THREE.Group();
-  const frame = mat('#8a6b48', 0.65), sheet = fabricMat('#fdfaf3'), duvet1 = fabricMat(color), duvet2 = fabricMat('#5b86b8'), pillow = fabricMat('#fbf7ef');
+  const wood = mat('#6e4f34', 0.55, 0.05, { env: 0.35 });
   const postR = 0.045;
+  // 4 本柱 + 玉飾り
   [[-w/2+postR, d/2-postR],[w/2-postR, d/2-postR],[-w/2+postR, -(d/2-postR)],[w/2-postR, -(d/2-postR)]].forEach(([px,pz]) => {
-    const post = cyl(postR, postR, h, 12, frame); post.position.set(px, h/2, pz); g.add(post);
+    g.add(cylAt(postR, postR, h, 12, wood, px, h/2, pz));
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(postR*1.5, 12, 12), wood); ball.position.set(px, h+postR*0.8, pz); g.add(ball);
   });
-  const addRail = (y) => {
-    const fr = new THREE.Mesh(roundedBoxGeom(w, 0.06, 0.05, 0.02, 4), frame); fr.position.set(0, y, d/2 - 0.03); g.add(fr);
-    const bk = new THREE.Mesh(roundedBoxGeom(w, 0.06, 0.05, 0.02, 4), frame); bk.position.set(0, y, -(d/2 - 0.03)); g.add(bk);
-  };
-  addRail(0.32); addRail(h * 0.52); addRail(h - 0.08);
-  const addBunk = (baseY, dv) => {
-    const sl = new THREE.Mesh(roundedBoxGeom(w - 0.1, 0.08, d - 0.1, 0.02, 4), frame); sl.position.set(0, baseY, 0); sl.castShadow = true; g.add(sl);
-    const matt = new THREE.Mesh(roundedBoxGeom(w - 0.14, 0.1, d - 0.2, 0.03, 4), sheet); matt.position.set(0, baseY + 0.09, 0); matt.castShadow = true; g.add(matt);
-    const duvetM = new THREE.Mesh(roundedBoxGeom(w - 0.16, 0.08, d * 0.6, 0.03, 4), dv); duvetM.position.set(0, baseY + 0.15, d * 0.15); duvetM.castShadow = true; duvetM.userData.colorable = true; g.add(duvetM);
-    const pil = new THREE.Mesh(roundedBoxGeom(w * 0.6, 0.07, 0.32, 0.025, 4), pillow); pil.position.set(0, baseY + 0.14, -(d/2 - 0.25)); pil.castShadow = true; g.add(pil);
-  };
-  addBunk(0.28, duvet1); addBunk(h * 0.5 + 0.04, duvet2);
-  const guardL = new THREE.Mesh(roundedBoxGeom(0.04, 0.22, d * 0.6, 0.01, 4), frame); guardL.position.set(-w/2 + 0.05, h * 0.5 + 0.22, d * 0.1); g.add(guardL);
-  const rungH = 0.22, numRungs = 4;
-  for (let i = 0; i < numRungs; i++) {
-    const ry = 0.15 + i * rungH;
-    const rung = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.28, 8), frame); rung.rotation.z = Math.PI / 2; rung.position.set(w/2 - 0.08, ry, d/2 - 0.04); g.add(rung);
-  }
+  const lowerY = 0.32, upperY = h * 0.56;
+  [[lowerY, color], [upperY, '#5b86b8']].forEach(([baseY, dvCol]) => {
+    g.add(box(w-0.06, 0.06, d-0.06, wood, 0, baseY, 0));                    // すのこ
+    g.add(box(w-0.02, 0.06, 0.05, wood, 0, baseY+0.03, -d/2+0.04));         // 頭側レール
+    g.add(box(w-0.02, 0.06, 0.05, wood, 0, baseY+0.03,  d/2-0.04));         // 足側レール
+    g.add(box(0.05, 0.06, d-0.02, wood, -w/2+0.03, baseY+0.03, 0));         // サイドレール
+    g.add(box(0.05, 0.06, d-0.02, wood,  w/2-0.03, baseY+0.03, 0));
+    g.add(bedding(w-0.07, d-0.07, baseY+0.17, { duvet: dvCol, mattH: 0.13, accent: false, fold: true, pillowZ: 0.28 }));
+  });
+  // 上段の転落防止ガード (長手 -X 側)
+  g.add(box(0.05, 0.18, d*0.62, wood, -w/2+0.03, upperY+0.18, d*0.04));
+  g.add(box(0.05, 0.05, d*0.62, wood, -w/2+0.03, upperY+0.28, d*0.04));     // 手すり上桟
+  // はしご (足側 +X 寄り・2本支柱 + 段)
+  const lx = w/2+0.06, lz0 = d/2-0.55, lz1 = d/2-0.22, ladTop = upperY+0.18;
+  [lz0, lz1].forEach(lz => g.add(box(0.035, ladTop, 0.04, wood, lx, ladTop/2, lz)));
+  for (let i = 0; i < 5; i++) { const ry = 0.2 + i*((ladTop-0.3)/4); g.add(box(0.05, 0.028, lz1-lz0, wood, lx, ry, (lz0+lz1)/2)); }
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 function buildPendantLamp({ color='#e0a23b', w=0.4, d=0.4, h=1.2 } = {}) {

@@ -88,4 +88,29 @@ function _pot(g, top = 0.15, bot = 0.10, h = 0.26, col = '#d8c5a8', segs = 20) {
   return h + 0.01; // soil top Y
 }
 
-export { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost, _pot };
+// 寝具一式 (マットレス+パイピング+掛け布団(サイドの垂れ+折り返し)+枕+クッション) を返す Group。
+// ヘッドボード側 = -Z。topY = マットレス上面の Y。bw/bd = 寝床の内寸。色(duvet)は colorable。
+function bedding(bw, bd, topY, { duvet = '#5b86b8', double = false, mattH = 0.16, fold = true, accent = true, throwFoot = false, pillowZ = 0.3 } = {}) {
+  const g = new THREE.Group();
+  const sheetM = fabricMat('#fdfaf6'), pillowM = fabricMat('#fcf8f0'),
+        duvetM = fabricMat(duvet), accentM = fabricMat(shade(duvet, 1.12)), throwM = fabricMat(shade(duvet, 0.66));
+  const matt = new THREE.Mesh(roundedBoxGeom(bw - 0.03, mattH, bd - 0.04, 0.06, 5), sheetM);
+  matt.position.set(0, topY - mattH / 2, 0); matt.castShadow = matt.receiveShadow = true; g.add(matt);
+  g.add(new THREE.Mesh(roundedBoxGeom(bw - 0.01, 0.04, bd - 0.02, 0.02, 3), fabricMat('#eee7da')).translateY(topY - mattH + 0.02));
+  const np = double ? 2 : 1, pw = double ? bw / 2 - 0.06 : Math.min(bw - 0.12, 0.52);
+  for (let i = 0; i < np; i++) {
+    const px = double ? (i ? pw / 2 + 0.05 : -pw / 2 - 0.05) : 0;
+    const p = new THREE.Mesh(roundedBoxGeom(pw, 0.15, 0.4, 0.1, 5), pillowM);
+    p.position.set(px, topY + 0.08, -bd / 2 + pillowZ); p.rotation.x = 0.14; p.castShadow = true; g.add(p);
+    if (accent) { const ac = new THREE.Mesh(roundedBoxGeom(pw * 0.78, 0.12, 0.27, 0.08, 4), accentM); ac.position.set(px, topY + 0.06, -bd / 2 + pillowZ + 0.3); ac.rotation.x = 0.1; ac.castShadow = true; ac.userData.colorable = true; g.add(ac); }
+  }
+  const dl = bd * 0.6;
+  const duv = new THREE.Mesh(roundedBoxGeom(bw - 0.01, 0.15, dl, 0.05, 4), duvetM);
+  duv.position.set(0, topY + 0.05, bd / 2 - dl / 2 - 0.02); duv.castShadow = true; duv.userData.colorable = true; g.add(duv);
+  [-1, 1].forEach(sgn => { const dr = new THREE.Mesh(roundedBoxGeom(0.04, 0.16, dl - 0.06, 0.02, 3), duvetM); dr.position.set(sgn * (bw / 2 - 0.015), topY - 0.04, bd / 2 - dl / 2 - 0.02); dr.userData.colorable = true; g.add(dr); });
+  if (fold) { const fl = new THREE.Mesh(roundedBoxGeom(bw - 0.01, 0.09, 0.22, 0.04, 4), accentM); fl.position.set(0, topY + 0.1, bd / 2 - dl); fl.rotation.x = -0.3; fl.userData.colorable = true; g.add(fl); }
+  if (throwFoot) { const t = new THREE.Mesh(roundedBoxGeom(bw - 0.02, 0.1, 0.36, 0.04, 4), throwM); t.position.set(0, topY + 0.07, bd / 2 - 0.26); t.castShadow = true; g.add(t); }
+  return g;
+}
+
+export { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost, _pot, bedding };
