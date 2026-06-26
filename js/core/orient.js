@@ -136,7 +136,8 @@ function presetWalls(preset) {
     seg(W, -D, W, D, ws.east),      // 東 = x=+W
     seg(-W, -D, -W, D, ws.west),    // 西 = x=-W
   ];
-  (preset.partitions || []).forEach(p => walls.push(seg(p.x1, p.z1, p.x2, p.z2, p.openings)));
+  // 間仕切りは isPartition を立てる(動線チェックで両側を検査するため。外周壁は室内側のみ)
+  (preset.partitions || []).forEach(p => { const s = seg(p.x1, p.z1, p.x2, p.z2, p.openings); s.isPartition = true; walls.push(s); });
   return walls;
 }
 
