@@ -18,6 +18,8 @@ function buildConferenceTable({ color='#8a5a2b', w=3.6, d=1.2, h=0.74 } = {}) {
 function buildWhiteboard({ color='#f9f9f6' } = {}) {
   const g = new THREE.Group();
   const frame = mat('#8a9098', 0.3, 0.65, { env: 0.8 });
+  // 裏面バッキング(壁側) — 裏が白板面に見えて混同しないよう薄灰の板で塞ぐ。原点=壁内面に置くと面一で室内へ突き出す
+  g.add(box(1.54, 1.04, 0.012, mat('#aeb4ba', 0.7), 0, 0.88, -0.022));
   const board = box(1.5, 1.0, 0.03, mat(color, 0.9, 0), 0, 0.88, 0); board.userData.colorable = true; g.add(board);
   g.add(box(1.56, 0.04, 0.04, frame, 0, 1.40, 0));
   g.add(box(1.56, 0.08, 0.04, frame, 0, 0.37, 0));
@@ -350,6 +352,28 @@ function buildBenchDesk({ color='#e7e1d6', w=1.2, d=0.7, h=0.73 } = {}) {
   return g;
 }
 
+// 両面フリーアドレス・ベンチデスク (島型): 全幅シームレス天板, 中央に配線スパイン+低い間仕切りスクリーン,
+//  ±Z 両側に人が着席する。隣ユニットと X 端で突き合わせて長い「島」を作る (背面=壁ではない自立型)。
+function buildBenchDeskDouble({ color='#e7e1d6', w=1.6, d=1.5, h=0.73 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.55), metal = mat('#6a7078', 0.35, 0.7, { env: 0.8 });
+  // 全幅×全奥行シームレス天板 (隣とエッジで突き合う)
+  const top = box(w, 0.04, d, wood, 0, h - 0.02, 0); top.userData.colorable = true; g.add(top);
+  g.add(box(w, 0.012, d + 0.004, mat(shade(color, 0.84), 0.5), 0, h - 0.045, 0)); // edge band
+  // 中央スパイン: 配線ダクト(背中合わせの両席で共有) + 低い間仕切りスクリーン
+  g.add(box(w, 0.14, 0.11, mat('#41454b', 0.6), 0, h - 0.09, 0));            // cable spine
+  g.add(box(w - 0.06, 0.30, 0.025, fabricMat('#8d99a6'), 0, h + 0.17, 0));   // privacy screen
+  // 端から控えた A 字金属脚 (前後=±Z 両側)。連結列が一体に見える
+  const legInset = 0.13, legH = h - 0.04;
+  [-(w / 2 - legInset), (w / 2 - legInset)].forEach(lx => {
+    [(d / 2 - 0.12), -(d / 2 - 0.12)].forEach(lz => g.add(box(0.05, legH, 0.05, metal, lx, legH / 2, lz)));
+    g.add(box(0.06, 0.04, d - 0.16, metal, lx, 0.02, 0));   // foot rail (depth)
+  });
+  // 脚を繋ぐ中央ビーム
+  g.add(box(w - 2 * legInset + 0.05, 0.05, 0.06, metal, 0, h - 0.135, 0));
+  return g;
+}
+
 // ゴンドラ什器 (両面棚): コンビニ/小売の島什器。両面に商品棚を持ち、端を突き合わせて長い棚列を作る。
 // 中央背板を境に ±Z 両面へ商品が並ぶ。前後どちらからもアクセスする島型 (背面=壁 ではない)。
 function buildGondolaShelf({ color='#d8d2c4', w=1.2, d=0.6, h=1.5 } = {}) {
@@ -386,4 +410,4 @@ function buildGondolaShelf({ color='#d8d2c4', w=1.2, d=0.6, h=1.5 } = {}) {
   return g;
 }
 
-export { buildATM, buildBarCounter, buildBarStool, buildBenchDesk, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildGondolaShelf, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard };
+export { buildATM, buildBarCounter, buildBarStool, buildBenchDesk, buildBenchDeskDouble, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildGondolaShelf, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard };

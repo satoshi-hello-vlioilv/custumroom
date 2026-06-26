@@ -464,7 +464,7 @@ const DINING_CHAIRS = new Set([
 ]);
 // --- 椅子が対面すべき「テーブル/作業面/カウンター」 ----------------------------
 const TABLE_IDS = new Set([
-  'desk', 'deskrun', 'schooldesk', 'kidsdesk', 'dtable', 'conftable', 'roundtable', 'roundtablesm',
+  'desk', 'deskrun', 'benchdesk2', 'schooldesk', 'kidsdesk', 'dtable', 'conftable', 'roundtable', 'roundtablesm',
   'cafetable', 'kotatsu', 'labbench', 'workbench', 'testbench', 'barcounter', 'roundctab',
 ]);
 // --- 「通り抜ける」開口(扉/襖/障子/自動ドア等)。window は通行しないので対象外 ----
@@ -795,6 +795,7 @@ function validateLayout(preset, defsById) {
   // --- 設計チェック(間取り): 出入りできない閉鎖空間がないか ---
   // 外扉から扉/通路(passage開口)を辿るグリッド・フラッドフィルで, 到達不能な区画(扉のない部屋)を検出する。
   checkEnclosed(preset, walls, add);
+  checkRedundantDoors(preset, walls, add);
 
   return issues;
 }
@@ -880,6 +881,87 @@ function checkEnclosed(preset, walls, add) {
     const area = cnt * cellA;
     if (area >= 1.5) add('error', -1, 'room',
       `閉鎖空間(出入りできない区画 約${area.toFixed(0)}m², 中心≈(${(sx / cnt).toFixed(1)}, ${(sz / cnt).toFixed(1)}))がある — 扉/通路を設けて到達可能にする`);
+  }
+}
+
+// 意味のない扉(冗長な扉)検出: 全扉を閉じた状態で各区画をラベリングし「部屋グラフ」を作る。
+// ある間仕切り扉を外しても両側の部屋が他経路で行き来でき(=非ブリッジ), かつ両側とも非メイン(個室)なら,
+// その扉は不要。例: それぞれ共用部への出入口を持つ2つの個室を直結する内扉。
+function checkRedundantDoors(preset, walls, add) {
+  if (!preset.room) return;
+  const w = preset.room.w, d = preset.room.d, W = w / 2, D = d / 2, CELL = 0.2;
+  const nx = Math.max(1, Math.round(w / CELL)), nz = Math.max(1, Math.round(d / CELL));
+  const dx = w / nx, dz = d / nz;
+  const ccx = i => -W + (i + 0.5) * dx, ccz = j => -D + (j + 0.5) * dz, id = (i, j) => j * nx + i;
+  const vW = [], hW = [];
+  for (const ww of walls) {
+    if (Math.abs(ww.x2 - ww.x1) < 1e-6 && Math.abs(ww.z2 - ww.z1) > 1e-6) vW.push(ww);
+    else if (Math.abs(ww.z2 - ww.z1) < 1e-6 && Math.abs(ww.x2 - ww.x1) > 1e-6) hW.push(ww);
+  }
+  // 全扉を閉じた壁(開口無視)での隣接判定 — 壁は最寄り境界へスナップ
+  const blkH = (i, j) => {
+    const zc = ccz(j);
+    for (const ww of vW) {
+      if (Math.round((ww.x1 + W) / dx) !== i + 1) continue;
+      if (zc < Math.min(ww.z1, ww.z2) - 1e-9 || zc > Math.max(ww.z1, ww.z2) + 1e-9) continue;
+      return true;
+    }
+    return false;
+  };
+  const blkV = (i, j) => {
+    const xc = ccx(i);
+    for (const ww of hW) {
+      if (Math.round((ww.z1 + D) / dz) !== j + 1) continue;
+      if (xc < Math.min(ww.x1, ww.x2) - 1e-9 || xc > Math.max(ww.x1, ww.x2) + 1e-9) continue;
+      return true;
+    }
+    return false;
+  };
+  // 区画ラベリング (全扉閉)
+  const lab = new Int32Array(nx * nz).fill(-1);
+  let nLab = 0; const areaOf = [];
+  for (let j0 = 0; j0 < nz; j0++) for (let i0 = 0; i0 < nx; i0++) {
+    if (lab[id(i0, j0)] >= 0) continue;
+    const L = nLab++; let cnt = 0; const q = [[i0, j0]]; lab[id(i0, j0)] = L;
+    while (q.length) {
+      const [a, b] = q.pop(); cnt++;
+      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (lab[id(na, nb)] >= 0 || bl) return; lab[id(na, nb)] = L; q.push([na, nb]); };
+      tryC(a + 1, b, blkH(a, b)); tryC(a - 1, b, blkH(a - 1, b));
+      tryC(a, b + 1, blkV(a, b)); tryC(a, b - 1, blkV(a, b - 1));
+    }
+    areaOf[L] = cnt;
+  }
+  let mainLab = 0; for (let L = 1; L < nLab; L++) if (areaOf[L] > areaOf[mainLab]) mainLab = L;  // メイン=最大面積(共用部)
+  // 扉エッジ収集: 各 passage 開口の両側セルのラベル
+  const cellAt = (x, z) => { const i = Math.floor((x + W) / dx), j = Math.floor((z + D) / dz); return (i >= 0 && i < nx && j >= 0 && j < nz) ? lab[id(i, j)] : -1; };
+  const doors = [];
+  for (const ww of walls) {
+    const isVert = Math.abs(ww.x2 - ww.x1) < 1e-6;
+    for (const o of (ww.ops || [])) {
+      if (!isPassage(o.kind)) continue;
+      const t = o.t != null ? o.t : 0.5;
+      const ox = ww.x1 + t * (ww.x2 - ww.x1), oz = ww.z1 + t * (ww.z2 - ww.z1);
+      const a = isVert ? cellAt(ox - CELL * 1.5, oz) : cellAt(ox, oz - CELL * 1.5);
+      const b = isVert ? cellAt(ox + CELL * 1.5, oz) : cellAt(ox, oz + CELL * 1.5);
+      doors.push({ kind: o.kind || 'door', x: ox, z: oz, a, b });
+    }
+  }
+  // この扉以外のエッジだけで a,b が連結なら冗長 (非ブリッジ) — 両側が個室なら意味なし
+  for (let k = 0; k < doors.length; k++) {
+    const dk = doors[k];
+    if (dk.a < 0 || dk.b < 0 || dk.a === dk.b) continue;       // 同一区画 / 室外側は対象外
+    if (dk.a === mainLab || dk.b === mainLab) continue;        // メイン(共用部)への接続は正当
+    const adj = new Map();
+    const link = (u, v) => { if (!adj.has(u)) adj.set(u, []); adj.get(u).push(v); };
+    for (let m = 0; m < doors.length; m++) {
+      if (m === k) continue; const dm = doors[m];
+      if (dm.a < 0 || dm.b < 0 || dm.a === dm.b) continue;
+      link(dm.a, dm.b); link(dm.b, dm.a);
+    }
+    const seen = new Set([dk.a]); const qq = [dk.a]; let reach = false;
+    while (qq.length) { const u = qq.pop(); if (u === dk.b) { reach = true; break; } for (const v of (adj.get(u) || [])) if (!seen.has(v)) { seen.add(v); qq.push(v); } }
+    if (reach) add('warn', -1, 'door',
+      `意味のない扉(${dk.kind})が間仕切りにある — 両側の個室がそれぞれ別に出入口を持ち, この扉が無くても行き来できる (位置≈(${dk.x.toFixed(1)}, ${dk.z.toFixed(1)}))`);
   }
 }
 
@@ -5394,6 +5476,8 @@ function buildConferenceTable({ color='#8a5a2b', w=3.6, d=1.2, h=0.74 } = {}) {
 function buildWhiteboard({ color='#f9f9f6' } = {}) {
   const g = new THREE.Group();
   const frame = mat('#8a9098', 0.3, 0.65, { env: 0.8 });
+  // 裏面バッキング(壁側) — 裏が白板面に見えて混同しないよう薄灰の板で塞ぐ。原点=壁内面に置くと面一で室内へ突き出す
+  g.add(box(1.54, 1.04, 0.012, mat('#aeb4ba', 0.7), 0, 0.88, -0.022));
   const board = box(1.5, 1.0, 0.03, mat(color, 0.9, 0), 0, 0.88, 0); board.userData.colorable = true; g.add(board);
   g.add(box(1.56, 0.04, 0.04, frame, 0, 1.40, 0));
   g.add(box(1.56, 0.08, 0.04, frame, 0, 0.37, 0));
@@ -5723,6 +5807,28 @@ function buildBenchDesk({ color='#e7e1d6', w=1.2, d=0.7, h=0.73 } = {}) {
   g.add(box(w - 0.05, 0.26, 0.02, wood, 0, h - 0.19, -(d / 2 - 0.04)));
   // 配線トレイ
   g.add(box(w - 0.2, 0.05, 0.07, mat('#45454a', 0.6), 0, h - 0.16, -(d / 2 - 0.13)));
+  return g;
+}
+
+// 両面フリーアドレス・ベンチデスク (島型): 全幅シームレス天板, 中央に配線スパイン+低い間仕切りスクリーン,
+//  ±Z 両側に人が着席する。隣ユニットと X 端で突き合わせて長い「島」を作る (背面=壁ではない自立型)。
+function buildBenchDeskDouble({ color='#e7e1d6', w=1.6, d=1.5, h=0.73 } = {}) {
+  const g = new THREE.Group();
+  const wood = mat(color, 0.55), metal = mat('#6a7078', 0.35, 0.7, { env: 0.8 });
+  // 全幅×全奥行シームレス天板 (隣とエッジで突き合う)
+  const top = box(w, 0.04, d, wood, 0, h - 0.02, 0); top.userData.colorable = true; g.add(top);
+  g.add(box(w, 0.012, d + 0.004, mat(shade(color, 0.84), 0.5), 0, h - 0.045, 0)); // edge band
+  // 中央スパイン: 配線ダクト(背中合わせの両席で共有) + 低い間仕切りスクリーン
+  g.add(box(w, 0.14, 0.11, mat('#41454b', 0.6), 0, h - 0.09, 0));            // cable spine
+  g.add(box(w - 0.06, 0.30, 0.025, fabricMat('#8d99a6'), 0, h + 0.17, 0));   // privacy screen
+  // 端から控えた A 字金属脚 (前後=±Z 両側)。連結列が一体に見える
+  const legInset = 0.13, legH = h - 0.04;
+  [-(w / 2 - legInset), (w / 2 - legInset)].forEach(lx => {
+    [(d / 2 - 0.12), -(d / 2 - 0.12)].forEach(lz => g.add(box(0.05, legH, 0.05, metal, lx, legH / 2, lz)));
+    g.add(box(0.06, 0.04, d - 0.16, metal, lx, 0.02, 0));   // foot rail (depth)
+  });
+  // 脚を繋ぐ中央ビーム
+  g.add(box(w - 2 * legInset + 0.05, 0.05, 0.06, metal, 0, h - 0.135, 0));
   return g;
 }
 
@@ -7171,6 +7277,7 @@ const FURNITURE_DEFS = [
   { id:'copier',   cat:'office',  name:'コピー機',          icon:'fa-print',        w:0.62,d:0.56, h:1.08, colorIdx:10, build:buildCopier },
   { id:'reception',  cat:'office',  name:'受付カウンター',    icon:'fa-concierge-bell',    w:2.4, d:0.7,  h:1.1,  colorIdx:1,  build:buildReceptionCounter },
   { id:'deskrun',    cat:'office',  name:'連続デスク',        icon:'fa-table-columns',     w:1.2, d:0.7,  h:0.73, colorIdx:1,  build:buildBenchDesk },
+  { id:'benchdesk2', cat:'office',  name:'フリーアドレス島',  icon:'fa-table-cells',       w:1.6, d:1.5,  h:0.73, colorIdx:1,  build:buildBenchDeskDouble },
   { id:'gondola',    cat:'shop',    name:'ゴンドラ什器(両面)',icon:'fa-shelves',           w:1.2, d:0.6,  h:1.5,  colorIdx:1,  build:buildGondolaShelf },
   // ---- museum ----
   { id:'displaycase',cat:'museum',  name:'展示ケース',        icon:'fa-box-open',          w:0.88,d:0.52, h:1.3,  colorIdx:10, build:buildDisplayCase },
@@ -7572,7 +7679,7 @@ const PRESETS = [
       P('dchr', 4.5, -2.5,  0, '#5b5048'), P('dchr', 4.5, -0.5, 180, '#5b5048'),
       P('dchr', 3.2, -2.5, 90, '#5b5048'), P('dchr', 5.8, -2.5, 270, '#5b5048'),
       P('dchr', 3.2, -0.5, 90, '#5b5048'), P('dchr', 5.8, -0.5, 270, '#5b5048'),
-      P('whiteboard', 6.8, -3.8, 270),  // 東壁に背面→室内(西)向き
+      P('whiteboard', 6.92, -3.8, 270),  // 東壁に背面→室内(西)向き (原点=壁内面で面一)
       P('walltv',     6.8,  1.6, 270, '#2a2a2a'),   // 東壁 → 西向き (窓位置t=0.5を避けて移動)
       P('benjamin',   6.5, -4.5),
       P('copier',    -6.6, -4.6, 90, '#e2e2de'),    // 西壁際コピー機 (東向き) — 壁に寄せる
@@ -7596,7 +7703,7 @@ const PRESETS = [
       P('dchr',  1.9, -0.6, 270, '#5b5048'), P('dchr',  1.9,  0.6, 270, '#5b5048'),
       P('dchr', -0.6, -0.6,   0, '#5b5048'), P('dchr',  0.6, -0.6,   0, '#5b5048'),
       P('dchr', -0.6,  0.6, 180, '#5b5048'), P('dchr',  0.6,  0.6, 180, '#5b5048'),
-      P('whiteboard', -3.7, 0.0, 90),                          // 西壁 (窓t=0.3/0.7を避け中央へ)
+      P('whiteboard', -3.92, 0.0, 90),                          // 西壁 (窓t=0.3/0.7を避け中央へ。原点=壁内面で面一)
       P('projscreen',  3.8,  0.0, 270),                        // 東壁スクリーン (西向き)
       P('projector',   0.8,  0.0, 90, '#2a2a2a'),              // テーブル上プロジェクター (東向き)
       P('wallac',      2.5,  2.8, 180),                        // 北壁エアコン(室内向き) — 北扉(中央)を避け東寄りへ
@@ -7838,8 +7945,9 @@ const PRESETS = [
       // プロジェクトルーム左壁 (x=3.5, z=-6〜-2) — ガラス壁＋会議室入口(コラボゾーンから直接出入り。
       //  旧構造はこの壁が無開口で, 会議室はブースA経由でしか入れず到達不能=閉鎖空間だった)
       { x1: 3.5, z1: -6,   x2: 3.5, z2: -2,  type: 'glass', openings: [{ t: 0.5, w: 1.0, kind: 'glass_door' }] },
-      // プロジェクトルーム南壁 (z=-2, x=3.5〜9) — ガラス壁＋ガラスドア
-      { x1: 3.5, z1: -2,   x2: 9,   z2: -2,  type: 'glass', openings: [{ t: 0.45, w: 1.2, kind: 'glass_door' }] },
+      // プロジェクトルーム南壁 (z=-2, x=3.5〜9) — ガラス壁(無開口)。会議室とブースAはそれぞれ
+      //  コラボゾーン側に専用入口を持つので, 両室を直結する内扉は不要(意味のない扉)として置かない
+      { x1: 3.5, z1: -2,   x2: 9,   z2: -2,  type: 'glass' },
       // 集中ブースゾーン左壁 (x=3.5, z=-2〜3) — ガラス壁。各ブースに専用出入口(ブースA:z≈-0.5 / ブースB:z≈2.6)
       { x1: 3.5, z1: -2,   x2: 3.5, z2:  3,  type: 'glass', openings: [{ t: 0.3, w: 1.0, kind: 'door' }, { t: 0.92, w: 1.0, kind: 'door' }] },
       // ブース仕切り (z=0.5, x=3.5〜9) — 防音のため不透明のまま
@@ -7850,45 +7958,40 @@ const PRESETS = [
       { x1:  3.5,z1: -6,   x2: 9,   z2: -2,  type: 'wood' },   // プロジェクトルーム
     ],
     items: [
-      // ===== フォーカスゾーン (北窓沿い個人デスク) =====
-      // デスクは北窓向き(rotY=0でモニター面=南/利用者側)、椅子は北を向いて着席(rotY=180)
-      P('desk',  -7,  -5.6, 0, '#dcd6cc'), P('ochr', -7,  -4.8, 180),
-      P('desk',  -5,  -5.6, 0, '#dcd6cc'), P('ochr', -5,  -4.8, 180),
-      P('desk',  -3,  -5.6, 0, '#dcd6cc'), P('ochr', -3,  -4.8, 180),
-      P('desk',  -1,  -5.6, 0, '#dcd6cc'), P('ochr', -1,  -4.8, 180),
-      P('desk',   1,  -5.6, 0, '#dcd6cc'), P('ochr',  1,  -4.8, 180),
-      // モニター & デスクランプ
-      P('monitor', -7, -5.6, 0, undefined, 0.75),
-      P('monitor', -5, -5.6, 0, undefined, 0.75),
-      P('monitor', -3, -5.6, 0, undefined, 0.75),
-      P('monitor', -1, -5.6, 0, undefined, 0.75),
-      P('monitor',  1, -5.6, 0, undefined, 0.75),
-      P('desklamp', -7.5, -5.4, 0, undefined, 0.75),
-      P('desklamp', -5.5, -5.4, 0, undefined, 0.75),
-      P('desklamp', -3.5, -5.4, 0, undefined, 0.75),
-      P('desklamp', -1.5, -5.4, 0, undefined, 0.75),
-      P('desklamp',  0.5, -5.4, 0, undefined, 0.75),
-      // デスク間の仕切り植物 (プライバシー・吸音)
-      P('sansevieria', -6, -5.5),
-      P('sansevieria', -4, -5.5),
-      P('sansevieria', -2, -5.5),
-      P('sansevieria',  0, -5.5),
+      // ===== フリーアドレス島 (シームレス両面ベンチデスク) =====
+      // 4ユニットを X 端で突き合わせた一体の島。1人当たり 1.6m×0.75m と広め。
+      // 南北両側に着席 (南席=rotY0で島(北)を向く / 北席=rotY180で島(南)を向く)。
+      P('benchdesk2', -5.4, -4.3, 0, '#dcd6cc'),
+      P('benchdesk2', -3.8, -4.3, 0, '#dcd6cc'),
+      P('benchdesk2', -2.2, -4.3, 0, '#dcd6cc'),
+      P('benchdesk2', -0.6, -4.3, 0, '#dcd6cc'),
+      // 南側着席 (4席・北向き)
+      P('ochr', -5.4, -5.4, 0), P('ochr', -3.8, -5.4, 0), P('ochr', -2.2, -5.4, 0), P('ochr', -0.6, -5.4, 0),
+      // 北側着席 (4席・南向き)
+      P('ochr', -5.4, -3.2, 180), P('ochr', -3.8, -3.2, 180), P('ochr', -2.2, -3.2, 180), P('ochr', -0.6, -3.2, 180),
+      // モニター (中央スパインに背中合わせ。南席用=南向き180 / 北席用=北向き0)
+      P('monitor', -5.4, -4.62, 180, undefined, 0.73), P('monitor', -3.8, -4.62, 180, undefined, 0.73),
+      P('monitor', -2.2, -4.62, 180, undefined, 0.73), P('monitor', -0.6, -4.62, 180, undefined, 0.73),
+      P('monitor', -5.4, -3.98, 0, undefined, 0.73), P('monitor', -3.8, -3.98, 0, undefined, 0.73),
+      P('monitor', -2.2, -3.98, 0, undefined, 0.73), P('monitor', -0.6, -3.98, 0, undefined, 0.73),
+      // 島端のアクセント植物
+      P('sansevieria', -6.7, -4.3), P('sansevieria', 0.7, -4.3),
 
-      // ===== コラボレーションゾーン =====
+      // ===== コラボレーションゾーン (フリーアドレス島の北側。島を深くした分だけ北へ寄せて確保) =====
       // 4人チームテーブル ×2 (東西の椅子はテーブル中心に正対: 西側=東向き90 / 東側=西向き270)
-      P('dtable', -6.0, -2.5, 0, '#b89878'),
-      P('ochr', -6.0, -3.5, 0),  P('ochr', -6.0, -1.5, 180),
-      P('ochr', -7.1, -2.5, 90), P('ochr', -4.9, -2.5, 270),
-      P('dtable', -2.0, -2.0, 0, '#b89878'),
-      P('ochr', -2.0, -3.0, 0),  P('ochr', -2.0, -1.0, 180),
-      P('ochr', -3.1, -2.0, 90), P('ochr', -0.9, -2.0, 270),
+      P('dtable', -6.0, -1.2, 0, '#b89878'),
+      P('ochr', -6.0, -2.2, 0),  P('ochr', -6.0, -0.2, 180),
+      P('ochr', -7.1, -1.2, 90), P('ochr', -4.9, -1.2, 270),
+      P('dtable', -2.0, -0.7, 0, '#b89878'),
+      P('ochr', -2.0, -1.7, 0),  P('ochr', -2.0, 0.3, 180),
+      P('ochr', -3.1, -0.7, 90), P('ochr', -0.9, -0.7, 270),
       // 立ち話用ラウンドテーブル
-      P('roundtable', 1.5, -1.2, 0, '#6a5848'),
-      P('ochr', 1.5, -2.1, 0),  P('ochr', 1.5, -0.3, 180),
-      P('ochr', 0.6, -1.2, 90), P('ochr', 2.4, -1.2, 270),
-      // 西壁ホワイトボード (ブレスト用)
-      P('whiteboard', -8.96, -3.5, 90, '#f8f5f0'),
-      P('whiteboard', -8.96, -0.5, 90, '#f8f5f0'),
+      P('roundtable', 1.5, 0.1, 0, '#6a5848'),
+      P('ochr', 1.5, -0.8, 0),  P('ochr', 1.5, 1.0, 180),
+      P('ochr', 0.6, 0.1, 90), P('ochr', 2.4, 0.1, 270),
+      // 西壁ホワイトボード (ブレスト用。原点=壁内面で面一に壁掛け)
+      P('whiteboard', -8.92, -3.5, 90, '#f8f5f0'),
+      P('whiteboard', -8.92, -0.5, 90, '#f8f5f0'),
       // コラボゾーン装飾
       P('monstera',  -8.5, -1.5),
       P('zzplant',    2.8, -1.5),
@@ -7898,7 +8001,7 @@ const PRESETS = [
       P('conftable', 6.5, -4.3, 0, '#5a4a3a'),
       P('ochr', 5.0, -5.0, 0), P('ochr', 6.5, -5.0, 0), P('ochr', 8.0, -5.0, 0),
       P('ochr', 5.0, -3.6, 180), P('ochr', 6.5, -3.6, 180), P('ochr', 8.0, -3.6, 180),
-      P('whiteboard', 7.5, -5.86, 0, '#f8f5f0'),   // 北壁 (窓を避けて右寄り)
+      P('whiteboard', 7.5, -5.92, 0, '#f8f5f0'),   // 南壁 (窓を避けて右寄り。原点=壁内面で面一)
       P('walltv', 8.94, -4.3, 270, '#1a1a1a'),      // 東壁
       P('dracaena', 4.0, -5.5),
 
@@ -8010,7 +8113,7 @@ const PRESETS = [
       P('microscope', -5.2, -1.6, 90, '#2a2e34'),
       P('centrifuge', -5.2, -0.4, 90, '#e8e2d6'),
       // 入口側の打合せ＆収納
-      P('whiteboard', -5.7, 3.0, 90),
+      P('whiteboard', -5.92, 3.0, 90),
       P('filingcab', 4.5, 4.0, 180, '#7a8fa0'),  // 南壁背面→北向き
       P('filingcab', 5.0, 4.0, 180, '#7a8fa0'),
       P('handbasin', -5.6, 0.6, 90, '#e8e2d6'),
@@ -8051,7 +8154,7 @@ const PRESETS = [
       P('glassware',  -2.5, 1.2, 180),
       // デスク作業
       P('desk', -5.2, 2.6, 90, '#f3ece0'), P('ochr', -4.4, 2.6, 270),  // desk: 西壁背面→東向きで着座
-      P('whiteboard', -5.35, 0.0, 90),  // 西壁面に正しく壁掛け
+      P('whiteboard', -5.42, 0.0, 90),  // 西壁面に面一で壁掛け (原点=壁内面)
       // 防振定盤エリア (右区画)
       P('conftable', 3.5, -1.5, 0, '#3a4250'),
       P('microscope', 2.8, -1.6, 0, '#2a2e34'),
