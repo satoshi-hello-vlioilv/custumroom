@@ -438,21 +438,22 @@ function checkEnclosed(preset, walls, add) {
     if (Math.abs(ww.x2 - ww.x1) < 1e-6 && Math.abs(ww.z2 - ww.z1) > 1e-6) vW.push(ww);
     else if (Math.abs(ww.z2 - ww.z1) < 1e-6 && Math.abs(ww.x2 - ww.x1) > 1e-6) hW.push(ww);
   }
+  // 壁は最寄りのグリッド境界へスナップして1本の隣接辺だけを塞ぐ。
+  // (セル中心ちょうど上に乗る壁 — 例 x=3.5, CELL=0.2 — を「両中心の厳密内側」判定が取りこぼし,
+  //  フラッドが壁をすり抜けていた。境界インデックス一致で判定すると半セル位置の壁も確実に塞ぐ)
   const blockedH = (i, j) => {                      // セル(i,j)↔(i+1,j) を縦壁が塞ぐか
-    const xa = ccx(i), xb = ccx(i + 1), zc = ccz(j);
+    const zc = ccz(j);
     for (const ww of vW) {
-      const xw = ww.x1;
-      if (xw <= Math.min(xa, xb) || xw >= Math.max(xa, xb)) continue;
+      if (Math.round((ww.x1 + W) / dx) !== i + 1) continue;
       if (zc < Math.min(ww.z1, ww.z2) - 1e-9 || zc > Math.max(ww.z1, ww.z2) + 1e-9) continue;
       if (!passageAt(ww, (zc - ww.z1) / (ww.z2 - ww.z1))) return true;
     }
     return false;
   };
   const blockedV = (i, j) => {                      // セル(i,j)↔(i,j+1) を横壁が塞ぐか
-    const za = ccz(j), zb = ccz(j + 1), xc = ccx(i);
+    const xc = ccx(i);
     for (const ww of hW) {
-      const zw = ww.z1;
-      if (zw <= Math.min(za, zb) || zw >= Math.max(za, zb)) continue;
+      if (Math.round((ww.z1 + D) / dz) !== j + 1) continue;
       if (xc < Math.min(ww.x1, ww.x2) - 1e-9 || xc > Math.max(ww.x1, ww.x2) + 1e-9) continue;
       if (!passageAt(ww, (xc - ww.x1) / (ww.x2 - ww.x1))) return true;
     }
