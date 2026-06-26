@@ -179,27 +179,50 @@ function buildRoundTableSm({ color='#8a6a3a', w=0.7, d=0.7, h=0.74 } = {}) {
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildBed({ color='#f3ece0', w=1.0, d=2.1, h=0.55, double=false } = {}) {
+function buildBed({ color='#5b86b8', w=1.0, d=2.1, h=0.55, double=false } = {}) {
+  // 頭側(ヘッドボード)を -Z、足側を +Z に置く。color = 掛け布団(colorable)。
   const g = new THREE.Group();
-  const frame = mat('#8a6b48', 0.65, 0.02, { env: 0.3 }), fabric = fabricMat(color), pillow = fabricMat('#fbf7ef'), sheet = fabricMat('#fdfaf3');
-  // base frame + slats
-  g.add(box(w, 0.2, d, frame, 0, 0.1, 0));
-  // mattress (rounded, plush)
-  const m = new THREE.Mesh(roundedBoxGeom(w-0.04, 0.2, d-0.22, 0.06, 4), sheet); m.position.set(0, 0.29, 0.04); m.castShadow = m.receiveShadow = true; g.add(m);
-  // duvet / blanket covering lower ~55% with a turned-down fold
-  const blank = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.14, d*0.55, 0.05, 4), fabric); blank.position.set(0, 0.4, 0.28); blank.castShadow = true; blank.userData.colorable = true; g.add(blank);
-  const fold = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.1, 0.18, 0.04, 3), fabricMat(shade(color, 1.08))); fold.position.set(0, 0.43, d*0.55/2 + 0.18); fold.rotation.x = -0.25; fold.userData.colorable = true; g.add(fold);
-  // pillows (plush rounded)
-  const pw = double ? w/2 - 0.08 : w - 0.18, pc = double ? 2 : 1;
-  for (let i = 0; i < pc; i++) {
-    const px = double ? (i===0 ? -pw/2-0.04 : pw/2+0.04) : 0;
-    const p = new THREE.Mesh(roundedBoxGeom(pw, 0.14, 0.4, 0.08, 4), pillow); p.position.set(px, 0.4, -d/2+0.3); p.rotation.x = 0.08; p.castShadow = true; g.add(p);
+  const wood = mat('#6e4f34', 0.55, 0.05, { env: 0.35 });
+  const linen = fabricMat('#cbbda6');              // ヘッドボード張地(無彩のリネン)
+  const sheetM = fabricMat('#fdfaf6'), pillowM = fabricMat('#fcf8f0');
+  const duvetM = fabricMat(color), accentM = fabricMat(shade(color, 1.12)), throwM = fabricMat(shade(color, 0.66));
+  // ---- 脚 (テーパー) ----
+  [[-w/2+0.09,-d/2+0.1],[w/2-0.09,-d/2+0.1],[-w/2+0.09,d/2-0.1],[w/2-0.09,d/2-0.1]].forEach(([lx,lz]) => {
+    const leg = cyl(0.034, 0.022, 0.2, 10, wood); leg.position.set(lx, 0.1, lz); g.add(leg);
+  });
+  // ---- ベースフレーム (台座 + サイドレール + 足側レール) ----
+  g.add(box(w-0.03, 0.14, d-0.03, wood, 0, 0.27, 0));
+  g.add(box(0.05, 0.17, d, wood, -w/2+0.025, 0.275, 0));
+  g.add(box(0.05, 0.17, d, wood,  w/2-0.025, 0.275, 0));
+  g.add(box(w, 0.17, 0.05, wood, 0, 0.275, d/2-0.025));
+  // ---- マットレス (プラッシュ) + サイドパイピング ----
+  const matt = new THREE.Mesh(roundedBoxGeom(w-0.05, 0.22, d-0.12, 0.07, 5), sheetM);
+  matt.position.set(0, 0.46, 0); matt.castShadow = matt.receiveShadow = true; g.add(matt);
+  g.add(new THREE.Mesh(roundedBoxGeom(w-0.03, 0.05, d-0.1, 0.02, 3), fabricMat('#eee7da')).translateY(0.455));
+  // ---- 枕 (ふっくら) + 前のクッション ----
+  const np = double ? 2 : 1, pw = double ? w/2-0.07 : Math.min(w-0.16, 0.56);
+  for (let i = 0; i < np; i++) {
+    const px = double ? (i ? pw/2+0.06 : -pw/2-0.06) : 0;
+    const p = new THREE.Mesh(roundedBoxGeom(pw, 0.17, 0.44, 0.11, 5), pillowM); p.position.set(px, 0.63, -d/2+0.36); p.rotation.x = 0.16; p.castShadow = true; g.add(p);
+    const ac = new THREE.Mesh(roundedBoxGeom(pw*0.78, 0.13, 0.3, 0.09, 4), accentM); ac.position.set(px, 0.61, -d/2+0.66); ac.rotation.x = 0.1; ac.userData.colorable = true; g.add(ac);
   }
-  // headboard (taller, padded) + footboard
-  const hb = new THREE.Mesh(roundedBoxGeom(w, h+0.18, 0.12, 0.05, 3), frame); hb.position.set(0, (h+0.18)/2, -d/2+0.06); hb.castShadow = true; g.add(hb);
-  g.add(new THREE.Mesh(roundedBoxGeom(w-0.14, h-0.1, 0.06, 0.04, 3), fabricMat(shade(color,0.92))).translateY((h)/2+0.02).translateZ(-d/2+0.13));
-  g.add(box(w, 0.26, 0.08, frame, 0, 0.13, d/2-0.04));
-  [[-w/2+0.07,d/2-0.08],[-w/2+0.07,-d/2+0.08],[w/2-0.07,d/2-0.08],[w/2-0.07,-d/2+0.08]].forEach(([lx,lz]) => g.add(box(0.08,0.08,0.08,frame,lx,0.04,lz)));
+  // ---- 掛け布団 (足側~62% + サイドの垂れ + 折り返し) ----
+  const dl = d*0.6;
+  const duv = new THREE.Mesh(roundedBoxGeom(w-0.01, 0.17, dl, 0.06, 4), duvetM); duv.position.set(0, 0.57, d/2 - dl/2 - 0.03); duv.castShadow = true; duv.userData.colorable = true; g.add(duv);
+  [-1,1].forEach(sgn => { const dr = new THREE.Mesh(roundedBoxGeom(0.05, 0.2, dl-0.08, 0.02, 3), duvetM); dr.position.set(sgn*(w/2-0.02), 0.45, d/2 - dl/2 - 0.03); dr.userData.colorable = true; g.add(dr); });
+  const fold = new THREE.Mesh(roundedBoxGeom(w-0.01, 0.1, 0.24, 0.05, 4), accentM); fold.position.set(0, 0.64, d/2 - dl); fold.rotation.x = -0.32; fold.userData.colorable = true; g.add(fold);
+  // ---- 足元の畳んだスロー ----
+  const thr = new THREE.Mesh(roundedBoxGeom(w-0.03, 0.11, 0.42, 0.05, 4), throwM); thr.position.set(0, 0.61, d/2 - 0.3); thr.castShadow = true; g.add(thr);
+  // ---- 張りぐるみ(ボタン締め)ヘッドボード + 柱 ----
+  const hbH = h + 0.46, hbY = 0.2 + hbH/2;
+  const hb = new THREE.Mesh(roundedBoxGeom(w-0.04, hbH, 0.1, 0.07, 5), linen); hb.position.set(0, hbY, -d/2+0.05); hb.castShadow = true; g.add(hb);
+  const cols = double ? 4 : 2, sp = (w-0.22)/cols;
+  for (let r = 0; r < 2; r++) for (let c = 0; c < cols; c++) {
+    const t = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 8), fabricMat(shade('#cbbda6', 0.8)));
+    t.position.set((c-(cols-1)/2)*sp, hbY + (r ? 0.1 : -0.14), -d/2+0.105); g.add(t);
+  }
+  [-1,1].forEach(sgn => g.add(box(0.07, hbH+0.05, 0.13, wood, sgn*(w/2-0.035), hbY-0.02, -d/2+0.05)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 function buildWardrobe({ color='#f3ece0', w=1.8, d=0.6, h=2.1 } = {}) {
