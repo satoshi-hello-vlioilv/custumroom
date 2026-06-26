@@ -374,6 +374,37 @@ function validateLayout(preset, defsById) {
     }
   }
 
+  // --- 設計チェック(導線/間取り): 外扉(玄関等)が浴室(ユニットバス区画)へ直結していないか ---
+  // 外→浴室直結は「部屋に入るのに毎回風呂を通る」不適切な導線。浴室は内壁の扉のみで居室側からアクセスする。
+  const wetRects = (preset.floors || []).filter(f => items.some(m =>
+    m.def.id === 'bathset' &&
+    m.cx >= Math.min(f.x1, f.x2) && m.cx <= Math.max(f.x1, f.x2) &&
+    m.cz >= Math.min(f.z1, f.z2) && m.cz <= Math.max(f.z1, f.z2)));
+  if (wetRects.length) {
+    const W = preset.room.w / 2, D = preset.room.d / 2, ws = preset.walls || {};
+    const DOORK = new Set(['door', 'genkan', 'auto_door', 'glass_door', 'double_door', 'sliding_door']);
+    const inRect = (x, z, f) => x >= Math.min(f.x1, f.x2) && x <= Math.max(f.x1, f.x2) && z >= Math.min(f.z1, f.z2) && z <= Math.max(f.z1, f.z2);
+    const perim = [
+      { ops: ws.south, along: 'x', line: -D, p0: -W, p1: W, nx: 0, nz: 1 },
+      { ops: ws.north, along: 'x', line:  D, p0: -W, p1: W, nx: 0, nz: -1 },
+      { ops: ws.west,  along: 'z', line: -W, p0: -D, p1: D, nx: 1, nz: 0 },
+      { ops: ws.east,  along: 'z', line:  W, p0: -D, p1: D, nx: -1, nz: 0 },
+    ];
+    for (const wall of perim) {
+      for (const o of (wall.ops || [])) {
+        if (!DOORK.has(o.kind || 'door')) continue;
+        const t = o.t != null ? o.t : 0.5;
+        const a = wall.p0 + t * (wall.p1 - wall.p0);
+        const cx = wall.along === 'x' ? a : wall.line;
+        const cz = wall.along === 'x' ? wall.line : a;
+        const ix = cx + wall.nx * 0.6, iz = cz + wall.nz * 0.6;   // 室内側0.6mの点
+        if (wetRects.some(f => inRect(ix, iz, f))) {
+          add('error', -1, 'bathset', `外扉(${o.kind || 'door'})が浴室(水回り)へ直結している — 玄関/外扉は居室側へ, 浴室は内壁の扉のみにする`);
+        }
+      }
+    }
+  }
+
   return issues;
 }
 
