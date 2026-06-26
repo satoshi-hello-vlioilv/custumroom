@@ -164,7 +164,7 @@ const FURNITURE_DEFS = [
   { id:'alumcoil_packed', cat:'factory',name:'梱包済みアルミコイル', icon:'fa-box-archive',          w:1.0,  d:0.8,  h:0.8,   colorIdx:1,  build:buildPackagedAlumCoil },
   { id:'alumcoil_export', cat:'factory',name:'輸出梱包アルミコイル', icon:'fa-pallet',               w:1.2,  d:1.2,  h:1.0,   colorIdx:8,  build:buildExportAlumCoil },
   { id:'alumcoil_side',  cat:'factory', name:'横倒しアルミコイル',   icon:'fa-circle',               w:0.8,  d:1.0,  h:0.8,   colorIdx:10, build:buildAlumCoilSide },
-  { id:'worker',         cat:'factory', name:'作業員',              icon:'fa-person-walking',        w:0.5,  d:0.5,  h:1.8,   colorIdx:7,  build:buildWorker },
+  { id:'worker',         cat:'factory', name:'作業員',              icon:'fa-person-walking',        w:0.5,  d:0.5,  h:1.8,   colorIdx:20, build:buildWorker },
   // ---- 家具追加 ----
   { id:'monitor',       cat:'office',   name:'PCモニター',          icon:'fa-desktop',        w:0.52, d:0.18, h:0.44, colorIdx:2,  build:buildMonitor,         stack:true },
   { id:'kotatsu',       cat:'table',    name:'こたつ',              icon:'fa-table',          w:0.9,  d:0.9,  h:0.38, colorIdx:0,  build:buildKotatsu },

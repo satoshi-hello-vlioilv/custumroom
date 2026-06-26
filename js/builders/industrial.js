@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { clamp, shade } from '../core/util.js';
 import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost } from '../core/helpers.js';
 import { makeWoodTexture, makeWallTexture, makeNoiseTexture, makeRugTexture, makeConcreteTexture, makeTileTexture, makeMarbleTexture, makeCarpetTexture, makeTatamiTexture, makeBrickTexture, makePanelTexture, makeGenkanTexture, makeDirtTexture, makeGrassTexture, makeLawnTexture, makeParquetTexture, makeDarkWoodTexture, makeRubberTexture, makeCheckerPlateTexture, makeEpoxyTexture, makeTerracottaTexture, makeStoneTexture, woodTex, concreteTex, wallTexSrc, noiseTex, tileTex, marbleTex, carpetTex, tatamiTex, brickTex, panelTex, genkanTex, dirtTex, grassTex, lawnTex, parquetTex, darkWoodTex, rubberTex, checkerTex, epoxyTex, terracottaTex, stoneTex, FLOOR_TYPES, WALL_TYPES } from '../core/textures.js';
+import { buildPerson } from './kawaii.js';
 
 function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.9 } = {}) {
   const g = new THREE.Group();
@@ -1725,63 +1726,17 @@ function buildAlumCoilSide({ color='#c8c8cc', w=0.8, d=1.0, h=0.8 } = {}) {
   return g;
 }
 
-function buildWorker({ color='#e8a820', w=0.5, d=0.5, h=1.8 } = {}) {
-  const g = new THREE.Group();
-  const s      = h / 1.8;
-  const skinM  = mat('#f0c888', 0.85);
-  const vestM  = mat(color, 0.7);
-  const pantsM = mat('#3a4f68', 0.75);
-  const helmetM= mat('#f0c010', 0.45);
-  const bootM  = mat('#1e1410', 0.9);
-  const glovM  = mat('#3a3a3a', 0.8);
-  // Boots
-  [-0.08, 0.08].forEach(x => {
-    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.1 * s, 0.18 * s), bootM);
-    boot.position.set(x * s, 0.05 * s, 0.02 * s); boot.castShadow = true; g.add(boot);
+// 作業員 — 高品質な人物ベース(buildPerson)に作業着装備を載せる。
+// 白ヘルメット+顎紐 / 開襟ジャケット(胸ポケット・ファスナー) / カーゴ作業ズボン(上下同色) / 白軍手 / 安全靴。
+// color はカラーピッカー対応(作業着の上下が連動して色替え)。既定はライトブルーグレー。
+function buildWorker({ color, w=0.5, d=0.5, h=1.8 } = {}) {
+  return buildPerson({
+    h, adult: true, style: 'short',
+    skin: '#e7b48a', hair: '#1b1410', eye: '#3a2c22',
+    color: color || '#aebccc',        // 作業着(上下colorable)
+    bottom: '#aebccc',
+    helmet: '#f1f3f6', jacket: true, cargo: true, gloves: '#fbfaf6', boots: true, suit: true
   });
-  // Legs
-  [-0.085, 0.085].forEach(x => {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.46 * s, 0.1 * s), pantsM);
-    leg.position.set(x * s, 0.33 * s, 0); leg.castShadow = true; g.add(leg);
-  });
-  // Torso (safety vest — colorable)
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.29 * s, 0.44 * s, 0.18 * s), vestM);
-  torso.position.set(0, 0.77 * s, 0); torso.castShadow = true;
-  torso.userData.colorable = true; g.add(torso);
-  // Reflective stripes on vest
-  const stripeM = mat('#f4e040', 0.4);
-  [-0.06, 0.06].map(y => y * s).forEach(yo => {
-    g.add(box(0.31 * s, 0.03 * s, 0.19 * s, stripeM, 0, 0.77 * s + yo, 0));
-  });
-  // Arms
-  [-0.22, 0.22].forEach(x => {
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.38 * s, 0.1 * s), vestM);
-    arm.position.set(x * s, 0.73 * s, 0); arm.castShadow = true; g.add(arm);
-    // Glove
-    const glove = new THREE.Mesh(new THREE.BoxGeometry(0.09 * s, 0.1 * s, 0.09 * s), glovM);
-    glove.position.set(x * s, 0.49 * s, 0); g.add(glove);
-  });
-  // Neck
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * s, 0.05 * s, 0.1 * s, 6), skinM);
-  neck.position.set(0, 1.02 * s, 0); g.add(neck);
-  // Head
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.19 * s, 0.19 * s, 0.18 * s), skinM);
-  head.position.set(0, 1.15 * s, 0); head.castShadow = true; g.add(head);
-  // Eyes
-  [[-0.055, 0], [0.055, 0]].forEach(([ex, ez]) => {
-    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.028 * s, 0.022 * s, 0.01), mat('#2a2a1a', 0.9));
-    eye.position.set(ex * s, 1.16 * s, 0.09 * s); g.add(eye);
-  });
-  // Hard hat brim
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.132 * s, 0.118 * s, 0.04 * s, 12), helmetM);
-  brim.position.set(0, 1.265 * s, 0); brim.castShadow = true; g.add(brim);
-  // Hard hat dome
-  const dome = new THREE.Mesh(new THREE.CylinderGeometry(0.098 * s, 0.128 * s, 0.1 * s, 12), helmetM);
-  dome.position.set(0, 1.33 * s, 0); g.add(dome);
-  // Hard hat badge
-  g.add(box(0.04 * s, 0.03 * s, 0.005, mat('#f0f0f0', 0.9), 0, 1.30 * s, 0.1 * s));
-  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
-  return g;
 }
 
 

@@ -26,35 +26,81 @@ function cap(r, len, material, x = 0, y = 0, z = 0, rz = 0, rx = 0, seg = 10) {
 // 顔は +Z 向き。s=h/1.7 で全身をスケール。headBig で子供体型(大きめの頭)。
 function buildPerson({ h = 1.6, skin = '#f4cba0', hair = '#4a3526', style = 'short',
   color, top, bottom = '#5b7fb0', skirt = false, bag = null, headBig = false, shoe = '#e2607a',
-  ribbon = '#ef7fa6', eye = '#5a4636' } = {}) {
+  ribbon = '#ef7fa6', eye = '#5a4636',
+  adult = false, helmet = null, jacket = false, cargo = false, gloves = null, boots = false, suit = false } = {}) {
   const g = new THREE.Group();
   const s = h / 1.7;
   const topCol = color || top || '#ff9aa2';   // 服(colorable)はカラーピッカー対応
   const skinM = mat(skin, 0.66, 0.02), topM = mat(topCol, 0.72), botM = mat(bottom, 0.76),
         hairM = mat(hair, 0.5, 0.06), shoeM = mat(shoe, 0.4, 0.12), soleM = mat('#2c2c2e', 0.85),
         noseM = mat(shade(skin, 0.95), 0.7);
-  const legM = skirt ? skinM : botM;                  // スカートなら脚は素肌
+  const gloveM = gloves ? mat(gloves, 0.94) : null;   // 軍手
+  const metalM = mat('#cdd2d8', 0.32, 0.8);           // ファスナー/金具
+  const darkM  = mat('#2a2d31', 0.55);                // ボタン/スナップ/顎紐
+  const legColorable = suit;                          // 上下同色の作業着は脚も色替え対象
+  const legM = suit ? topM : (skirt ? skinM : botM);  // 作業着=上着と同色 / スカートなら素肌
   const hr = (headBig ? 0.155 : 0.125) * s;           // head radius
   const headY = 1.45 * s + hr;                         // 頭中心 (首の上)
-  const eS = headBig ? 1.18 : 1;                       // 目の拡大(子供は大きめ)
+  const eS = headBig ? 1.18 : (adult ? 0.9 : 1);       // 目の拡大(子供は大きめ/大人は控えめ)
 
-  // ---- 脚 (太もも+膝+すね+靴) ----
+  // ---- 脚 (太もも+膝+すね+靴/安全靴) ----
   [-1, 1].forEach(sgn => {
     const x = sgn * 0.085 * s;
-    g.add(cap(0.073 * s, 0.20 * s, legM, x, 0.70 * s));            // thigh
-    g.add(sph(0.062 * s, legM, x, 0.50 * s));                      // knee
-    g.add(cap(0.057 * s, 0.20 * s, legM, x, 0.30 * s));            // shin
+    const thigh = cap(0.073 * s, 0.20 * s, legM, x, 0.70 * s);     // thigh
+    const knee  = sph(0.062 * s, legM, x, 0.50 * s);               // knee
+    const shin  = cap(0.057 * s, 0.20 * s, legM, x, 0.30 * s);     // shin
+    if (legColorable) thigh.userData.colorable = knee.userData.colorable = shin.userData.colorable = true;
+    g.add(thigh); g.add(knee); g.add(shin);
+    if (cargo) {   // カーゴポケット (太もも外側 + フラップ)
+      const cp = new THREE.Mesh(roundedBoxGeom(0.052 * s, 0.12 * s, 0.085 * s, 0.02 * s, 2), legM);
+      cp.position.set(x + sgn * 0.07 * s, 0.40 * s, 0.012 * s); cp.castShadow = true;
+      if (legColorable) cp.userData.colorable = true; g.add(cp);
+      const fl = box(0.058 * s, 0.022 * s, 0.092 * s, legM, x + sgn * 0.07 * s, 0.465 * s, 0.012 * s);
+      if (legColorable) fl.userData.colorable = true; g.add(fl);
+    }
     g.add(sph(0.05 * s, soleM, x, 0.013 * s, 0.035 * s));          // ankle/heel
-    const sh = new THREE.Mesh(roundedBoxGeom(0.105 * s, 0.075 * s, 0.215 * s, 0.04 * s, 3), shoeM);
-    sh.position.set(x, 0.05 * s, 0.045 * s); sh.castShadow = true; g.add(sh);
-    g.add(box(0.115 * s, 0.022 * s, 0.225 * s, soleM, x, 0.012 * s, 0.045 * s));   // sole
+    if (boots) {   // 安全靴 (つま先キャップ + 履き口リブ)
+      const bm = mat('#16120f', 0.42, 0.18);
+      const bt = new THREE.Mesh(roundedBoxGeom(0.118 * s, 0.105 * s, 0.25 * s, 0.05 * s, 3), bm);
+      bt.position.set(x, 0.062 * s, 0.05 * s); bt.castShadow = true; g.add(bt);
+      const toe = new THREE.Mesh(roundedBoxGeom(0.112 * s, 0.06 * s, 0.075 * s, 0.03 * s, 2), mat('#26221e', 0.3, 0.35));
+      toe.position.set(x, 0.05 * s, 0.145 * s); g.add(toe);        // steel toe cap
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.05 * s, 0.017 * s, 8, 14), bm);
+      collar.rotation.x = Math.PI / 2; collar.position.set(x, 0.12 * s, 0.005 * s); g.add(collar);
+      g.add(box(0.125 * s, 0.025 * s, 0.26 * s, soleM, x, 0.014 * s, 0.05 * s));   // sole
+    } else {
+      const sh = new THREE.Mesh(roundedBoxGeom(0.105 * s, 0.075 * s, 0.215 * s, 0.04 * s, 3), shoeM);
+      sh.position.set(x, 0.05 * s, 0.045 * s); sh.castShadow = true; g.add(sh);
+      g.add(box(0.115 * s, 0.022 * s, 0.225 * s, soleM, x, 0.012 * s, 0.045 * s));   // sole
+    }
   });
   // ---- 腰 ----
-  const pelvis = sph(0.13 * s, legM, 0, 0.9 * s); pelvis.scale.set(1.32, 0.72, 0.9); g.add(pelvis);
+  const pelvis = sph(0.13 * s, legM, 0, 0.9 * s); pelvis.scale.set(1.32, 0.72, 0.9); if (legColorable) pelvis.userData.colorable = true; g.add(pelvis);
   // ---- 胴 (テーパー: 肩広め・薄め) ----
   const torso = cap(0.135 * s, 0.20 * s, topM, 0, 1.15 * s); torso.scale.set(1.18, 1.0, 0.66);
   torso.userData.colorable = true; g.add(torso);
   [-1, 1].forEach(sgn => { const sh = sph(0.06 * s, topM, sgn * 0.148 * s, 1.34 * s); sh.scale.set(1, 0.92, 0.85); sh.userData.colorable = true; g.add(sh); });
+  // ---- 作業着ジャケット (襟 / 中央ファスナー / 胸ポケット / 裾ベルト / 肩ポケット) ----
+  if (jacket) {
+    const cz = 0.09 * s;                                  // 胴前面の z
+    const cb = c => { c.userData.colorable = true; return c; };
+    [-1, 1].forEach(sgn => {                              // 開襟 (左右)
+      const col = box(0.075 * s, 0.062 * s, 0.02 * s, topM, sgn * 0.046 * s, 1.345 * s, cz * 0.66);
+      col.rotation.z = sgn * 0.5; col.rotation.x = -0.22; g.add(cb(col));
+    });
+    g.add(box(0.018 * s, 0.35 * s, 0.012 * s, metalM, 0, 1.165 * s, cz));   // 中央ファスナー
+    g.add(sph(0.014 * s, metalM, 0, 1.33 * s, cz));                          // 引き手
+    [-1, 1].forEach(sgn => {                              // 胸ポケット×2 (フラップ + ボタン)
+      const px = sgn * 0.062 * s;
+      g.add(cb(box(0.072 * s, 0.078 * s, 0.012 * s, topM, px, 1.205 * s, cz * 0.99)));
+      g.add(cb(box(0.08 * s, 0.026 * s, 0.016 * s, topM, px, 1.247 * s, cz)));
+      g.add(sph(0.008 * s, darkM, px, 1.232 * s, cz * 1.05));
+    });
+    const hem = new THREE.Mesh(roundedBoxGeom(0.30 * s, 0.05 * s, 0.20 * s, 0.02 * s, 2), topM);
+    hem.scale.set(1, 1, 0.92); hem.position.set(0, 1.005 * s, 0); g.add(cb(hem));   // 裾ベルト
+    g.add(box(0.028 * s, 0.028 * s, 0.02 * s, darkM, 0, 1.0 * s, cz * 0.95));        // 裾スナップ
+    g.add(cb(box(0.046 * s, 0.062 * s, 0.012 * s, topM, -0.2 * s, 1.27 * s, 0.05 * s)));  // 肩(袖)ポケット
+  }
   // ---- スカート ----
   if (skirt) {
     const sk = new THREE.Mesh(new THREE.CylinderGeometry(0.155 * s, 0.28 * s, 0.22 * s, 24), botM);
@@ -62,12 +108,21 @@ function buildPerson({ h = 1.6, skin = '#f4cba0', hair = '#4a3526', style = 'sho
     const hem = new THREE.Mesh(new THREE.TorusGeometry(0.275 * s, 0.018 * s, 8, 24), mat(shade(topCol, 0.85), 0.7));
     hem.rotation.x = Math.PI / 2; hem.position.y = 0.755 * s; g.add(hem);   // 水平の裾ライン
   }
-  // ---- 腕 (上腕=袖 / 前腕=素肌 + 手)。肩から少し外向きに自然に下ろす ----
+  // ---- 腕 (上腕=袖 / 前腕=素肌or長袖 + 手/軍手)。肩から少し外向きに自然に下ろす ----
   [-1, 1].forEach(sgn => {
-    g.add(cap(0.043 * s, 0.17 * s, topM, sgn * 0.178 * s, 1.18 * s, sgn * 0.05));   // upper (sleeve)
-    g.add(sph(0.04 * s, skinM, sgn * 0.188 * s, 1.0 * s));                          // elbow
-    g.add(cap(0.037 * s, 0.17 * s, skinM, sgn * 0.193 * s, 0.85 * s, sgn * 0.03));  // forearm
-    const hand = sph(0.046 * s, skinM, sgn * 0.197 * s, 0.71 * s); hand.scale.set(0.9, 1.15, 0.72); g.add(hand);
+    const upper = cap(0.043 * s, 0.17 * s, topM, sgn * 0.178 * s, 1.18 * s, sgn * 0.05);   // upper (sleeve)
+    if (jacket) upper.userData.colorable = true; g.add(upper);
+    const foreM = jacket ? topM : skinM;                                                   // 長袖なら前腕も袖
+    g.add(sph(0.04 * s, foreM, sgn * 0.188 * s, 1.0 * s));                                 // elbow
+    const fore = cap(0.037 * s, 0.17 * s, foreM, sgn * 0.193 * s, 0.85 * s, sgn * 0.03);   // forearm
+    if (jacket) fore.userData.colorable = true; g.add(fore);
+    if (jacket) { const cf = cap(0.041 * s, 0.018 * s, topM, sgn * 0.196 * s, 0.762 * s, sgn * 0.03); cf.userData.colorable = true; g.add(cf); } // 袖口
+    const hmat = gloveM || skinM;
+    const hand = sph(0.046 * s, hmat, sgn * 0.197 * s, 0.71 * s); hand.scale.set(0.9, 1.15, 0.72); g.add(hand);
+    if (gloveM) {                                                                          // 軍手 (手首リブ + 親指)
+      g.add(cap(0.044 * s, 0.022 * s, gloveM, sgn * 0.197 * s, 0.745 * s, sgn * 0.03));
+      const th = sph(0.026 * s, gloveM, sgn * 0.18 * s, 0.705 * s, 0.04 * s); th.scale.set(0.8, 1.2, 0.8); g.add(th);
+    }
   });
   // ---- 首・頭 ----
   g.add(cap(0.046 * s, 0.05 * s, skinM, 0, 1.42 * s));
@@ -76,19 +131,19 @@ function buildPerson({ h = 1.6, skin = '#f4cba0', hair = '#4a3526', style = 'sho
   // ---- 顔 ----
   [-1, 1].forEach(sgn => {
     const ex = sgn * 0.052 * s;
-    const w = sph(0.03 * s * eS, mat('#fbfbf8', 0.3), ex, headY + 0.004 * s, hr * 0.82); w.scale.set(1.0, 1.25, 0.55); g.add(w);
+    const w = sph(0.03 * s * eS, mat('#fbfbf8', 0.3), ex, headY + 0.004 * s, hr * 0.82); w.scale.set(adult ? 0.92 : 1.0, adult ? 1.02 : 1.25, 0.55); g.add(w);
     g.add(sph(0.02 * s * eS, mat(eye, 0.35), ex, headY + 0.002 * s, hr * 0.9));         // iris
     g.add(sph(0.011 * s * eS, mat('#15100e', 0.4), ex, headY + 0.002 * s, hr * 0.95));  // pupil
-    g.add(sph(0.007 * s, mat('#ffffff', 0.2), ex - 0.012 * s, headY + 0.022 * s, hr * 0.97)); // highlight
-    const brow = box(0.05 * s, 0.01 * s, 0.012 * s, hairM, ex, headY + 0.072 * s, hr * 0.84); brow.rotation.z = sgn * 0.06; g.add(brow);
-    const blush = sph(0.016 * s, mat('#ffb1bd', 0.6), sgn * 0.086 * s, headY - 0.042 * s, hr * 0.82); blush.scale.set(1.1, 0.62, 0.32); g.add(blush);
+    g.add(sph((adult ? 0.005 : 0.007) * s, mat('#ffffff', 0.2), ex - 0.012 * s, headY + (adult ? 0.016 : 0.022) * s, hr * 0.97)); // highlight
+    const brow = box((adult ? 0.056 : 0.05) * s, (adult ? 0.014 : 0.01) * s, 0.012 * s, hairM, ex, headY + (adult ? 0.066 : 0.072) * s, hr * 0.84); brow.rotation.z = sgn * (adult ? 0.02 : 0.06); g.add(brow);
+    if (!adult) { const blush = sph(0.016 * s, mat('#ffb1bd', 0.6), sgn * 0.086 * s, headY - 0.042 * s, hr * 0.82); blush.scale.set(1.1, 0.62, 0.32); g.add(blush); }
   });
   const nose = sph(0.016 * s, noseM, 0, headY - 0.018 * s, hr * 0.98); nose.scale.set(0.8, 0.85, 1); g.add(nose);
-  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.024 * s * eS, 0.005 * s, 6, 14, Math.PI), mat('#c8627a', 0.5));
-  smile.position.set(0, headY - 0.062 * s, hr * 0.9); smile.rotation.x = Math.PI; g.add(smile);
+  const smile = new THREE.Mesh(new THREE.TorusGeometry((adult ? 0.018 : 0.024) * s * eS, (adult ? 0.0042 : 0.005) * s, 6, 14, Math.PI), mat(adult ? '#b06a64' : '#c8627a', 0.5));
+  smile.position.set(0, headY - (adult ? 0.052 : 0.062) * s, hr * 0.92); smile.rotation.x = Math.PI; g.add(smile);
   // ---- 髪 (背側へずらした帽子状 + 前髪) ----
-  const cap0 = sph(hr * 1.06, hairM, 0, headY + 0.014 * s, -0.022 * s); cap0.scale.set(1.06, 1.05, 1.07); g.add(cap0);
-  [-0.07, 0, 0.07].forEach((fx, i) => { const f = sph(0.05 * s, hairM, fx * s, headY + hr * 0.52, hr * 0.72); f.scale.set(1, 0.62, 0.6); g.add(f); }); // bangs
+  if (!helmet) { const cap0 = sph(hr * 1.06, hairM, 0, headY + 0.014 * s, -0.022 * s); cap0.scale.set(1.06, 1.05, 1.07); g.add(cap0); }
+  [-0.07, 0, 0.07].forEach((fx, i) => { const f = sph(0.05 * s, hairM, fx * s, headY + hr * (helmet ? 0.36 : 0.52), hr * 0.72); f.scale.set(1, 0.62, 0.6); g.add(f); }); // bangs
   if (style === 'twin') {                 // ツインテール
     [-1, 1].forEach(sgn => {
       g.add(sph(0.045 * s, hairM, sgn * (hr + 0.01 * s), headY + 0.04 * s, -0.01 * s));                        // side puff
@@ -104,6 +159,18 @@ function buildPerson({ h = 1.6, skin = '#f4cba0', hair = '#4a3526', style = 'sho
     g.add(new THREE.Mesh(new THREE.TorusGeometry(0.055 * s, 0.018 * s, 6, 16), mat(ribbon, 0.55)).translateY(headY + hr * 0.98).translateZ(-hr * 0.15));
   } else if (style === 'long') {          // ロング
     const back = cap(0.135 * s, 0.30 * s, hairM, 0, headY - 0.2 * s, -hr * 0.5, 0, 0.06); back.scale.set(1.1, 1, 0.5); g.add(back);
+  }
+  // ---- ヘルメット (白) + 顎紐 ----
+  if (helmet) {
+    const helmM = mat(helmet, 0.34, 0.04);
+    const by = headY + 0.34 * hr;                        // ヘルメット下端 (額の上)
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(hr * 1.16, 22, 12, 0, Math.PI * 2, 0, Math.PI / 2), helmM);
+    dome.position.set(0, by, 0); dome.scale.set(1.04, 1.12, 1.14); dome.castShadow = true; g.add(dome);
+    g.add(box(0.02 * s, 0.035 * s, hr * 1.7, helmM, 0, by + hr * 0.66, 0));           // 中央リブ(クラウン)
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(hr * 1.32, hr * 1.26, 0.028 * s, 24), helmM);
+    brim.position.set(0, by + 0.006 * s, 0.012 * s); brim.scale.set(1.0, 1, 1.22); brim.castShadow = true; g.add(brim);
+    [-1, 1].forEach(sgn => g.add(cap(0.006 * s, hr * 0.85, darkM, sgn * hr * 0.86, headY - hr * 0.16, hr * 0.34, sgn * 0.18, -0.3)));  // 顎紐
+    g.add(box(0.034 * s, 0.02 * s, 0.014 * s, darkM, 0, headY - hr * 0.9, hr * 0.52));   // 顎バックル
   }
   // ---- ランドセル / リュック ----
   if (bag === 'randoseru') {
