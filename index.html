@@ -2663,6 +2663,8 @@ function buildBlackboard({ color='#1f4a37', w=3.0, d=0.06, h=1.2 } = {}) {
   const cy = 1.25;   // board center height
   // Board surface
   const board = box(w, h, 0.02, mat(color, 0.92, 0), 0, cy, 0); board.userData.colorable = true; g.add(board);
+  // 裏面バッキング(壁側) — 裏が「表の黒板」に見えて混同しないよう暗色の板で塞ぐ
+  g.add(box(w - 0.01, h - 0.01, 0.012, mat('#3a2c1d', 0.85), 0, cy, -0.022));
   // Wooden frame
   g.add(box(w+0.06, 0.05, 0.05, frame, 0, cy+h/2+0.01, 0));   // top
   g.add(box(w+0.06, 0.06, 0.05, frame, 0, cy-h/2-0.01, 0));   // bottom
@@ -8146,9 +8148,9 @@ const PRESETS = [
     },
     partitions: [],
     items: [
-      // 前方 (南) — 黒板・教卓 (黒板は南壁=無開口に背を付け, 前面+Z=室内/生徒側を向く rotY=0)
-      P('blackboard', 0, -3.97, 0, '#1f4a37'),
-      P('wallclock', 3.7, -3.97, 0),
+      // 前方 (南) — 黒板・教卓 (黒板は南壁=無開口の内面 z=-3.94 の手前に置き, 前面+Z=室内/生徒側を向く rotY=0)
+      P('blackboard', 0, -3.91, 0, '#1f4a37'),   // 壁にめり込ませず室内側へ(内面-3.94の手前)
+      P('wallclock', 3.7, -3.93, 0),
       // 教卓: アクセス面(膝入れ+Z)はrotY=180で南=教師側へ向き, 引き出し面は北=生徒側。
       // 教師は机の南側(黒板の手前)に着座し北=生徒側に正対する。
       P('desk', 0, -2.8, 180, '#e8e2d6'),   // 教卓 (膝入れ=南/教師側, 引き出し=北/生徒側)

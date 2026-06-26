@@ -800,6 +800,8 @@ function buildBlackboard({ color='#1f4a37', w=3.0, d=0.06, h=1.2 } = {}) {
   const cy = 1.25;   // board center height
   // Board surface
   const board = box(w, h, 0.02, mat(color, 0.92, 0), 0, cy, 0); board.userData.colorable = true; g.add(board);
+  // 裏面バッキング(壁側) — 裏が「表の黒板」に見えて混同しないよう暗色の板で塞ぐ
+  g.add(box(w - 0.01, h - 0.01, 0.012, mat('#3a2c1d', 0.85), 0, cy, -0.022));
   // Wooden frame
   g.add(box(w+0.06, 0.05, 0.05, frame, 0, cy+h/2+0.01, 0));   // top
   g.add(box(w+0.06, 0.06, 0.05, frame, 0, cy-h/2-0.01, 0));   // bottom
