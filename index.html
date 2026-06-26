@@ -2649,9 +2649,9 @@ function buildSchoolDesk({ color='#e8c89a', w=0.65, d=0.45, h=0.72 } = {}) {
     g.add(cylAt(0.014, 0.014, h-0.03, 10, metal, lx, (h-0.03)/2, lz));
     g.add(cylAt(0.02, 0.02, 0.012, 10, footMat, lx, 0.006, lz));
   });
-  // Side stretcher rails (front + back, spanning x)
-  [d/2-0.05, -(d/2-0.05)].forEach(rz => {
-    const rail = cylAt(0.012, 0.012, w-0.1, 10, metal, 0, 0.14, rz); rail.rotation.z = Math.PI/2; g.add(rail);
+  // 脚の補強は左右の側面(奥行きz方向)に張る。+Z=椅子をしまう側の前後横木は入れず、椅子が干渉なく収まるようにする。
+  [w/2-0.05, -(w/2-0.05)].forEach(rx => {
+    const rail = cylAt(0.012, 0.012, d-0.1, 10, metal, rx, 0.14, 0); rail.rotation.x = Math.PI/2; g.add(rail);
   });
   // Side bag hook (+Z access/student side)
   g.add(box(0.02, 0.05, 0.02, metal, w/2-0.05, 0.42, (d/2-0.02)));
