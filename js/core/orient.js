@@ -128,11 +128,13 @@ function halfDepthAlongFront(def, rotY) {
 function presetWalls(preset) {
   const W = preset.room.w / 2, D = preset.room.d / 2, ws = preset.walls || {};
   const seg = (x1, z1, x2, z2, ops) => ({ x1, z1, x2, z2, ops: ops || [] });
+  // 北/南の z 符号は app.js の rectToPlan に一致させる: south=z0(=-D, 負), north=z1(=+D, 正)。
+  // (以前は north/south が逆マッピングで, 開口判定が描画と食い違っていた)
   const walls = [
-    seg(-W, -D, W, -D, ws.north),
-    seg(-W, D, W, D, ws.south),
-    seg(W, -D, W, D, ws.east),
-    seg(-W, -D, -W, D, ws.west),
+    seg(-W, -D, W, -D, ws.south),   // 南 = z=-D
+    seg(-W, D, W, D, ws.north),     // 北 = z=+D
+    seg(W, -D, W, D, ws.east),      // 東 = x=+W
+    seg(-W, -D, -W, D, ws.west),    // 西 = x=-W
   ];
   (preset.partitions || []).forEach(p => walls.push(seg(p.x1, p.z1, p.x2, p.z2, p.openings)));
   return walls;

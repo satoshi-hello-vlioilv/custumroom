@@ -1649,7 +1649,7 @@ function buildExportAlumCoil({ color='#c0a870', w=1.2, d=1.2, h=1.0 } = {}) {
   crateBox.castShadow = true; crateBox.receiveShadow = true; crateBox.userData.colorable = true; g.add(crateBox);
   // Vertical slat overlays (front, back, sides)
   [-(pd/2 - 0.005), (pd/2 - 0.005)].forEach(zf => {
-    [-0.34, 0.34].forEach(xo => {     // 中央はコイルのアイ用に空ける
+    [-0.3, 0, 0.3].forEach(xo => {
       const slat = new THREE.Mesh(new THREE.BoxGeometry(0.065, ph * 1.02, 0.03), slatM);
       slat.position.set(xo * pw * 0.72, 0.11 + ph/2, zf); g.add(slat);
     });
@@ -1665,11 +1665,12 @@ function buildExportAlumCoil({ color='#c0a870', w=1.2, d=1.2, h=1.0 } = {}) {
     const cb = new THREE.Mesh(new THREE.BoxGeometry(0.055, ph * 1.02, 0.055), metalM);
     cb.position.set(sx*(pw/2-0.027), 0.11 + ph/2, sz*(pd/2-0.027)); g.add(cb);
   });
-  // コイルのアイは前面(+Z)に — 軸=水平(Z)で梱包(他のコイルと向きを統一)
-  const eyeCy = 0.11 + ph * 0.52, eyeZ = pd/2 + 0.012;
-  g.add(new THREE.Mesh(new THREE.RingGeometry(coilR*0.26, coilR*0.56, 24), alumM).translateY(eyeCy).translateZ(eyeZ));
-  for (let r = coilR*0.32; r < coilR*0.55; r += 0.055) g.add(new THREE.Mesh(new THREE.TorusGeometry(r, 0.01, 4, 24), alumM).translateY(eyeCy).translateZ(eyeZ));
-  g.add(new THREE.Mesh(new THREE.CircleGeometry(coilR*0.26, 18), mat('#363639', 0.6)).translateY(eyeCy).translateZ(eyeZ - 0.004));
+  // コイルのアイは天面(上向き=Eye-to-Sky)に — 軸=鉛直で梱包
+  const eyeTopY = 0.11 + ph + 0.004;
+  const mkTop = (mesh) => { mesh.rotation.x = -Math.PI/2; mesh.position.set(0, eyeTopY, 0); return mesh; };
+  g.add(mkTop(new THREE.Mesh(new THREE.RingGeometry(coilR*0.26, coilR*0.56, 24), alumM)));
+  for (let r = coilR*0.32; r < coilR*0.55; r += 0.055) g.add(mkTop(new THREE.Mesh(new THREE.TorusGeometry(r, 0.01, 4, 24), alumM)));
+  { const hole = new THREE.Mesh(new THREE.CircleGeometry(coilR*0.26, 18), mat('#363639', 0.6)); hole.rotation.x = -Math.PI/2; hole.position.set(0, eyeTopY - 0.004, 0); g.add(hole); }
   // Steel strapping bands (2 bands at 1/3 and 2/3 height)
   [-0.2, 0.2].forEach(t => {
     const by = 0.11 + ph * (0.5 + t * 0.85);
@@ -1678,11 +1679,11 @@ function buildExportAlumCoil({ color='#c0a870', w=1.2, d=1.2, h=1.0 } = {}) {
     const bz = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.038, pd + 0.04), metalM);
     bz.position.set(pw/2, by, 0); g.add(bz);
   });
-  // 輸出ラベルは +X 側面へ(前面のアイと干渉しないよう, バンドの間に配置)
-  const lblX = pw/2 - 0.004, lblY = 0.11 + ph * 0.5;
-  g.add(new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.2, 0.28), mat('#f0eedc', 0.9)).translateX(lblX).translateY(lblY));
-  g.add(box(0.009, 0.03, 0.28, mat('#cc2020', 0.7), lblX, lblY + 0.07, 0));
-  g.add(box(0.009, 0.03, 0.28, mat('#2060cc', 0.7), lblX, lblY - 0.07, 0));
+  // 輸出ラベル(前面 +Z)
+  const lbl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.20, 0.008), mat('#f0eedc', 0.9));
+  lbl.position.set(0, 0.11 + ph * 0.5, pd/2 - 0.006); g.add(lbl);
+  g.add(box(0.28, 0.03, 0.009, mat('#cc2020', 0.7), 0, 0.11 + ph * 0.5 + 0.07, pd/2 - 0.005));
+  g.add(box(0.28, 0.03, 0.009, mat('#2060cc', 0.7), 0, 0.11 + ph * 0.5 - 0.07, pd/2 - 0.005));
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }

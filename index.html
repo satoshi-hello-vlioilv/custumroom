@@ -514,11 +514,13 @@ function halfDepthAlongFront(def, rotY) {
 function presetWalls(preset) {
   const W = preset.room.w / 2, D = preset.room.d / 2, ws = preset.walls || {};
   const seg = (x1, z1, x2, z2, ops) => ({ x1, z1, x2, z2, ops: ops || [] });
+  // 北/南の z 符号は app.js の rectToPlan に一致させる: south=z0(=-D, 負), north=z1(=+D, 正)。
+  // (以前は north/south が逆マッピングで, 開口判定が描画と食い違っていた)
   const walls = [
-    seg(-W, -D, W, -D, ws.north),
-    seg(-W, D, W, D, ws.south),
-    seg(W, -D, W, D, ws.east),
-    seg(-W, -D, -W, D, ws.west),
+    seg(-W, -D, W, -D, ws.south),   // 南 = z=-D
+    seg(-W, D, W, D, ws.north),     // 北 = z=+D
+    seg(W, -D, W, D, ws.east),      // 東 = x=+W
+    seg(-W, -D, -W, D, ws.west),    // 西 = x=-W
   ];
   (preset.partitions || []).forEach(p => walls.push(seg(p.x1, p.z1, p.x2, p.z2, p.openings)));
   return walls;
@@ -4771,7 +4773,7 @@ function buildExportAlumCoil({ color='#c0a870', w=1.2, d=1.2, h=1.0 } = {}) {
   crateBox.castShadow = true; crateBox.receiveShadow = true; crateBox.userData.colorable = true; g.add(crateBox);
   // Vertical slat overlays (front, back, sides)
   [-(pd/2 - 0.005), (pd/2 - 0.005)].forEach(zf => {
-    [-0.34, 0.34].forEach(xo => {     // 中央はコイルのアイ用に空ける
+    [-0.3, 0, 0.3].forEach(xo => {
       const slat = new THREE.Mesh(new THREE.BoxGeometry(0.065, ph * 1.02, 0.03), slatM);
       slat.position.set(xo * pw * 0.72, 0.11 + ph/2, zf); g.add(slat);
     });
@@ -4787,11 +4789,12 @@ function buildExportAlumCoil({ color='#c0a870', w=1.2, d=1.2, h=1.0 } = {}) {
     const cb = new THREE.Mesh(new THREE.BoxGeometry(0.055, ph * 1.02, 0.055), metalM);
     cb.position.set(sx*(pw/2-0.027), 0.11 + ph/2, sz*(pd/2-0.027)); g.add(cb);
   });
-  // コイルのアイは前面(+Z)に — 軸=水平(Z)で梱包(他のコイルと向きを統一)
-  const eyeCy = 0.11 + ph * 0.52, eyeZ = pd/2 + 0.012;
-  g.add(new THREE.Mesh(new THREE.RingGeometry(coilR*0.26, coilR*0.56, 24), alumM).translateY(eyeCy).translateZ(eyeZ));
-  for (let r = coilR*0.32; r < coilR*0.55; r += 0.055) g.add(new THREE.Mesh(new THREE.TorusGeometry(r, 0.01, 4, 24), alumM).translateY(eyeCy).translateZ(eyeZ));
-  g.add(new THREE.Mesh(new THREE.CircleGeometry(coilR*0.26, 18), mat('#363639', 0.6)).translateY(eyeCy).translateZ(eyeZ - 0.004));
+  // コイルのアイは天面(上向き=Eye-to-Sky)に — 軸=鉛直で梱包
+  const eyeTopY = 0.11 + ph + 0.004;
+  const mkTop = (mesh) => { mesh.rotation.x = -Math.PI/2; mesh.position.set(0, eyeTopY, 0); return mesh; };
+  g.add(mkTop(new THREE.Mesh(new THREE.RingGeometry(coilR*0.26, coilR*0.56, 24), alumM)));
+  for (let r = coilR*0.32; r < coilR*0.55; r += 0.055) g.add(mkTop(new THREE.Mesh(new THREE.TorusGeometry(r, 0.01, 4, 24), alumM)));
+  { const hole = new THREE.Mesh(new THREE.CircleGeometry(coilR*0.26, 18), mat('#363639', 0.6)); hole.rotation.x = -Math.PI/2; hole.position.set(0, eyeTopY - 0.004, 0); g.add(hole); }
   // Steel strapping bands (2 bands at 1/3 and 2/3 height)
   [-0.2, 0.2].forEach(t => {
     const by = 0.11 + ph * (0.5 + t * 0.85);
@@ -4800,11 +4803,11 @@ function buildExportAlumCoil({ color='#c0a870', w=1.2, d=1.2, h=1.0 } = {}) {
     const bz = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.038, pd + 0.04), metalM);
     bz.position.set(pw/2, by, 0); g.add(bz);
   });
-  // 輸出ラベルは +X 側面へ(前面のアイと干渉しないよう, バンドの間に配置)
-  const lblX = pw/2 - 0.004, lblY = 0.11 + ph * 0.5;
-  g.add(new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.2, 0.28), mat('#f0eedc', 0.9)).translateX(lblX).translateY(lblY));
-  g.add(box(0.009, 0.03, 0.28, mat('#cc2020', 0.7), lblX, lblY + 0.07, 0));
-  g.add(box(0.009, 0.03, 0.28, mat('#2060cc', 0.7), lblX, lblY - 0.07, 0));
+  // 輸出ラベル(前面 +Z)
+  const lbl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.20, 0.008), mat('#f0eedc', 0.9));
+  lbl.position.set(0, 0.11 + ph * 0.5, pd/2 - 0.006); g.add(lbl);
+  g.add(box(0.28, 0.03, 0.009, mat('#cc2020', 0.7), 0, 0.11 + ph * 0.5 + 0.07, pd/2 - 0.005));
+  g.add(box(0.28, 0.03, 0.009, mat('#2060cc', 0.7), 0, 0.11 + ph * 0.5 - 0.07, pd/2 - 0.005));
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
@@ -7194,7 +7197,7 @@ const PRESETS = [
     room: { w: 28, d: 22 }, floorType: 'epoxy', wallType: 'concrete',
     walls: {
       south: [
-        { t:0.10, w:4.5, kind:'door' },
+        // t=0.10の搬入シャッターは撤去(SW制御室の真裏に当たり受付/ロッカーと干渉。搬入はt=0.40で確保)
         { t:0.40, w:4.5, kind:'door' },
         { t:0.78, w:1.2, kind:'door' },
       ],
@@ -7458,7 +7461,7 @@ const PRESETS = [
       P('whiteboard', -3.7, 0.0, 90),                          // 西壁 (窓t=0.3/0.7を避け中央へ)
       P('projscreen',  3.8,  0.0, 270),                        // 東壁スクリーン (西向き)
       P('projector',   0.8,  0.0, 90, '#2a2a2a'),              // テーブル上プロジェクター (東向き)
-      P('wallac',      0.0,  2.8, 180),                        // 南壁エアコン (北向き)
+      P('wallac',      2.5,  2.8, 180),                        // 北壁エアコン(室内向き) — 北扉(中央)を避け東寄りへ
       P('filingcab',  -3.6, -2.5, 0, '#7a8fa0'),
       P('filingcab',  -2.7, -2.5, 0, '#7a8fa0'),
       P('sansevieria', 3.5, -2.5),
@@ -7565,8 +7568,8 @@ const PRESETS = [
     desc: '12m×10mのダイニングレストラン。テーブル6卓・カウンター席・厨房エリアを配置。',
     room: { w: 12, d: 10 }, floorType: 'wood', wallType: 'cream',
     walls: {
-      // 客用入口は南(前面)。北壁は厨房の背面壁なので開口なし(窓のみ東西)
-      south: [{ t:0.5,  w:1.5, kind:'double_door' }],
+      // 厨房は南壁(z=-D, 背面)沿いに配置。客用入口は厨房と反対の北(前面・客席側)に置く。
+      north: [{ t:0.5,  w:1.5, kind:'double_door' }],   // 客用入口(厨房の反対側=北)
       east:  [{ t:0.25, w:1.2, kind:'window' }, { t:0.55, w:1.2, kind:'window' }, { t:0.82, w:1.2, kind:'window' }],
       west:  [{ t:0.25, w:1.2, kind:'window' }, { t:0.55, w:1.2, kind:'window' }, { t:0.82, w:1.2, kind:'window' }],
     },
@@ -7621,9 +7624,9 @@ const PRESETS = [
     desc: '10m×8mのおしゃれカフェ。バーカウンター・バースツール・小テーブルを配置。',
     room: { w: 10, d: 8 }, floorType: 'wood', wallType: 'cream',
     walls: {
-      // 客用入口(ガラス戸)は南(前面・客席側)。北壁はバックキッチンの背面なので窓のみ
-      north: [{ t:0.25, w:1.4, kind:'window' }, { t:0.75, w:1.4, kind:'window' }],
-      south: [{ t:0.5, w:1.4, kind:'glass_door' }],
+      // 厨房は南壁(z=-D, 背面)沿い。客用入口(ガラス戸)は厨房と反対の北(前面・客席側)に置く。
+      north: [{ t:0.25, w:1.4, kind:'window' }, { t:0.5, w:1.4, kind:'glass_door' }, { t:0.75, w:1.4, kind:'window' }],   // 中央が客用入口
+      south: [],
       east:  [{ t:0.35, w:1.2, kind:'window' }, { t:0.7, w:1.2, kind:'window' }],
       west:  [{ t:0.35, w:1.2, kind:'window' }, { t:0.7, w:1.2, kind:'window' }],
     },
@@ -7675,6 +7678,7 @@ const PRESETS = [
     walls: {
       north: [
         { t: 0.18, w: 1.8, kind: 'window' },
+        { t: 0.34, w: 2.2, kind: 'auto_door' },   // 正面入口(受付の隣・北窓の間)
         { t: 0.50, w: 1.8, kind: 'window' },
         { t: 0.82, w: 1.8, kind: 'window' },
       ],
@@ -7687,7 +7691,7 @@ const PRESETS = [
         { t: 0.70, w: 1.4, kind: 'window' },
       ],
       south: [
-        { t: 0.50, w: 2.2, kind: 'auto_door' },
+        // 入口は北(受付隣)へ移設。南壁はデスク列の背面なので窓のみ。
         { t: 0.15, w: 1.2, kind: 'window' },
         { t: 0.85, w: 1.2, kind: 'window' },
       ],
@@ -7962,7 +7966,7 @@ const PRESETS = [
       P('workbench', -4.5, 1.5, 0, '#5a6370'),
       P('workbench', -1.0, 1.5, 0, '#5a6370'),  // 東へ移動 — ドア前通路を確保
       P('toolrack',  -4.5, -4.6, 0, '#3a3f47'),  // 北壁沿い壁掛け (距離0.4m→閾値内)
-      P('toolrack',  -2.0, -4.6, 0, '#3a3f47'),
+      P('toolrack',   1.0, -4.6, 0, '#3a3f47'),  // 南壁の扉(t=0.39/0.72)を避け扉間へ
       P('toolcab',   -0.5, 1.6, 0, '#c0392b'),
       P('toolcab',    0.5, 1.6, 0, '#c0392b'),
       P('palletrack', 2.5, 3.5, 90),
@@ -8008,7 +8012,7 @@ const PRESETS = [
     walls: {
       north: [{ t:0.83, w:1.2, kind:'window' }],
       east:  [{ t:0.12, w:1.2, kind:'window' }, { t:0.4, w:1.2, kind:'window' }, { t:0.65, w:1.2, kind:'window' }, { t:0.85, w:1.2, kind:'window' }],
-      south: [{ t:0.15, w:1.0, kind:'door' }, { t:0.75, w:1.2, kind:'window' }],
+      south: [{ t:0.22, w:1.0, kind:'door' }, { t:0.75, w:1.2, kind:'window' }],   // 玄関扉: ユニットバス(西)とキッチンの間へ(バス背後/前を避ける)
       west:  [{ t:0.42, w:0.8, kind:'window' }, { t:0.68, w:0.8, kind:'window' }],  // t=0.12窓は撤去(ユニットバス壁面の裏に当たるため)
     },
     partitions: [
@@ -8107,7 +8111,7 @@ const PRESETS = [
       // 風船 & 飾り (天井から吊るすペンダント、壁のガーランド)
       P('balloon', 2.25, -2.2, 0, '#ff7d9c'),
       P('balloon', -2.25, -0.1, 0, '#9ad0ec'),
-      P('garland', 0.0, -2.46, 0),                     // 北壁ガーランド (ベッド上)
+      P('garland', -1.1, -2.46, 0),                    // ベッド頭上のガーランド — 南扉(中央)を避けベッド中央へ
       P('pendlamp', 0.3, 0.9, 0, '#f7a8c4'),
     ],
   },
@@ -8117,21 +8121,23 @@ const PRESETS = [
     desc: '9m×8mの標準的な教室。前方に黒板と教卓、学習机を5列×4行で整然と配置。廊下側(西)に前後2つの引き戸、窓側(東)に大きな窓を備えた小中学校の教室レイアウト。',
     room: { w: 9, d: 8 }, floorType: 'wood', wallType: 'cream',
     walls: {
-      north: [],   // 黒板の壁
-      south: [{ t: 0.85, w: 1.0, kind: 'window' }],  // 背面窓
+      // 什器レイアウトは前方=南(黒板/教卓)・背面=北(ロッカー/学級文庫)で一貫しているため、
+      // 開口もそれに合わせる: 南=黒板壁(無開口) / 北=背面窓 / 東=窓側 / 西=廊下側引き戸。
+      south: [],   // 黒板の壁(前方=南, 無開口)
+      north: [{ t: 0.5, w: 1.0, kind: 'window' }],   // 背面窓(生徒の背面=北, 学級文庫の間に配置)
       east:  [{ t: 0.25, w: 1.6, kind: 'window' }, { t: 0.55, w: 1.6, kind: 'window' }, { t: 0.85, w: 1.6, kind: 'window' }],  // 窓側
       west:  [{ t: 0.28, w: 1.0, kind: 'glass_door' }, { t: 0.75, w: 1.0, kind: 'glass_door' }],  // 廊下側 前後引き戸
     },
     partitions: [],
     items: [
-      // 前方 (北) — 黒板・教卓
+      // 前方 (南) — 黒板・教卓 (黒板は南壁=無開口に背を付け, 前面+Z=室内/生徒側を向く rotY=0)
       P('blackboard', 0, -3.97, 0, '#1f4a37'),
       P('wallclock', 3.7, -3.97, 0),
-      // 教卓: 机の前面(+Z/アクセス側=引き出しの反対の膝入れ)を北の教師側へ向ける(rotY=180)。
-      // 引き出し面は南=生徒側を向く。教師は机の北側に着座し南(生徒)を向く。
-      P('desk', 0, -2.8, 180, '#e8e2d6'),   // 教卓 (アクセス面=北/教師側, 引き出し=南/生徒側)
-      P('ochr', 0, -3.35, 0),               // 教師椅子: 机の北側・南向き(生徒に正対)
-      // 学習机 5列×4行 (机 rotY=0=アクセス面/本入れ=南 / 生徒椅子 南側・北向きで正対)
+      // 教卓: アクセス面(膝入れ+Z)はrotY=180で南=教師側へ向き, 引き出し面は北=生徒側。
+      // 教師は机の南側(黒板の手前)に着座し北=生徒側に正対する。
+      P('desk', 0, -2.8, 180, '#e8e2d6'),   // 教卓 (膝入れ=南/教師側, 引き出し=北/生徒側)
+      P('ochr', 0, -3.35, 0),               // 教師椅子: 机の南側・北向き(生徒に正対)
+      // 学習机 5列×4行 (机 rotY=0=本入れ/前面+Z=北=生徒側 / 生徒椅子 北側・南向きで黒板(南)に正対)
       P('schooldesk', -3.0, -1.4, 0), P('stackchr', -3.0, -0.9, 180),
       P('schooldesk', -1.5, -1.4, 0), P('stackchr', -1.5, -0.9, 180),
       P('schooldesk',  0.0, -1.4, 0), P('stackchr',  0.0, -0.9, 180),
@@ -8152,7 +8158,7 @@ const PRESETS = [
       P('schooldesk',  0.0,  2.2, 0), P('stackchr',  0.0,  2.7, 180),
       P('schooldesk',  1.5,  2.2, 0), P('stackchr',  1.5,  2.7, 180),
       P('schooldesk',  3.0,  2.2, 0), P('stackchr',  3.0,  2.7, 180),
-      // 背面 (南) — 清掃ロッカー・学級文庫
+      // 背面 (北) — 清掃ロッカー・学級文庫
       P('locker', -3.2, 3.6, 180, '#8a9a9e'),
       P('shelf',  -1.1, 3.65, 180, '#8a5a2b'),
       P('shelf',   1.1, 3.65, 180, '#8a5a2b'),
@@ -8168,7 +8174,7 @@ const PRESETS = [
     room: { w: 7, d: 5 }, floorType: 'carpet', wallType: 'cream',
     walls: {
       north: [],
-      south: [{ t: 0.18, w: 1.0, kind: 'door' }],   // 客室入口
+      south: [{ t: 0.31, w: 1.0, kind: 'door' }],   // 客室入口(ユニットバス東隣の入口通路, バス背後を避ける)
       east:  [{ t: 0.5, w: 2.2, kind: 'window' }],   // 眺望窓
       west:  [],
     },
