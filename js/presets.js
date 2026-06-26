@@ -213,7 +213,7 @@ const PRESETS = [
       west:  [{ t:0.2, w:1.2, kind:'window' }, { t:0.5, w:1.2, kind:'window' }, { t:0.8, w:1.2, kind:'window' }],
     },
     partitions: [
-      { x1: 2, z1: -5, x2: 2, z2: 1.0 },
+      { x1: 2, z1: -5, x2: 2, z2: 1.0, openings: [{ t: 0.58, w: 0.9, kind: 'glass_door' }] },  // 会議室への入口(z≈-1.5) — 旧構造は扉が無く出入り不能だった
       { x1: 2, z1: 1.0, x2: 2, z2: 2.0, openings: [{ t: 0.5, w: 0.9, kind: 'glass_door' }] },
       { x1: 2, z1: 2.0, x2: 2, z2: 5 },
       { x1: 2, z1: 1.0, x2: 7, z2: 1.0 },

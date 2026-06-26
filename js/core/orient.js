@@ -406,7 +406,94 @@ function validateLayout(preset, defsById) {
     }
   }
 
+  // --- 設計チェック(間取り): 出入りできない閉鎖空間がないか ---
+  // 外扉から扉/通路(passage開口)を辿るグリッド・フラッドフィルで, 到達不能な区画(扉のない部屋)を検出する。
+  checkEnclosed(preset, walls, add);
+
   return issues;
+}
+
+// 閉鎖空間(到達不能区画)検出: 室内をグリッド化し, 外扉から壁の開口(扉/通路)のみを通って到達できる範囲をBFS。
+// 到達できないまとまった領域(>=1.5m²)を「出入りできない部屋」として報告する。窓は通行不可(passage扱いしない)。
+function checkEnclosed(preset, walls, add) {
+  if (!preset.room) return;
+  const w = preset.room.w, d = preset.room.d, W = w / 2, D = d / 2;
+  const CELL = 0.2;
+  const nx = Math.max(1, Math.round(w / CELL)), nz = Math.max(1, Math.round(d / CELL));
+  const dx = w / nx, dz = d / nz;
+  const ccx = i => -W + (i + 0.5) * dx, ccz = j => -D + (j + 0.5) * dz;
+  const id = (i, j) => j * nx + i;
+  const wlen = ww => Math.hypot(ww.x2 - ww.x1, ww.z2 - ww.z1);
+  const passageAt = (ww, s) => {                  // s=0..1 沿い位置が通行開口の中か
+    const L = wlen(ww); if (L < 1e-6) return false;
+    for (const o of (ww.ops || [])) {
+      if (!isPassage(o.kind)) continue;
+      const t = o.t != null ? o.t : 0.5, half = (o.w || 0.9) / 2 / L;
+      if (Math.abs(s - t) <= half) return true;
+    }
+    return false;
+  };
+  const vW = [], hW = [];
+  for (const ww of walls) {
+    if (Math.abs(ww.x2 - ww.x1) < 1e-6 && Math.abs(ww.z2 - ww.z1) > 1e-6) vW.push(ww);
+    else if (Math.abs(ww.z2 - ww.z1) < 1e-6 && Math.abs(ww.x2 - ww.x1) > 1e-6) hW.push(ww);
+  }
+  const blockedH = (i, j) => {                      // セル(i,j)↔(i+1,j) を縦壁が塞ぐか
+    const xa = ccx(i), xb = ccx(i + 1), zc = ccz(j);
+    for (const ww of vW) {
+      const xw = ww.x1;
+      if (xw <= Math.min(xa, xb) || xw >= Math.max(xa, xb)) continue;
+      if (zc < Math.min(ww.z1, ww.z2) - 1e-9 || zc > Math.max(ww.z1, ww.z2) + 1e-9) continue;
+      if (!passageAt(ww, (zc - ww.z1) / (ww.z2 - ww.z1))) return true;
+    }
+    return false;
+  };
+  const blockedV = (i, j) => {                      // セル(i,j)↔(i,j+1) を横壁が塞ぐか
+    const za = ccz(j), zb = ccz(j + 1), xc = ccx(i);
+    for (const ww of hW) {
+      const zw = ww.z1;
+      if (zw <= Math.min(za, zb) || zw >= Math.max(za, zb)) continue;
+      if (xc < Math.min(ww.x1, ww.x2) - 1e-9 || xc > Math.max(ww.x1, ww.x2) + 1e-9) continue;
+      if (!passageAt(ww, (xc - ww.x1) / (ww.x2 - ww.x1))) return true;
+    }
+    return false;
+  };
+  const reached = new Uint8Array(nx * nz), q = [];
+  for (const ww of walls) {                         // 外周壁(間仕切り以外)の通行開口の内側をシード
+    if (ww.isPartition) continue;
+    for (const o of (ww.ops || [])) {
+      if (!isPassage(o.kind)) continue;
+      const t = o.t != null ? o.t : 0.5;
+      const ocx = ww.x1 + t * (ww.x2 - ww.x1), ocz = ww.z1 + t * (ww.z2 - ww.z1);
+      const isVert = Math.abs(ww.x2 - ww.x1) < 1e-6;
+      const px = ocx + (isVert ? (ocx < 0 ? 1 : -1) : 0) * CELL * 1.5;
+      const pz = ocz + (isVert ? 0 : (ocz < 0 ? 1 : -1)) * CELL * 1.5;
+      const i = Math.floor((px + W) / dx), j = Math.floor((pz + D) / dz);
+      if (i >= 0 && i < nx && j >= 0 && j < nz && !reached[id(i, j)]) { reached[id(i, j)] = 1; q.push(i + j * nx); }
+    }
+  }
+  if (!q.length) return;                            // 外扉が無い → 判定保留
+  while (q.length) {
+    const c = q.pop(), i = c % nx, j = (c - i) / nx;
+    if (i + 1 < nx && !reached[id(i + 1, j)] && !blockedH(i, j)) { reached[id(i + 1, j)] = 1; q.push(c + 1); }
+    if (i - 1 >= 0 && !reached[id(i - 1, j)] && !blockedH(i - 1, j)) { reached[id(i - 1, j)] = 1; q.push(c - 1); }
+    if (j + 1 < nz && !reached[id(i, j + 1)] && !blockedV(i, j)) { reached[id(i, j + 1)] = 1; q.push(c + nx); }
+    if (j - 1 >= 0 && !reached[id(i, j - 1)] && !blockedV(i, j - 1)) { reached[id(i, j - 1)] = 1; q.push(c - nx); }
+  }
+  const visited = new Uint8Array(nx * nz), cellA = dx * dz;
+  for (let j0 = 0; j0 < nz; j0++) for (let i0 = 0; i0 < nx; i0++) {
+    if (reached[id(i0, j0)] || visited[id(i0, j0)]) continue;
+    let cnt = 0, sx = 0, sz = 0; const qq = [[i0, j0]]; visited[id(i0, j0)] = 1;
+    while (qq.length) {
+      const [a, b] = qq.pop(); cnt++; sx += ccx(a); sz += ccz(b);
+      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (reached[id(na, nb)] || visited[id(na, nb)] || bl) return; visited[id(na, nb)] = 1; qq.push([na, nb]); };
+      tryC(a + 1, b, blockedH(a, b)); tryC(a - 1, b, blockedH(a - 1, b));
+      tryC(a, b + 1, blockedV(a, b)); tryC(a, b - 1, blockedV(a, b - 1));
+    }
+    const area = cnt * cellA;
+    if (area >= 1.5) add('error', -1, 'room',
+      `閉鎖空間(出入りできない区画 約${area.toFixed(0)}m², 中心≈(${(sx / cnt).toFixed(1)}, ${(sz / cnt).toFixed(1)}))がある — 扉/通路を設けて到達可能にする`);
+  }
 }
 
 function validateAllPresets(presets, defs) {
