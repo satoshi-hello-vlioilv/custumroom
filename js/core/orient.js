@@ -409,7 +409,7 @@ function validateLayout(preset, defsById) {
   // --- 設計チェック(間取り): 出入りできない閉鎖空間がないか ---
   // 外扉から扉/通路(passage開口)を辿るグリッド・フラッドフィルで, 到達不能な区画(扉のない部屋)を検出する。
   checkEnclosed(preset, walls, add);
-  checkRedundantDoors(preset, walls, add);
+  checkPointlessDoors(preset, walls, add);
 
   return issues;
 }
@@ -498,10 +498,11 @@ function checkEnclosed(preset, walls, add) {
   }
 }
 
-// 意味のない扉(冗長な扉)検出: 全扉を閉じた状態で各区画をラベリングし「部屋グラフ」を作る。
-// ある間仕切り扉を外しても両側の部屋が他経路で行き来でき(=非ブリッジ), かつ両側とも非メイン(個室)なら,
-// その扉は不要。例: それぞれ共用部への出入口を持つ2つの個室を直結する内扉。
-function checkRedundantDoors(preset, walls, add) {
+// 意味のない扉(部分的にしか仕切らない壁の扉)検出: 全扉を閉じた状態で各区画をラベリングし,
+// ある扉の両側が「同じ区画」に属するなら, その壁は空間を分けておらず(壁の端などから回り込める)扉に意味がない。
+// 冗長性(2つ目の出入口)は対象外 — 両側が別区画なら壁は実際に空間を分けており, 扉は有意。
+// 例外: 防火シャッター等の大型開口の脇で通用口の役割を持つ扉 → 同じ壁にシャッター開口があれば除外。
+function checkPointlessDoors(preset, walls, add) {
   if (!preset.room) return;
   const w = preset.room.w, d = preset.room.d, W = w / 2, D = d / 2, CELL = 0.2;
   const nx = Math.max(1, Math.round(w / CELL)), nz = Math.max(1, Math.round(d / CELL));
@@ -533,22 +534,19 @@ function checkRedundantDoors(preset, walls, add) {
   };
   // 区画ラベリング (全扉閉)
   const lab = new Int32Array(nx * nz).fill(-1);
-  let nLab = 0; const areaOf = [];
+  let nLab = 0;
   for (let j0 = 0; j0 < nz; j0++) for (let i0 = 0; i0 < nx; i0++) {
     if (lab[id(i0, j0)] >= 0) continue;
-    const L = nLab++; let cnt = 0; const q = [[i0, j0]]; lab[id(i0, j0)] = L;
+    const L = nLab++; const q = [[i0, j0]]; lab[id(i0, j0)] = L;
     while (q.length) {
-      const [a, b] = q.pop(); cnt++;
+      const [a, b] = q.pop();
       const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (lab[id(na, nb)] >= 0 || bl) return; lab[id(na, nb)] = L; q.push([na, nb]); };
       tryC(a + 1, b, blkH(a, b)); tryC(a - 1, b, blkH(a - 1, b));
       tryC(a, b + 1, blkV(a, b)); tryC(a, b - 1, blkV(a, b - 1));
     }
-    areaOf[L] = cnt;
   }
-  let mainLab = 0; for (let L = 1; L < nLab; L++) if (areaOf[L] > areaOf[mainLab]) mainLab = L;  // メイン=最大面積(共用部)
-  // 扉エッジ収集: 各 passage 開口の両側セルのラベル
   const cellAt = (x, z) => { const i = Math.floor((x + W) / dx), j = Math.floor((z + D) / dz); return (i >= 0 && i < nx && j >= 0 && j < nz) ? lab[id(i, j)] : -1; };
-  const doors = [];
+  const hasShutter = ww => (ww.ops || []).some(o => /shutter|gate|roller/.test(String(o.kind || '')));
   for (const ww of walls) {
     const isVert = Math.abs(ww.x2 - ww.x1) < 1e-6;
     for (const o of (ww.ops || [])) {
@@ -557,25 +555,13 @@ function checkRedundantDoors(preset, walls, add) {
       const ox = ww.x1 + t * (ww.x2 - ww.x1), oz = ww.z1 + t * (ww.z2 - ww.z1);
       const a = isVert ? cellAt(ox - CELL * 1.5, oz) : cellAt(ox, oz - CELL * 1.5);
       const b = isVert ? cellAt(ox + CELL * 1.5, oz) : cellAt(ox, oz + CELL * 1.5);
-      doors.push({ kind: o.kind || 'door', x: ox, z: oz, a, b });
+      if (a < 0 || b < 0) continue;        // 外周(室外側)の扉 — 外への出入口は有意
+      if (a !== b) continue;               // 両側が別区画 = 壁が空間を実際に分けている → 有意
+      if (hasShutter(ww)) continue;        // 防火シャッター等の脇の通用口は役割あり
+      if (o.kind === 'fusuma' || o.kind === 'shoji') continue;  // 襖/障子は引き戸式の柔軟な間仕切り(続き間)。端が開いていても緩やかに空間を分ける伝統建具で別扱い
+      add('warn', -1, 'door',
+        `意味のない扉(${o.kind || 'door'})が部分的にしか仕切らない壁にある — 壁の端などから回り込めて空間を分けていない (位置≈(${ox.toFixed(1)}, ${oz.toFixed(1)}))`);
     }
-  }
-  // この扉以外のエッジだけで a,b が連結なら冗長 (非ブリッジ) — 両側が個室なら意味なし
-  for (let k = 0; k < doors.length; k++) {
-    const dk = doors[k];
-    if (dk.a < 0 || dk.b < 0 || dk.a === dk.b) continue;       // 同一区画 / 室外側は対象外
-    if (dk.a === mainLab || dk.b === mainLab) continue;        // メイン(共用部)への接続は正当
-    const adj = new Map();
-    const link = (u, v) => { if (!adj.has(u)) adj.set(u, []); adj.get(u).push(v); };
-    for (let m = 0; m < doors.length; m++) {
-      if (m === k) continue; const dm = doors[m];
-      if (dm.a < 0 || dm.b < 0 || dm.a === dm.b) continue;
-      link(dm.a, dm.b); link(dm.b, dm.a);
-    }
-    const seen = new Set([dk.a]); const qq = [dk.a]; let reach = false;
-    while (qq.length) { const u = qq.pop(); if (u === dk.b) { reach = true; break; } for (const v of (adj.get(u) || [])) if (!seen.has(v)) { seen.add(v); qq.push(v); } }
-    if (reach) add('warn', -1, 'door',
-      `意味のない扉(${dk.kind})が間仕切りにある — 両側の個室がそれぞれ別に出入口を持ち, この扉が無くても行き来できる (位置≈(${dk.x.toFixed(1)}, ${dk.z.toFixed(1)}))`);
   }
 }
 
