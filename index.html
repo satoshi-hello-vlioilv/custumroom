@@ -33,7 +33,7 @@
     <a class="toolbar-brand" href="#">
       <div class="brand-icon"><i class="fa-solid fa-couch"></i></div>
       <div>
-        <span>ルームプランナー</span>
+        <span>ルームプランナー <span class="brand-version" id="app-version" data-tip="バージョン"></span></span>
         <span class="brand-sub">3D Room Planner</span>
       </div>
     </a>
@@ -382,6 +382,12 @@ function shade(hex, f) {
   const c = new THREE.Color(hex);
   return '#' + new THREE.Color(clamp(c.r*f,0,1), clamp(c.g*f,0,1), clamp(c.b*f,0,1)).getHexString();
 }
+
+// ===== js/core/version.js =====
+// アプリのバージョン番号。リリースのたびに更新し, CHANGELOG.md に対応するエントリを追記する。
+// セマンティックバージョニング(MAJOR.MINOR.PATCH): 破壊的変更/大規模刷新=MAJOR, 機能追加=MINOR, 修正=PATCH
+const APP_VERSION = '1.0.0';
+
 
 // ===== js/core/orient.js =====
 // ============================================================================
@@ -10932,6 +10938,8 @@ function scheduleAutoSave() {
 // ============================================================ BOOT
 async function boot() {
   if (typeof WebGLRenderingContext === 'undefined') { document.getElementById('no-webgl').classList.add('show'); document.getElementById('app').style.display = 'none'; return; }
+  const verEl = document.getElementById('app-version');
+  if (verEl) verEl.textContent = 'v' + APP_VERSION;
   roomPlan = rectToPlan(6, 6, [], 'wood');
   buildRoom(); initUI(); updateHistoryButtons(); handleResize(); animate();
   await openIDB();

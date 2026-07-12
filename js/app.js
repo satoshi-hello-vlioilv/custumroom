@@ -7,6 +7,7 @@ import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricM
 import { FURNITURE_DEFS } from './catalog.js';
 import { P, PRESETS } from './presets.js';
 import { validateAllPresets } from './core/orient.js';
+import { APP_VERSION } from './core/version.js';
 
 
 // Graceful degradation: verify WebGL before constructing the renderer
@@ -2412,6 +2413,8 @@ function scheduleAutoSave() {
 // ============================================================ BOOT
 async function boot() {
   if (typeof WebGLRenderingContext === 'undefined') { document.getElementById('no-webgl').classList.add('show'); document.getElementById('app').style.display = 'none'; return; }
+  const verEl = document.getElementById('app-version');
+  if (verEl) verEl.textContent = 'v' + APP_VERSION;
   roomPlan = rectToPlan(6, 6, [], 'wood');
   buildRoom(); initUI(); updateHistoryButtons(); handleResize(); animate();
   await openIDB();

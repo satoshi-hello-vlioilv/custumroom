@@ -101,6 +101,12 @@ body {
   font-size: 10px; font-weight: 400; color: var(--text-muted);
   display: block; line-height: 1;
 }
+.toolbar-brand .brand-version {
+  font-size: 10px; font-weight: 600; color: var(--accent-dark);
+  background: var(--accent-light); border-radius: 999px;
+  padding: 2px 7px; margin-left: 2px; letter-spacing: 0;
+  vertical-align: middle;
+}
 .toolbar-divider { width: 1px; height: 30px; background: var(--border); flex-shrink: 0; }
 .toolbar-center { display: flex; align-items: center; gap: var(--sp-3); flex: 1; justify-content: center; flex-wrap: nowrap; }
 .toolbar-actions { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; margin-left: auto; }
