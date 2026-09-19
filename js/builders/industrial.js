@@ -4,14 +4,16 @@ import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricM
 import { makeWoodTexture, makeWallTexture, makeNoiseTexture, makeRugTexture, makeConcreteTexture, makeTileTexture, makeMarbleTexture, makeCarpetTexture, makeTatamiTexture, makeBrickTexture, makePanelTexture, makeGenkanTexture, makeDirtTexture, makeGrassTexture, makeLawnTexture, makeParquetTexture, makeDarkWoodTexture, makeRubberTexture, makeCheckerPlateTexture, makeEpoxyTexture, makeTerracottaTexture, makeStoneTexture, woodTex, concreteTex, wallTexSrc, noiseTex, tileTex, marbleTex, carpetTex, tatamiTex, brickTex, panelTex, genkanTex, dirtTex, grassTex, lawnTex, parquetTex, darkWoodTex, rubberTex, checkerTex, epoxyTex, terracottaTex, stoneTex, FLOOR_TYPES, WALL_TYPES } from '../core/textures.js';
 import { buildPerson } from './kawaii.js';
 
-function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.9 } = {}) {
+// TRUSCO 軽量作業台 AE型 (W1500×D750×H740, 均等荷重300kg): 角パイプ脚(緑)・ポリ化粧天板・下棚。万力は表現用の付属品。
+function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.74 } = {}) {
   const g = new THREE.Group();
-  const steel = mat('#5a6474', 0.28, 0.72);
+  const steel = mat('#4e8d69', 0.45, 0.35);   // TRUSCO グリーン塗装フレーム
   const darkM = mat('#3a4252', 0.32, 0.65);
 
-  // Thick steel work surface
-  const top = box(w, 0.07, d, mat(color, 0.35, 0.5), 0, h - 0.035, 0);
+  // ポリ化粧天板 (厚さ約30mm) — 色変更対象
+  const top = box(w, 0.03, d, mat(color, 0.5, 0.05), 0, h - 0.015, 0);
   top.userData.colorable = true; g.add(top);
+  g.add(box(w, 0.04, d, mat('#3f4a44', 0.6, 0.2), 0, h - 0.05, 0));   // 天板下の受け枠
 
   // 4 square-tube legs with leveling feet
   const lx = w / 2 - 0.06, lz = d / 2 - 0.06;
@@ -34,21 +36,8 @@ function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.9 } = {}) {
   g.add(box(0.05, 0.05, d - 0.12, steel, -lx, sY, 0));
   g.add(box(0.05, 0.05, d - 0.12, steel,  lx, sY, 0));
 
-  // Lower shelf
-  g.add(box(w - 0.16, 0.04, d - 0.16, mat(shade(color, 0.72), 0.55, 0.35), 0, sY + 0.045, 0));
-
-  // Back pegboard panel
-  const pbH = 0.62, pbZ = d / 2 - 0.011;
-  const pbY = h + pbH / 2 - 0.02;
-  g.add(box(w - 0.1, pbH, 0.022, mat('#8a9aaa', 0.65, 0.15), 0, pbY, pbZ));
-  for (let px = -(w / 2 - 0.16); px <= (w / 2 - 0.16); px += 0.095) {
-    for (let py = h + 0.06; py <= h + pbH - 0.09; py += 0.095) {
-      g.add(box(0.018, 0.018, 0.009, mat('#2a3038', 0.9, 0), px, py, pbZ + 0.012));
-    }
-  }
-  [-0.45, -0.15, 0.18, 0.42].forEach((px, i) => {
-    g.add(box(0.014, 0.038, 0.09, mat('#b8c0ca', 0.22, 0.88), px, h + 0.1 + i * 0.09, pbZ + 0.055));
-  });
+  // 下棚 (AE型付属の中棚)
+  g.add(box(w - 0.16, 0.02, d - 0.16, mat('#4e8d69', 0.5, 0.3), 0, sY + 0.035, 0));
 
   // Machinist bench vise (front-left corner)
   const vx = -w / 2 + 0.22, vz = -d / 2 + 0.01;
@@ -70,7 +59,8 @@ function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.9 } = {}) {
   return g;
 }
 
-function buildToolCabinet({ color='#d4690a', w=0.7, d=0.45, h=1.12 } = {}) {
+// KTC ローラーキャビネット SKX3805 (W680×D460×H975): 5段引出し(浅3+深2)・キャスター・側面ハンドル
+function buildToolCabinet({ color='#c8102e', w=0.68, d=0.46, h=0.975 } = {}) {
   const g = new THREE.Group();
   const darkM = mat('#28303a', 0.32, 0.72);
   const chrM  = mat('#b0bac8', 0.14, 0.88);
@@ -104,30 +94,40 @@ function buildToolCabinet({ color='#d4690a', w=0.7, d=0.45, h=1.12 } = {}) {
   // Top rubber mat
   g.add(box(w - 0.04, 0.026, d - 0.04, mat('#1a1e26', 0.88, 0.04), 0, bodyBase + bodyH + 0.013, 0));
 
-  // 7 drawers with recessed panels and bar handles
-  const numDr = 7;
-  const drH = (bodyH - 0.06) / numDr;
+  // 5 drawers (KTC: shallow ×3 on top, deep ×2 below) with recessed panels and bar handles
+  const weights = [0.8, 0.8, 1.0, 1.45, 1.95];
+  const sumW = weights.reduce((a, b) => a + b, 0);
+  const drArea = bodyH - 0.06;
   const drGap = 0.011;
-  for (let i = 0; i < numDr; i++) {
-    const dy = bodyBase + 0.03 + drH * (i + 0.5);
+  let dy0 = bodyBase + 0.03;
+  weights.forEach(wt => {
+    const drH = drArea * wt / sumW;
+    const dy = dy0 + drH / 2; dy0 += drH;
     const drFront = box(w - 0.04, drH - drGap, 0.03, mat(shade(color, 1.06), 0.38, 0.52), 0, dy, d / 2 + 0.001);
     drFront.userData.colorable = true; g.add(drFront);
     // Recessed inset
     g.add(box(w - 0.1, drH - drGap - 0.03, 0.01, mat(shade(color, 0.84), 0.44, 0.48), 0, dy, d / 2 + 0.008));
-    // Bar handle
+    // Bar handle (full-width aluminium pull, KTC style)
     const bar = cyl(0.007, 0.007, w - 0.22, 10, chrM);
-    bar.rotation.z = Math.PI / 2; bar.position.set(0, dy, d / 2 + 0.03); g.add(bar);
+    bar.rotation.z = Math.PI / 2; bar.position.set(0, dy + drH * 0.28, d / 2 + 0.03); g.add(bar);
     // Handle bracket posts + end knobs
     [-(w / 2 - 0.15), (w / 2 - 0.15)].forEach(hx => {
-      g.add(box(0.01, 0.016, 0.022, chrM, hx, dy, d / 2 + 0.021));
+      g.add(box(0.01, 0.016, 0.022, chrM, hx, dy + drH * 0.28, d / 2 + 0.021));
       const knb = cyl(0.011, 0.011, 0.01, 8, chrM);
-      knb.rotation.z = Math.PI / 2; knb.position.set(hx, dy, d / 2 + 0.031); g.add(knb);
+      knb.rotation.z = Math.PI / 2; knb.position.set(hx, dy + drH * 0.28, d / 2 + 0.031); g.add(knb);
     });
-  }
+  });
 
-  // Vertical lock bar (right side)
-  g.add(box(0.015, bodyH - 0.06, 0.015, chrM, w / 2 - 0.015, bCY, d / 2 + 0.008));
-  g.add(box(0.022, 0.036, 0.022, darkM, w / 2 - 0.015, bodyBase + bodyH * 0.52, d / 2 + 0.018));
+  // Central key lock (top rail)
+  g.add(cylAt(0.012, 0.012, 0.01, 10, chrM, 0, bodyBase + bodyH - 0.02, d / 2 + 0.005).rotateX(Math.PI / 2));
+
+  // Side push handle (right side, tubular)
+  const hy = bodyBase + bodyH - 0.06;
+  const hbar = cyl(0.012, 0.012, d * 0.7, 10, chrM); hbar.rotation.x = Math.PI / 2; hbar.position.set(w / 2 + 0.045, hy, 0); g.add(hbar);
+  [-d * 0.3, d * 0.3].forEach(hz => { const post = cyl(0.01, 0.01, 0.05, 8, chrM); post.rotation.z = Math.PI / 2; post.position.set(w / 2 + 0.022, hy, hz); g.add(post); });
+
+  // Nameplate (front top rail)
+  g.add(box(0.12, 0.022, 0.004, mat('#f0eee8', 0.6), -w / 2 + 0.12, bodyBase + bodyH - 0.02, d / 2 + 0.004));
 
   return g;
 }
@@ -401,32 +401,72 @@ function buildPalletRack({ color='#e06010', w=1.7, d=0.5, h=2.46 } = {}) {
   return g;
 }
 
-function buildControlPanel(color) {
+// 日東工業 自立制御盤キャビネット E-A (W800×D500×H1800 相当): 基台100mm・片開き扉・表示灯・HMI・押ボタン・非常停止
+function buildControlPanel({ color='#e8e2d6', w=0.8, d=0.5, h=1.8 } = {}) {
   const g = new THREE.Group();
-  const cabinet = box(0.8, 1.8, 0.45, mat(color, 0.4, 0.3), 0, 0.9, 0); cabinet.userData.colorable = true; g.add(cabinet);
-  const top = box(0.82, 0.06, 0.47, mat('#222', 0.5, 0.3), 0, 1.83, 0); g.add(top);
-  const door = box(0.68, 1.5, 0.02, mat('#d4dae0', 0.3, 0.4), 0, 0.85, 0.235); g.add(door);
-  // indicators
-  const colors = ['#22c55e','#22c55e','#f59e0b','#ef4444','#3b82f6'];
-  colors.forEach((cl, i) => {
-    const ind = cyl(0.022, 0.022, 0.04, 8, mat(cl, 0.3, 0.2));
-    ind.rotation.z = Math.PI/2; ind.position.set(0.25 - i*0.1, 1.35, 0.248); g.add(ind);
+  const bodyM = mat(color, 0.45, 0.25, { env: 0.4 });
+  const doorM = mat(shade(color, 1.03), 0.42, 0.25, { env: 0.4 });
+  const darkM = mat('#2a2d31', 0.5, 0.3);
+  const chrM  = mat('#b8bec6', 0.25, 0.8, { env: 0.9 });
+  const baseH = 0.1;                         // チャンネルベース(基台) 100mm
+  const capH  = 0.02;
+  const bodyH = h - baseH - capH;
+  const bodyCY = baseH + bodyH / 2;
+  const fz = d / 2;
+
+  // 基台 (黒, 少し内側に引っ込む)
+  g.add(box(w - 0.04, baseH, d - 0.04, darkM, 0, baseH / 2, 0));
+  // 本体箱 + 天板 (雨水よけの縁付き)
+  const body = box(w, bodyH, d, bodyM, 0, bodyCY, 0); body.userData.colorable = true; g.add(body);
+  const cap = box(w + 0.02, capH, d + 0.02, mat(shade(color, 0.85), 0.45, 0.25), 0, h - capH / 2, 0); cap.userData.colorable = true; g.add(cap);
+  // 吊り用アイボルト
+  [-w / 2 + 0.08, w / 2 - 0.08].forEach(x => { const eb = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.006, 6, 12), chrM); eb.position.set(x, h + 0.02, 0); g.add(eb); });
+
+  // 前面 片開き扉 (右ハンドル / 左ヒンジ)
+  const door = box(w - 0.06, bodyH - 0.06, 0.02, doorM, 0, bodyCY, fz + 0.005); door.userData.colorable = true; g.add(door);
+  g.add(box(0.03, 0.16, 0.02, chrM, w / 2 - 0.09, bodyCY, fz + 0.026));                       // 平面ハンドル
+  g.add(box(0.045, 0.045, 0.03, darkM, w / 2 - 0.09, bodyCY + 0.13, fz + 0.02));              // 錠
+  [0.15, 0.5, 0.85].forEach(t => { const hg = cyl(0.011, 0.011, 0.08, 8, chrM); hg.position.set(-w / 2 + 0.012, baseH + bodyH * t, fz + 0.012); g.add(hg); }); // ヒンジ
+
+  // 表示灯 (電源=緑 / 運転=橙 / 異常=赤)
+  const lampY = h - 0.32;
+  [['#22c55e', -0.16], ['#f59e0b', -0.05], ['#ef4444', 0.06]].forEach(([c, dx]) => {
+    const lm = mat(c, 0.3, 0.1); lm.emissive = new THREE.Color(c); lm.emissiveIntensity = 0.55;
+    const ind = cyl(0.016, 0.016, 0.03, 10, lm); ind.rotation.x = Math.PI / 2; ind.position.set(dx, lampY, fz + 0.03); g.add(ind);
+    const ring = cyl(0.021, 0.021, 0.012, 10, darkM); ring.rotation.x = Math.PI / 2; ring.position.set(dx, lampY, fz + 0.02); g.add(ring);
   });
-  // switches
+  // 電力計 (アナログメーター)
+  g.add(box(0.09, 0.09, 0.02, darkM, 0.22, lampY, fz + 0.02));
+  g.add(plainBox(0.07, 0.07, 0.006, mat('#f2f0ea', 0.6), 0.22, lampY, fz + 0.033));
+  g.add(box(0.003, 0.03, 0.004, mat('#c0392b', 0.5), 0.225, lampY + 0.008, fz + 0.037));
+
+  // HMI タッチパネル
+  const hmiY = h - 0.62;
+  g.add(box(0.30, 0.22, 0.02, darkM, -0.05, hmiY, fz + 0.02));
+  const scrM = new THREE.MeshStandardMaterial({ color: 0x0c1a26, roughness: 0.25, metalness: 0.1, emissive: new THREE.Color('#1a4a6a'), emissiveIntensity: 0.5 });
+  g.add(plainBox(0.26, 0.17, 0.006, scrM, -0.05, hmiY, fz + 0.033));
+  // 押ボタン (運転/停止/リセット ×2列) + セレクタ
   for (let i = 0; i < 6; i++) {
-    const sw = box(0.04, 0.08, 0.03, mat('#555', 0.5, 0.3), -0.25 + (i%3)*0.24, 0.9 + Math.floor(i/3)*0.18, 0.248); g.add(sw);
+    const bx = -0.22 + (i % 3) * 0.1, by = h - 0.92 - Math.floor(i / 3) * 0.1;
+    const c = ['#22c55e', '#ef4444', '#2b2b2b'][i % 3];
+    const ring = cyl(0.02, 0.02, 0.012, 12, darkM); ring.rotation.x = Math.PI / 2; ring.position.set(bx, by, fz + 0.02); g.add(ring);
+    const btn = cyl(0.014, 0.014, 0.022, 12, mat(c, 0.4, 0.1)); btn.rotation.x = Math.PI / 2; btn.position.set(bx, by, fz + 0.032); g.add(btn);
   }
-  // display screen
-  const screen = box(0.5, 0.26, 0.015, mat('#001a1a', 0.9, 0.1), 0, 1.1, 0.24);
-  g.add(screen);
-  // base
-  const base = box(0.82, 0.06, 0.47, mat('#222', 0.5, 0.2), 0, 0.03, 0); g.add(base);
+  // 非常停止 (黄色台座 + 赤キノコ)
+  g.add(box(0.08, 0.08, 0.012, mat('#f2c200', 0.5, 0.1), 0.2, h - 0.97, fz + 0.02));
+  const es = cyl(0.024, 0.02, 0.03, 14, mat('#ef4444', 0.4, 0.1)); es.rotation.x = Math.PI / 2; es.position.set(0.2, h - 0.97, fz + 0.04); g.add(es);
+  // 銘板
+  g.add(box(0.14, 0.05, 0.004, mat('#d8d4c8', 0.6), 0, baseH + bodyH - 0.08, fz + 0.027));
+  // 側面ルーバー (放熱)
+  for (let i = 0; i < 6; i++) g.add(box(0.006, 0.01, 0.16, darkM, w / 2 + 0.001, baseH + 0.25 + i * 0.03, -d * 0.15));
   return g;
 }
 
-function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) {
+// ブラザー SPEEDIO S500Xd1 (W1560×D2223×H2498) を基準にしたコンパクト立形マシニングセンタ。
+// 左右キャビネット幅・操作盤・工具マガジンは w に比例して収まるよう配置する。
+function buildCNCMachiningCenter({ color='#e8e2d6', w=1.56, d=2.223, h=2.498 } = {}) {
   const g = new THREE.Group();
-  // ---- materials (off-white sheet-metal body + charcoal base, per VC-850 reference) ----
+  // ---- materials (off-white sheet-metal body + charcoal base) ----
   const cream  = mat(color, 0.5, 0.06, { env: 0.3 });               // body panels (colorable)
   const creamD = mat(shade(color, 0.9), 0.5, 0.06);                 // shaded panel insets
   const charc  = mat('#34383c', 0.6, 0.2);                          // base plinth
@@ -441,9 +481,9 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   const screenMat = new THREE.MeshStandardMaterial({ color: 0x0c1620, roughness: 0.2, metalness: 0.1, emissive: new THREE.Color('#0a1e2c'), emissiveIntensity: 0.4 });
 
   // ---- key layout dimensions ----
-  const baseH = 0.78, encTop = 2.0;
+  const baseH = 0.78, encTop = h - 0.5;
   const encH = encTop - baseH, encY = baseH + encH / 2;             // cream cabinet band
-  const leftW = 1.0, rightW = 1.1;
+  const leftW = w * 0.32, rightW = w * 0.37;                        // 1.56m 機で 0.50 / 0.58
   const leftX = -w/2 + leftW/2, rightX = w/2 - rightW/2;
   const openL = -w/2 + leftW, openR = w/2 - rightW;                 // central work opening
   const openW = openR - openL, openCx = (openL + openR) / 2;
@@ -463,23 +503,25 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   g.add(box(w, 0.05, 0.01, yellow, 0, baseH + 0.03, fz + 0.006));  // warning stripe at base of cabinets
 
   // ---- left enclosure front detail: nameplate, window, warning labels, handle ----
-  // nameplate (VC-850) via canvas texture
+  // nameplate (SPEEDIO S500Xd1) via canvas texture
   const nameCv = document.createElement('canvas'); nameCv.width = 384; nameCv.height = 128;
   const nctx = nameCv.getContext('2d');
   nctx.fillStyle = '#e8e2d6'; nctx.fillRect(0,0,384,128);
-  nctx.fillStyle = '#1c1c1c'; nctx.font = 'bold 76px Arial'; nctx.fillText('VC-850', 14, 70);
-  nctx.font = 'bold 26px Arial'; nctx.fillStyle = '#3a3a3a'; nctx.fillText('CNC MACHINING CENTER', 16, 108);
+  nctx.fillStyle = '#1c1c1c'; nctx.font = 'bold 70px Arial'; nctx.fillText('SPEEDIO', 14, 70);
+  nctx.font = 'bold 24px Arial'; nctx.fillStyle = '#3a3a3a'; nctx.fillText('S500Xd1  MACHINING CENTER', 16, 108);
   const nameTex = new THREE.CanvasTexture(nameCv); nameTex.anisotropy = 4;
-  const namePlane = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.24), new THREE.MeshBasicMaterial({ map: nameTex }));
-  namePlane.position.set(leftX - 0.1, encY + 0.40, fz + 0.012); g.add(namePlane);
+  const npW = Math.min(0.72, leftW * 0.9);
+  const namePlane = new THREE.Mesh(new THREE.PlaneGeometry(npW, npW / 3), new THREE.MeshBasicMaterial({ map: nameTex }));
+  namePlane.position.set(leftX, encY + 0.40, fz + 0.012); g.add(namePlane);
   // viewing window (dark frame + glass)
-  g.add(box(0.36, 0.30, 0.03, dark, leftX - 0.2, encY + 0.02, fz + 0.006));
-  const lwin = plainBox(0.30, 0.24, 0.01, glass, leftX - 0.2, encY + 0.02, fz + 0.02);
+  const winW = Math.min(0.36, leftW * 0.72);
+  g.add(box(winW, 0.30, 0.03, dark, leftX, encY + 0.05, fz + 0.006));
+  const lwin = plainBox(winW - 0.06, 0.24, 0.01, glass, leftX, encY + 0.05, fz + 0.02);
   lwin.castShadow = false; g.add(lwin);
-  // warning label cluster (orange stickers with header bar)
-  [0.16, -0.02, -0.20].forEach((ly, i) => {
-    g.add(box(0.16, 0.14, 0.008, mat('#f0f0ea',0.6), leftX + 0.32, encY + ly, fz + 0.006));
-    g.add(box(0.16, 0.03, 0.009, mat('#e08a10',0.5), leftX + 0.32, encY + ly + 0.055, fz + 0.007));
+  // warning label cluster (orange stickers with header bar), below the window
+  [-0.1, 0.1].forEach((lx, i) => {
+    g.add(box(0.16, 0.14, 0.008, mat('#f0f0ea',0.6), leftX + lx, encY - 0.30, fz + 0.006));
+    g.add(box(0.16, 0.03, 0.009, mat(i ? '#e08a10' : '#d83a3a',0.5), leftX + lx, encY - 0.30 + 0.055, fz + 0.007));
   });
 
   // ---- door handles (black vertical tubes) ----
@@ -501,17 +543,17 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   g.add(box(tblW, 0.1, tblD, steel, openCx, tableY, 0.04));                       // table top
   for (let tx = -tblW/2 + 0.09; tx < tblW/2 - 0.02; tx += 0.13)
     g.add(box(0.022, 0.045, tblD - 0.04, dark, openCx + tx, tableY + 0.055, 0.04)); // T-slots
-  // machine vise on the table
-  const viseY = tableY + 0.05;
-  g.add(box(0.46, 0.13, 0.30, grayL, openCx, viseY + 0.065, 0.04));               // vise base
-  g.add(box(0.12, 0.18, 0.32, grayC, openCx - 0.15, viseY + 0.13, 0.04));          // fixed jaw
-  g.add(box(0.12, 0.18, 0.32, grayC, openCx + 0.07, viseY + 0.13, 0.04));          // movable jaw
-  g.add(box(0.14, 0.10, 0.20, steel, openCx - 0.04, viseY + 0.155, 0.04));         // workpiece
+  // machine vise on the table (scaled to the table width)
+  const viseY = tableY + 0.05, vw = Math.min(0.46, tblW * 0.95);
+  g.add(box(vw, 0.13, 0.30, grayL, openCx, viseY + 0.065, 0.04));                          // vise base
+  g.add(box(vw * 0.26, 0.18, 0.32, grayC, openCx - vw * 0.33, viseY + 0.13, 0.04));       // fixed jaw
+  g.add(box(vw * 0.26, 0.18, 0.32, grayC, openCx + vw * 0.15, viseY + 0.13, 0.04));       // movable jaw
+  g.add(box(vw * 0.3, 0.10, 0.20, steel, openCx - vw * 0.09, viseY + 0.155, 0.04));      // workpiece
 
   // spindle head (Z-axis) + cross rail
   const headY = 1.42;
   g.add(box(openW - 0.16, 0.20, 0.42, grayC, openCx, openTopY - 0.02, -d/2 + 0.34)); // Z-slide on column
-  g.add(box(0.52, 0.46, 0.46, grayL, openCx, headY, -0.02));                          // spindle head box
+  g.add(box(Math.min(0.52, openW - 0.02), 0.46, 0.46, grayL, openCx, headY, -0.02));   // spindle head box
   g.add(box(0.30, 0.12, 0.30, dark, openCx, headY - 0.27, -0.02));                    // spindle housing nose
   g.add(cylAt(0.085, 0.07, 0.16, 18, steel, openCx, headY - 0.40, -0.02));            // spindle nose
   g.add(cylAt(0.07, 0.038, 0.13, 16, chrome, openCx, headY - 0.53, -0.02));           // tool taper holder
@@ -524,12 +566,12 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
     g.add(box(0.03, 0.03, 0.06, nozzle, openCx + cx*0.3, headY - 0.52, 0.06));
   });
 
-  // ---- top spindle-drive column housing (gray, rear-center) ----
-  g.add(box(0.92, 0.62, 0.72, grayC, openCx, encTop + 0.27, -0.18));
-  g.add(box(0.6, 0.22, 0.56, grayL, openCx, encTop + 0.66, -0.18));   // top cap
+  // ---- top spindle-drive column housing (gray, rear-center); top cap reaches h ----
+  g.add(box(Math.min(0.92, w * 0.6), 0.5, 0.72, grayC, openCx, encTop + 0.25, -0.18));
+  g.add(box(Math.min(0.6, w * 0.4), 0.14, 0.56, grayL, openCx, encTop + 0.43, -0.18));   // top cap
 
   // ---- ATC tool carousel (dark drum with yellow tool pockets) ----
-  const atc = new THREE.Group(); atc.position.set(openR + 0.42, encTop + 0.18, -0.05); atc.rotation.x = -0.5;
+  const atc = new THREE.Group(); atc.position.set(Math.min(openR + 0.42, w/2 - 0.42), encTop + 0.18, -0.05); atc.rotation.x = -0.5;
   atc.add(cyl(0.38, 0.38, 0.12, 30, dark));
   atc.add(cyl(0.12, 0.12, 0.16, 16, grayL));
   for (let i = 0; i < 18; i++) {
@@ -548,8 +590,9 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   });
   g.add(cylAt(0.04, 0.04, 0.04, 12, dark, lx, ly + 0.01, lz));        // top cap
 
-  // ---- CNC control panel (right side, angled toward operator) ----
-  const pan = new THREE.Group(); pan.position.set(rightX - 0.05, encY + 0.06, fz + 0.05); pan.rotation.y = -0.16; g.add(pan);
+  // ---- CNC control panel (right side, angled toward operator; scaled to the right cabinet width) ----
+  const pan = new THREE.Group(); pan.position.set(rightX - 0.03, encY + 0.06, fz + 0.05); pan.rotation.y = -0.16; g.add(pan);
+  const pk = Math.min(1, (rightW - 0.06) / 0.92); pan.scale.set(pk, pk, 1);
   pan.add(box(0.92, 1.06, 0.09, dark, 0, 0, 0));                      // panel housing
   pan.add(box(0.84, 0.98, 0.02, mat('#23272c', 0.5), 0, 0, 0.055));   // bezel
   // display screen (canvas texture: X/Y/Z readout)
@@ -557,7 +600,7 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   const sctx = sCv.getContext('2d');
   sctx.fillStyle = '#0a161e'; sctx.fillRect(0, 0, 256, 192);
   sctx.fillStyle = '#163a2a'; sctx.fillRect(8, 8, 240, 30);
-  sctx.fillStyle = '#7fd6a8'; sctx.font = '16px monospace'; sctx.fillText('VC-850  AUTO', 16, 30);
+  sctx.fillStyle = '#7fd6a8'; sctx.font = '16px monospace'; sctx.fillText('S500Xd1  AUTO', 16, 30);
   sctx.font = 'bold 28px monospace'; sctx.fillStyle = '#bdeed0';
   sctx.fillText('X  123.456', 18, 88);
   sctx.fillText('Y  654.321', 18, 126);
@@ -578,10 +621,11 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   const mpg = cyl(0.085, 0.085, 0.04, 22, mat('#2a2e33', 0.45)); mpg.rotation.x = Math.PI/2; mpg.position.set(0.22, -0.40, 0.075); pan.add(mpg);
   pan.add(box(0.03, 0.03, 0.045, chrome, 0.22, -0.32, 0.1));          // handwheel knob
 
-  // ---- handheld pendant on cable (right) ----
-  const pcable = cyl(0.012, 0.012, 0.42, 8, dark); pcable.position.set(rightX + 0.32, encY - 0.36, fz + 0.04); g.add(pcable);
-  g.add(box(0.1, 0.2, 0.05, mat('#2a2e33', 0.5), rightX + 0.34, encY - 0.66, fz + 0.07));
-  g.add(box(0.07, 0.07, 0.01, screenMat, rightX + 0.34, encY - 0.61, fz + 0.1));
+  // ---- handheld pendant on cable (right edge) ----
+  const pdx = Math.min(rightX + 0.34, w/2 - 0.08);
+  const pcable = cyl(0.012, 0.012, 0.42, 8, dark); pcable.position.set(pdx - 0.02, encY - 0.36, fz + 0.04); g.add(pcable);
+  g.add(box(0.1, 0.2, 0.05, mat('#2a2e33', 0.5), pdx, encY - 0.66, fz + 0.07));
+  g.add(box(0.07, 0.07, 0.01, screenMat, pdx, encY - 0.61, fz + 0.1));
 
   // ---- mark body panels colorable ----
   g.traverse(o => { if (o.isMesh && o.material === cream) o.userData.colorable = true; });
@@ -896,10 +940,11 @@ function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
   g.userData.parts = { door: doorGroup };
   return g;
 }
-function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
+function buildInjectionMolder({ color='#e8e4dc', w=5.133, d=1.365, h=1.923 } = {}) {
   const g = new THREE.Group();
-  // horizontal injection molding machine (TOYO Si-180 style): off-white shrouds,
-  // blue safety guard, charcoal machine bed, stainless hopper. Clamp LEFT, injection RIGHT.
+  // horizontal all-electric injection molding machine (住友重機械 SE180EV-A, 5133×1365×1923):
+  // off-white shrouds, blue safety guard, charcoal machine bed, stainless hopper. Clamp LEFT, injection RIGHT.
+  // 型締ユニット/射出ユニットのシュラウドは w に応じて伸縮する。
   const body   = mat(color, 0.45, 0.12, { env: 0.4 });               // off-white shrouds (colorable)
   const bodyD  = mat(shade(color, 0.9), 0.45, 0.12);
   const charc  = mat('#34373b', 0.55, 0.3, { env: 0.4 });            // machine bed / cabinets
@@ -947,12 +992,12 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   const clmp = new THREE.Mesh(roundedBoxGeom(0.78, 0.86, d - 0.1, 0.12, 4), body);
   clmp.position.set(clmpCx, deckY + 0.45, 0); clmp.castShadow = true; g.add(clmp);
   g.add(box(0.1, 0.7, d - 0.2, bodyD, clmpCx + 0.4, deckY + 0.42, 0));            // rear shading face
-  // nameplate "Si-180-6 / TOYO PLASTAR"
+  // nameplate "SE180EV-A / SUMITOMO"
   const nCv = document.createElement('canvas'); nCv.width = 384; nCv.height = 192;
   const nx = nCv.getContext('2d'); nx.fillStyle = '#e8e4dc'; nx.fillRect(0,0,384,192);
-  nx.fillStyle = '#23262b'; nx.font = 'bold 64px Arial'; nx.fillText('Si-180-6', 20, 78);
-  nx.fillStyle = '#2c4fa0'; nx.font = 'bold 40px Arial'; nx.fillText('TOYO', 20, 132);
-  nx.fillStyle = '#23262b'; nx.font = 'bold 30px Arial'; nx.fillText('PLASTAR', 20, 168);
+  nx.fillStyle = '#23262b'; nx.font = 'bold 60px Arial'; nx.fillText('SE180EV-A', 20, 78);
+  nx.fillStyle = '#2c4fa0'; nx.font = 'bold 40px Arial'; nx.fillText('SUMITOMO', 20, 132);
+  nx.fillStyle = '#23262b'; nx.font = 'bold 28px Arial'; nx.fillText('ALL-ELECTRIC', 20, 168);
   const nTex = new THREE.CanvasTexture(nCv); nTex.anisotropy = 4;
   const nPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.3), new THREE.MeshBasicMaterial({ map: nTex }));
   nPlane.position.set(clmpCx - 0.12, deckY + 0.5, fz - 0.04); g.add(nPlane);
@@ -966,9 +1011,10 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
 
   // ===== mold area: platens + tie bars (visible behind the blue guard) =====
   const moldY = deckY + 0.42;
-  // 4 chrome tie bars running along x
+  // 4 chrome tie bars running along x (from inside the clamp shroud to the moving platen)
+  const tbX0 = -w/2 + 0.6, tbX1 = 0.2;
   [[0.32,0.32],[0.32,-0.32],[-0.32,0.32],[-0.32,-0.32]].forEach(([dy,tz]) => {
-    const tb = cyl(0.045, 0.045, 1.5, 14, chrome); tb.rotation.z = Math.PI/2; tb.position.set(-0.55, moldY + dy, tz); g.add(tb);
+    const tb = cyl(0.045, 0.045, tbX1 - tbX0, 14, chrome); tb.rotation.z = Math.PI/2; tb.position.set((tbX0 + tbX1)/2, moldY + dy, tz); g.add(tb);
   });
   // fixed platen (left) with bore-hole pattern, moving platen (right), mold block
   const platen = (px) => { const p = box(0.12, 0.62, d - 0.28, steel, px, moldY, 0); g.add(p);
@@ -993,7 +1039,7 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   const sCv = document.createElement('canvas'); sCv.width = 200; sCv.height = 160;
   const sc = sCv.getContext('2d'); sc.fillStyle = '#d8dde2'; sc.fillRect(0,0,200,160);
   sc.fillStyle = '#1f5fa8'; sc.fillRect(0,0,200,22);
-  sc.fillStyle = '#ffffff'; sc.font = '12px Arial'; sc.fillText('TOYO Si-180', 6, 16);
+  sc.fillStyle = '#ffffff'; sc.font = '12px Arial'; sc.fillText('SE180EV-A', 6, 16);
   const cols = ['#2f7fd0','#39b54a','#f0a020','#d04545'];
   for (let i=0;i<8;i++){ sc.fillStyle = cols[i%4]; sc.fillRect(8 + (i%4)*46, 32 + Math.floor(i/4)*40, 40, 32); }
   sc.fillStyle = '#222'; sc.font = '11px monospace'; sc.fillText('CYCLE 18.6s  OK', 8, 150);
@@ -1015,19 +1061,20 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   const barrel = cyl(0.09,0.09,0.7,18, steel); barrel.rotation.z = Math.PI/2; barrel.position.set(0.62, deckY + 0.32, 0); g.add(barrel);
   for (let bx = 0.4; bx < 0.85; bx += 0.13) g.add(box(0.1, 0.21, 0.21, mat('#8a4a20',0.7), bx, deckY + 0.32, 0)); // band heaters
   const nozzle = cyl(0.045,0.03,0.16,12, chrome); nozzle.rotation.z = Math.PI/2; nozzle.position.set(0.18, deckY + 0.32, 0); g.add(nozzle);
+  // injection unit span: from the control area to just before the drive housing (grows with w)
+  const injX0 = 0.6, injX1 = w/2 - 0.36, injW = injX1 - injX0, injCx = (injX0 + injX1)/2;
   // injection unit base / tilt cradle (dark)
-  g.add(box(1.1, 0.18, d - 0.2, charc, 1.05, deckY + 0.08, 0));
-  g.add(box(0.5, 0.16, d - 0.34, charc2, 1.05, deckY + 0.2, 0));
+  g.add(box(injW + 0.1, 0.18, d - 0.2, charc, injCx, deckY + 0.08, 0));
+  g.add(box(injW * 0.5, 0.16, d - 0.34, charc2, injCx, deckY + 0.2, 0));
   // off-white barrel shroud
-  const injCx = 1.1;
-  const injShroud = new THREE.Mesh(roundedBoxGeom(1.0, 0.6, d - 0.16, 0.1, 4), body);
+  const injShroud = new THREE.Mesh(roundedBoxGeom(injW, 0.6, d - 0.16, 0.1, 4), body);
   injShroud.position.set(injCx, deckY + 0.5, 0); injShroud.castShadow = true; g.add(injShroud);
-  // "180 / TOYO PLASTAR" label
+  // "180 / SUMITOMO SE-EV-A" label
   const iCv = document.createElement('canvas'); iCv.width = 256; iCv.height = 160;
   const ix = iCv.getContext('2d'); ix.fillStyle = '#e8e4dc'; ix.fillRect(0,0,256,160);
   ix.fillStyle = '#23262b'; ix.font = 'bold 80px Arial'; ix.fillText('180', 16, 80);
-  ix.fillStyle = '#2c4fa0'; ix.font = 'bold 34px Arial'; ix.fillText('TOYO', 18, 120);
-  ix.fillStyle = '#23262b'; ix.font = 'bold 24px Arial'; ix.fillText('PLASTAR', 18, 148);
+  ix.fillStyle = '#2c4fa0'; ix.font = 'bold 30px Arial'; ix.fillText('SUMITOMO', 18, 120);
+  ix.fillStyle = '#23262b'; ix.font = 'bold 24px Arial'; ix.fillText('SE-EV-A', 18, 148);
   const iTex = new THREE.CanvasTexture(iCv); iTex.anisotropy = 4;
   const iPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.31), new THREE.MeshBasicMaterial({ map: iTex }));
   iPlane.position.set(injCx + 0.05, deckY + 0.5, fz - 0.08); g.add(iPlane);
@@ -1035,31 +1082,34 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   g.add(box(0.42, 0.56, d - 0.24, charc, w/2 - 0.12, deckY + 0.42, 0));
   g.add(cylAt(0.03,0.03,0.02,10, mat('#ef4444',0.3,0.1,{emissive:'#cc0000',emissiveIntensity:0.5}), w/2 - 0.12, deckY + 0.62, fz - 0.16).rotateX(Math.PI/2));
 
-  // ===== stainless steel hopper on top of the injection unit =====
-  const hX = injCx - 0.05, hBaseY = deckY + 0.8;
-  g.add(cylAt(0.05, 0.05, 0.12, 14, stain, hX, hBaseY, 0));                       // throat onto barrel
-  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.05, 0.26, 18), stain);
-  funnel.position.set(hX, hBaseY + 0.19, 0); funnel.castShadow = true; g.add(funnel); // cone
-  g.add(cylAt(0.2, 0.2, 0.22, 18, stain, hX, hBaseY + 0.43, 0));                  // cylindrical bin
-  g.add(cylAt(0.21, 0.21, 0.02, 18, mat('#a8b0b6',0.2,0.85), hX, hBaseY + 0.55, 0)); // rim
-  g.add(cylAt(0.14, 0.14, 0.03, 16, stain, hX, hBaseY + 0.58, 0));                // lid
-  g.add(box(0.16, 0.012, 0.012, dark, hX, hBaseY + 0.3, 0.2));                    // sight-glass strip
+  // ===== stainless steel hopper on top of the injection unit (top ≈ h, ホッパー付き全高) =====
+  const hX = injCx - injW * 0.2, hBaseY = deckY + 0.74;
+  g.add(cylAt(0.05, 0.05, 0.1, 14, stain, hX, hBaseY, 0));                        // throat onto barrel
+  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.05, 0.16, 18), stain);
+  funnel.position.set(hX, hBaseY + 0.12, 0); funnel.castShadow = true; g.add(funnel); // cone
+  g.add(cylAt(0.18, 0.18, 0.14, 18, stain, hX, hBaseY + 0.27, 0));                // cylindrical bin
+  g.add(cylAt(0.19, 0.19, 0.02, 18, mat('#a8b0b6',0.2,0.85), hX, hBaseY + 0.35, 0)); // rim
+  g.add(cylAt(0.13, 0.13, 0.03, 16, stain, hX, hBaseY + 0.37, 0));                // lid
+  g.add(box(0.14, 0.012, 0.012, dark, hX, hBaseY + 0.2, 0.18));                   // sight-glass strip
 
   // mark off-white shrouds colorable
   g.traverse(o => { if (o.isMesh && o.material === body) o.userData.colorable = true; });
   return g;
 }
 
-function buildForklift({ color='#f5c020', w=1.45, d=4.0, h=2.25 } = {}) {
-  // 3.5t-class counterbalance forklift. Built at native (real-machine) scale into
-  // `lift`, then uniformly scaled and recentred to fit the catalogue footprint.
-  // Front faces -z. Fork blades: 1.09 m long, 0.59 m centres — sized to standard
-  // 1100 mm pallets / stillages so the loads are actually carryable.
+function buildForklift({ color='#f5c020', w=1.15, d=3.0, h=2.1 } = {}) {
+  // トヨタ 8FBE15 (1.5t 3輪バッテリーカウンター, 全長3.0×全幅1.15×全高2.1m) 基準。
+  // Built at a native reference scale into `lift` (z-extent -3.94..+2.34 = 6.28,
+  // width 2.2, mast top 3.5), then scaled per axis to the catalogue w/d/h and
+  // recentred. Wheel groups are counter-scaled in y so tyres stay round.
+  // Front faces -z. Fork blades: 1.7 native → 0.81 m at 8FBE15 scale (920 mm forks).
   const g = new THREE.Group();
-  const SCALE = 0.64;
+  const NAT_W = 2.2, NAT_D = 6.28, NAT_H = 3.5;
+  const sx = w / NAT_W, sy = h / NAT_H, sz = d / NAT_D;
+  const kY = sz / sy;              // wheel y counter-scale (keeps tyres circular)
   const lift = new THREE.Group();
-  lift.scale.setScalar(SCALE);
-  lift.position.z = 0.8 * SCALE;   // recentre native z-extent (-3.94..+2.34) on origin
+  lift.scale.set(sx, sy, sz);
+  lift.position.z = 0.8 * sz;      // recentre native z-extent (-3.94..+2.34) on origin
   g.add(lift);
 
   // ---------- local helpers (match the reference model signatures) ----------
@@ -1123,25 +1173,27 @@ function buildForklift({ color='#f5c020', w=1.45, d=4.0, h=2.25 } = {}) {
   lbox(1.7, 0.62, 0.32, MAT.counter, 0, 0.62, 2.18, bodyG);
   const hzMat = new THREE.MeshStandardMaterial({ map: hazardTexture(), roughness:.6 });
   lbox(1.9, 0.3, 0.03, hzMat, 0, 1.32, 2.215, bodyG);         // rear hazard plate
-  const lblT = labelTexture('3.5t');
+  const lblT = labelTexture('1.5t');
   [-1, 1].forEach(s => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.42), new THREE.MeshStandardMaterial({ map: lblT, roughness:.6 }));
     p.position.set(s*1.105, 1.15, 1.62); p.rotation.y = s*Math.PI/2; bodyG.add(p);
   });
 
-  // ---------- overhead guard ----------
+  // ---------- overhead guard (ヘッドガード上面 ≈ 全高 = マスト格納高) ----------
   const guard = new THREE.Group(); lift.add(guard);
-  const postGeoF = new THREE.CylinderGeometry(.05, .05, 1.62, 12);
-  const postGeoR = new THREE.CylinderGeometry(.05, .05, 1.35, 12);
+  const GT = 3.36;                                              // guard roof top (native)
+  const postGeoF = new THREE.CylinderGeometry(.05, .05, GT - 1.14, 12);
+  const postGeoR = new THREE.CylinderGeometry(.05, .05, GT - 1.4, 12);
   [-1, 1].forEach(s => {
-    const pf = new THREE.Mesh(postGeoF, MAT.steel); pf.position.set(s*0.92, 1.95, -0.86); pf.rotation.x = 0.13; pf.castShadow = true; guard.add(pf);
-    const pr = new THREE.Mesh(postGeoR, MAT.steel); pr.position.set(s*0.92, 2.06, 0.92); pr.rotation.x = -0.08; pr.castShadow = true; guard.add(pr);
+    const pf = new THREE.Mesh(postGeoF, MAT.steel); pf.position.set(s*0.92, (GT + 1.14)/2, -0.86); pf.rotation.x = 0.1; pf.castShadow = true; guard.add(pf);
+    const pr = new THREE.Mesh(postGeoR, MAT.steel); pr.position.set(s*0.92, (GT + 1.4)/2, 0.92); pr.rotation.x = -0.06; pr.castShadow = true; guard.add(pr);
   });
-  lbox(1.94, 0.07, 1.9, MAT.steel, 0, 2.75, 0.03, guard);
-  for (let i = 0; i < 5; i++) lbox(0.06, 0.05, 1.78, MAT.steelLite, -0.7 + i*0.35, 2.80, 0.03, guard);
-  lcyl(.07, .09, .16, MAT.beacon, 0.72, 2.87, 0.75, guard, 14);   // beacon
-  lcyl(.1, .1, .04, MAT.steel, 0.72, 2.78, 0.75, guard, 14);
-  lcyl(.06, .06, 1.1, MAT.steel, -0.92, 2.2, 1.08, guard, 12);    // exhaust pipe
+  lbox(1.94, 0.07, 1.9, MAT.steel, 0, GT - 0.035, 0.03, guard);
+  for (let i = 0; i < 5; i++) lbox(0.06, 0.05, 1.78, MAT.steelLite, -0.7 + i*0.35, GT + 0.015, 0.03, guard);
+  lcyl(.07, .09, .16, MAT.beacon, 0.72, GT + 0.1, 0.75, guard, 14);   // beacon
+  lcyl(.1, .1, .04, MAT.steel, 0.72, GT + 0.01, 0.75, guard, 14);
+  // (バッテリー車のため排気管なし) バッテリーカバー上のコネクタ
+  lbox(0.16, 0.1, 0.12, MAT.steel, -0.75, 1.64, 0.75, lift);
 
   // ---------- seat / controls ----------
   lbox(0.62, 0.16, 0.6, MAT.seat, 0, 1.66, 0.32, lift);   // seat base
@@ -1164,10 +1216,11 @@ function buildForklift({ color='#f5c020', w=1.45, d=4.0, h=2.25 } = {}) {
     return wg;
   }
   const frontWheelR = 0.62, rearWheelR = 0.50;
-  // single drive wheel per side (3.5t class), not the 8t's dual tyres
-  [-1, 1].forEach(s => { const sp = new THREE.Group(); sp.position.set(s*0.9, frontWheelR, -1.45); sp.add(makeWheel(frontWheelR, 0.42)); lift.add(sp); });
+  // single drive wheel per side; wheel groups counter-scaled in y (kY) so tyres stay round
+  [-1, 1].forEach(s => { const sp = new THREE.Group(); sp.position.set(s*0.9, frontWheelR * kY, -1.45); sp.scale.y = kY; sp.add(makeWheel(frontWheelR, 0.42)); lift.add(sp); });
+  // 3輪カウンター: 後輪は車体中央寄りのダブルタイヤ
   const rearSteer = [];
-  [-1, 1].forEach(s => { const st = new THREE.Group(); st.position.set(s*0.78, rearWheelR, 1.05); st.add(makeWheel(rearWheelR, 0.34)); lift.add(st); rearSteer.push(st); });
+  [-1, 1].forEach(s => { const st = new THREE.Group(); st.position.set(s*0.22, rearWheelR * kY, 1.05); st.scale.y = kY; st.add(makeWheel(rearWheelR, 0.3)); lift.add(st); rearSteer.push(st); });
 
   // ---------- mast (tilt pivot) ----------
   const mast = new THREE.Group(); mast.position.set(0, 0.25, -1.95); lift.add(mast);

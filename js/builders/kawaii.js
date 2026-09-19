@@ -190,8 +190,10 @@ function buildPerson({ h = 1.6, skin = '#f4cba0', hair = '#4a3526', style = 'sho
 }
 
 // ---------------------------------------------------------------- ぬいぐるみ・玩具
-function buildTeddyBear({ color = '#c79a6a', w = 0.36, d = 0.32, h = 0.46 } = {}) {
+// IKEA DJUNGELSKOG 子グマ 32cm: 形状は 0.36×0.32×0.49 で作成し w/d/h にスケール (座らせた姿勢)
+function buildTeddyBear({ color = '#c79a6a', w = 0.28, d = 0.24, h = 0.32 } = {}) {
   const g = new THREE.Group();
+  g.scale.set(w / 0.36, h / 0.49, d / 0.32);
   const fur = mat(color, 0.9), pad = mat(shade(color, 1.25), 0.85), face = mat('#3a2a1f', 0.5);
   const body = sph(0.13, fur, 0, 0.17, 0); body.scale.set(1, 1.15, 0.95); body.userData.colorable = true; g.add(body);
   g.add(sph(0.085, pad, 0, 0.2, 0.085)); // belly
@@ -205,8 +207,10 @@ function buildTeddyBear({ color = '#c79a6a', w = 0.36, d = 0.32, h = 0.46 } = {}
   g.add(new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.018, 6, 14), mat('#ef7fa6', 0.5)).translateY(0.27).translateZ(0.02)); // bow
   return g;
 }
-function buildBunnyPlush({ color = '#fbf4f6', w = 0.3, d = 0.3, h = 0.52 } = {}) {
+// IKEA VANDRING HARE 40cm: 形状は 0.31×0.30×0.61 で作成し w/d/h にスケール (座らせた姿勢, 耳先端まで)
+function buildBunnyPlush({ color = '#fbf4f6', w = 0.22, d = 0.22, h = 0.40 } = {}) {
   const g = new THREE.Group();
+  g.scale.set(w / 0.31, h / 0.61, d / 0.30);
   const fur = mat(color, 0.92), inner = mat('#f4b9cf', 0.85), face = mat('#6a4a55', 0.5);
   const body = sph(0.12, fur, 0, 0.16, 0); body.scale.set(1, 1.2, 0.95); body.userData.colorable = true; g.add(body);
   const head = sph(0.1, fur, 0, 0.33, 0.02); head.userData.colorable = true; g.add(head);
@@ -269,39 +273,57 @@ function buildBuildingBlocks({ color = '#ff9aa2', w = 0.3, d = 0.3, h = 0.3 } = 
   });
   return g;
 }
-function buildToyBox({ color = '#9ad0ec', w = 0.6, d = 0.42, h = 0.4 } = {}) {
+// IKEA FLISAT おもちゃ収納 キャスター付き (44×39×31): パイン無垢材のオープンボックス, 側面に手掛け穴, 4輪キャスター
+function buildToyBox({ color = '#e6cfa3', w = 0.44, d = 0.39, h = 0.31 } = {}) {
   const g = new THREE.Group();
-  const boxM = mat(color, 0.6), rimM = mat(shade(color, 0.82), 0.6);
-  const bodyH = 0.34;
-  [[0, -d / 2 + 0.02, w, 0.04], [0, d / 2 - 0.02, w, 0.04]].forEach(([x, z, ww, t]) => g.add(box(ww, bodyH, t, boxM, x, bodyH / 2, z)));
-  [[-w / 2 + 0.02, 0, 0.04, d], [w / 2 - 0.02, 0, 0.04, d]].forEach(([x, z, t, dd]) => g.add(box(t, bodyH, dd, boxM, x, bodyH / 2, z)));
-  g.add(box(w - 0.02, 0.03, d - 0.02, rimM, 0, bodyH, 0)); // top rim
-  g.add(box(w - 0.06, 0.02, d - 0.06, mat(shade(color, 0.7), 0.7), 0, 0.02, 0)); // floor
-  // spilling toys
-  g.add(sph(0.06, mat('#ff9aa2', 0.6), -0.12, bodyH + 0.04, 0.05));
-  g.add(new THREE.Mesh(roundedBoxGeom(0.09, 0.09, 0.09, 0.012, 2), mat('#ffd382', 0.65)).translateX(0.08).translateY(bodyH + 0.05).translateZ(-0.04));
-  g.add(sph(0.05, mat('#a9e7cf', 0.6), 0.16, bodyH + 0.02, 0.08));
-  g.add(new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 10), mat('#c9b3ec', 0.6)).translateX(-0.02).translateY(bodyH + 0.06));
-  // label heart
-  g.add(box(0.1, 0.1, 0.01, mat('#ff8fab', 0.6), 0, bodyH * 0.55, d / 2 + 0.005));
+  const pine = mat(color, 0.65), pineD = mat(shade(color, 0.85), 0.7), dark = mat('#2a2a2a', 0.6);
+  const castH = 0.045, t = 0.015;
+  const bodyH = h - castH;
+  // casters
+  [[-w / 2 + 0.05, d / 2 - 0.05], [w / 2 - 0.05, d / 2 - 0.05], [-w / 2 + 0.05, -d / 2 + 0.05], [w / 2 - 0.05, -d / 2 + 0.05]].forEach(([x, z]) => {
+    const wh = cylAt(0.02, 0.02, 0.018, 12, dark, x, 0.02, z); wh.rotation.z = Math.PI / 2; g.add(wh);
+    g.add(box(0.03, 0.012, 0.03, mat('#888', 0.4, 0.6), x, castH - 0.006, z));
+  });
+  // bottom
+  g.add(box(w, t, d, pineD, 0, castH + t / 2, 0));
+  // long walls (front/back) + short walls (sides) with handle cutouts
+  [-d / 2 + t / 2, d / 2 - t / 2].forEach(z => { const p = box(w, bodyH, t, pine, 0, castH + bodyH / 2, z); p.userData.colorable = true; g.add(p); });
+  [-w / 2 + t / 2, w / 2 - t / 2].forEach(x => {
+    const p = box(t, bodyH, d - 2 * t, pine, x, castH + bodyH / 2, 0); p.userData.colorable = true; g.add(p);
+    g.add(box(t + 0.004, 0.03, 0.09, dark, x, castH + bodyH - 0.05, 0)); // handle cutout
+  });
+  // toys inside (peeking above the rim)
+  g.add(sph(0.05, mat('#ff9aa2', 0.6), -0.1, castH + bodyH - 0.01, 0.05));
+  g.add(new THREE.Mesh(roundedBoxGeom(0.08, 0.08, 0.08, 0.01, 2), mat('#ffd382', 0.65)).translateX(0.07).translateY(castH + bodyH - 0.02).translateZ(-0.05));
+  g.add(sph(0.04, mat('#a9e7cf', 0.6), 0.14, castH + bodyH - 0.03, 0.08));
+  g.add(new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 10), mat('#c9b3ec', 0.6)).translateX(-0.02).translateY(castH + bodyH + 0.02));
   return g;
 }
-function buildDollhouse({ color = '#ffd1e0', w = 0.6, d = 0.42, h = 0.7 } = {}) {
+// IKEA FLISAT ドールハウス/ウォールシェルフ (58×22×59): パイン材の前面オープンな家型シェルフ (2層 + 切妻屋根)
+function buildDollhouse({ color = '#e6cfa3', w = 0.58, d = 0.22, h = 0.59 } = {}) {
   const g = new THREE.Group();
-  const wallM = mat(color, 0.7), roofM = mat('#f29bb6', 0.65), doorM = mat('#caa46d', 0.6), winM = mat('#bfe3f5', 0.3, 0.2);
-  const bodyH = 0.46;
-  const body = new THREE.Mesh(roundedBoxGeom(w, bodyH, d, 0.02, 2), wallM); body.position.set(0, bodyH / 2 + 0.02, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
-  // gable roof
-  const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.001, w * 0.62, 0.22, 4), roofM); roof.rotation.y = Math.PI / 4; roof.position.set(0, bodyH + 0.13, 0); roof.scale.set(1, 1, d / w); roof.castShadow = true; g.add(roof);
-  // door + heart window + side windows
-  g.add(box(0.13, 0.22, 0.02, doorM, 0, 0.15, d / 2 + 0.005));
-  g.add(sph(0.018, mat('#ffe08a', 0.4), 0.04, 0.16, d / 2 + 0.02, 8)); // knob
-  g.add(box(0.1, 0.1, 0.02, winM, -0.17, 0.3, d / 2 + 0.005));
-  g.add(box(0.1, 0.1, 0.02, winM, 0.17, 0.3, d / 2 + 0.005));
-  g.add(box(0.012, 0.1, 0.022, mat('#fff', 0.6), -0.17, 0.3, d / 2 + 0.008));
-  g.add(box(0.1, 0.012, 0.022, mat('#fff', 0.6), -0.17, 0.3, d / 2 + 0.008));
-  // chimney
-  g.add(box(0.06, 0.12, 0.06, wallM, w * 0.28, bodyH + 0.16, 0));
+  const pine = mat(color, 0.65), pineD = mat(shade(color, 0.88), 0.7);
+  const t = 0.015;
+  const bodyH = h * 0.66;                 // 壁の高さ (屋根の下端)
+  const roofH = h - bodyH;
+  // 底板・側板・背板
+  g.add(box(w, t, d, pineD, 0, t / 2, 0));
+  [-w / 2 + t / 2, w / 2 - t / 2].forEach(x => { const s = box(t, bodyH, d, pine, x, bodyH / 2, 0); s.userData.colorable = true; g.add(s); });
+  g.add(box(w - 2 * t, bodyH, t, pineD, 0, bodyH / 2, -d / 2 + t / 2));
+  // 背板の切妻部 (三角柱: 3角形断面のシリンダーを回転・スケール)
+  const gable = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, t, 3, 1, false, 0, Math.PI * 2), pineD);
+  gable.rotation.x = -Math.PI / 2;
+  gable.scale.set((w / 2 - t) / 0.866, 1, (roofH - 0.01) / 1.5);
+  gable.position.set(0, bodyH + 0.5 * (roofH - 0.01) / 1.5, -d / 2 + t / 2); g.add(gable);
+  // 中段の棚板 (2階の床)
+  g.add(box(w - 2 * t, t, d - t, pineD, 0, bodyH * 0.5, 0));
+  // 切妻屋根 (2枚の傾斜板, 少し軒を出す)
+  const half = w / 2 + 0.02, slope = Math.hypot(half, roofH), ang = Math.atan2(roofH, half);
+  [-1, 1].forEach(s => { const rp = box(slope, t, d + 0.03, pine, s * half / 2, bodyH + roofH / 2, 0); rp.rotation.z = -s * ang; rp.userData.colorable = true; g.add(rp); });
+  // 小さな家具 (ベッド・テーブル)
+  g.add(box(0.1, 0.03, 0.06, mat('#f4b9cf', 0.6), -0.15, bodyH * 0.5 + t / 2 + 0.015, 0.02));
+  g.add(cylAt(0.03, 0.03, 0.03, 10, mat('#ffffff', 0.6), 0.15, t + 0.015, 0.02));
+  g.add(box(0.06, 0.05, 0.05, mat('#a9d8f0', 0.6), 0.16, t + 0.025, -0.05));
   return g;
 }
 function buildCake({ color = '#fff3ea', w = 0.32, d = 0.32, h = 0.2 } = {}) {
@@ -362,22 +384,42 @@ function buildKidsBed({ color = '#fbe3ec', w = 1.05, d = 1.9, h = 1.7 } = {}) {
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildKidsDesk({ color = '#bfe3f5', w = 0.8, d = 0.5, h = 0.56 } = {}) {
+// IKEA FLISAT 子ども用デスク (92×67, 高さ調節 ≈56cm): パイン材の角脚フレーム, 背面に MÅLA 紙ロールホルダー
+function buildKidsDesk({ color = '#e6cfa3', w = 0.92, d = 0.67, h = 0.56 } = {}) {
   const g = new THREE.Group();
-  const woodM = mat(color, 0.6), legM = mat('#f4b9cf', 0.6);
-  const top = new THREE.Mesh(roundedBoxGeom(w, 0.04, d, 0.02, 2), woodM); top.position.set(0, h - 0.02, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
-  [[-w / 2 + 0.06, d / 2 - 0.06], [w / 2 - 0.06, d / 2 - 0.06], [-w / 2 + 0.06, -(d / 2 - 0.06)], [w / 2 - 0.06, -(d / 2 - 0.06)]].forEach(([x, z]) => g.add(cylAt(0.03, 0.03, h - 0.04, 8, legM, x, (h - 0.04) / 2, z)));
-  g.add(box(w - 0.12, 0.12, 0.03, woodM, 0, h - 0.12, -(d / 2 - 0.05))); // back panel
-  g.add(box(0.16, 0.1, 0.012, mat('#ff8fab', 0.6), 0, h - 0.12, -(d / 2 - 0.066))); // heart deco
+  const pine = mat(color, 0.65), pineD = mat(shade(color, 0.88), 0.7);
+  const top = new THREE.Mesh(roundedBoxGeom(w, 0.025, d, 0.008, 2), pine); top.position.set(0, h - 0.0125, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  // 角脚 45mm (前後脚を側枠でつなぐ)
+  const lx = w / 2 - 0.06, lz = d / 2 - 0.05, legH = h - 0.025;
+  [[-lx, lz], [lx, lz], [-lx, -lz], [lx, -lz]].forEach(([x, z]) => g.add(box(0.045, legH, 0.045, pineD, x, legH / 2, z)));
+  [-lx, lx].forEach(x => g.add(box(0.04, 0.06, d - 0.1 - 0.045, pineD, x, 0.18, 0)));          // 側面貫
+  g.add(box(w - 0.12 - 0.045, 0.06, 0.04, pineD, 0, 0.18, -lz));                                  // 背面貫
+  g.add(box(w - 0.12 - 0.045, 0.08, 0.02, pineD, 0, h - 0.07, lz - 0.01));                       // 幕板(前)
+  g.add(box(w - 0.12 - 0.045, 0.08, 0.02, pineD, 0, h - 0.07, -lz + 0.01));                      // 幕板(後)
+  // 紙ロールホルダー (背面, MÅLA ロール)
+  const roll = cylAt(0.045, 0.045, w - 0.2, 16, mat('#fbf7f2', 0.8), 0, h - 0.14, -lz + 0.06); roll.rotation.z = Math.PI / 2; g.add(roll);
+  const axle = cylAt(0.008, 0.008, w - 0.12, 8, mat('#9aa0a4', 0.3, 0.7), 0, h - 0.14, -lz + 0.06); axle.rotation.z = Math.PI / 2; g.add(axle);
+  // 天板上のペン立て
+  g.add(cylAt(0.03, 0.03, 0.08, 12, mat('#a9d8f0', 0.6), w * 0.35, h + 0.04, -d * 0.3));
   return g;
 }
-function buildKidsChair({ color = '#ffd382', w = 0.34, d = 0.34, h = 0.6 } = {}) {
+// IKEA MAMMUT 子ども用チェア (39×36×67, 座面 30×26 高さ30): 一体成形プラスチックの丸いシェル + 太めの脚
+function buildKidsChair({ color = '#ffd382', w = 0.39, d = 0.36, h = 0.67 } = {}) {
   const g = new THREE.Group();
-  const seatM = mat(color, 0.6), legM = mat('#a9e7cf', 0.6);
-  const seat = new THREE.Mesh(roundedBoxGeom(w, 0.04, d, 0.02, 2), seatM); seat.position.set(0, 0.32, 0); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
-  const back = new THREE.Mesh(roundedBoxGeom(w, 0.24, 0.04, 0.04, 3), seatM); back.position.set(0, 0.48, -(d / 2 - 0.03)); back.userData.colorable = true; g.add(back);
-  g.add(box(0.1, 0.09, 0.012, mat('#ff8fab', 0.6), 0, 0.49, -(d / 2 - 0.045))); // heart on back
-  [[-w / 2 + 0.04, d / 2 - 0.04], [w / 2 - 0.04, d / 2 - 0.04], [-w / 2 + 0.04, -(d / 2 - 0.04)], [w / 2 - 0.04, -(d / 2 - 0.04)]].forEach(([x, z]) => g.add(cylAt(0.022, 0.022, 0.32, 8, legM, x, 0.16, z)));
+  const shell = mat(color, 0.45, 0.05, { env: 0.4 });
+  const seatH = 0.30, seatW = 0.30, seatD = 0.26;
+  const seat = new THREE.Mesh(roundedBoxGeom(seatW + 0.04, 0.035, seatD + 0.04, 0.015, 3), shell);
+  seat.position.set(0, seatH, 0.02); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  // 背もたれ (上が丸い一枚シェル, やや後傾)
+  const back = new THREE.Mesh(roundedBoxGeom(w - 0.02, h - seatH, 0.035, 0.05, 4), shell);
+  back.position.set(0, seatH + (h - seatH) / 2 - 0.02, -d / 2 + 0.05); back.rotation.x = -0.1; back.castShadow = true; back.userData.colorable = true; g.add(back);
+  // 脚 (4本, テーパー, 外側に開く)
+  [[-w / 2 + 0.05, d / 2 - 0.05], [w / 2 - 0.05, d / 2 - 0.05], [-w / 2 + 0.05, -d / 2 + 0.05], [w / 2 - 0.05, -d / 2 + 0.05]].forEach(([x, z]) => {
+    const leg = cyl(0.024, 0.03, seatH - 0.02, 10, shell);
+    leg.position.set(x * 0.85, (seatH - 0.02) / 2, z * 0.85 + 0.02);
+    leg.rotation.z = x > 0 ? 0.12 : -0.12; leg.rotation.x = z > 0 ? -0.12 : 0.12;
+    leg.castShadow = true; leg.userData.colorable = true; g.add(leg);
+  });
   return g;
 }
 // 壁飾り: 顔(柄)を +Z に向ける壁掛け

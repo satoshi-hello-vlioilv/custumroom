@@ -56,8 +56,10 @@ function buildFumeHood({ color='#e8e2d6', w=1.4, d=0.8, h=2.3 } = {}) {
   g.add(cylAt(0.015, 0.015, 0.01, 8, mat('#22c55e', 0.5), w/2 - 0.24, hoodY + 0.13, d/2 - 0.02));
   return g;
 }
-function buildMicroscope({ color='#3a3f47', w=0.3, d=0.4, h=0.45 } = {}) {
+// オリンパス CX23 (教育用生物顕微鏡, W198×D258×H384): 形状は 0.22×0.24×0.47 で作成し w/d/h にスケール
+function buildMicroscope({ color='#3a3f47', w=0.198, d=0.258, h=0.384 } = {}) {
   const g = new THREE.Group();
+  g.scale.set(w / 0.22, h / 0.4725, d / 0.24);
   const body = mat(color, 0.4, 0.4, { env: 0.6 }), metal = mat('#c0c4c8', 0.25, 0.85, { env: 1.0 }), glass = mat('#8fbfd8', 0.05, 0.3);
   // foot base (horseshoe)
   const base = box(0.22, 0.04, 0.3, mat('#2a2e34', 0.45, 0.4), 0, 0.02, 0.02); base.userData.colorable = true; g.add(base);
@@ -77,21 +79,28 @@ function buildMicroscope({ color='#3a3f47', w=0.3, d=0.4, h=0.45 } = {}) {
   g.add(cylAt(0.03, 0.03, 0.02, 12, mat('#444', 0.4), 0.05, 0.24, -0.1));
   return g;
 }
-function buildCentrifuge({ color='#e8e2d6', w=0.55, d=0.55, h=0.4 } = {}) {
+// 久保田商事 テーブルトップ遠心機 Model 2420 (W350×D420×H320): 角型ボディ + 丸いヒンジ蓋 + 前面傾斜の操作パネル
+function buildCentrifuge({ color='#e8e2d6', w=0.35, d=0.42, h=0.32 } = {}) {
   const g = new THREE.Group();
-  const body = mat('#eef0f1', 0.4, 0.15, { env: 0.4 }), dark = mat('#2a2f33', 0.3, 0.2), metal = mat('#aab0b4', 0.3, 0.7);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(w/2, w/2 + 0.02, h - 0.08, 28), body);
-  base.position.y = (h - 0.08)/2; base.castShadow = true; base.userData.colorable = true; g.add(base);
-  // hinged lid (slightly domed)
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(w/2 - 0.01, w/2, 0.08, 28), mat(shade(color,0.95), 0.35, 0.2));
-  lid.position.y = h - 0.04; lid.castShadow = true; g.add(lid);
-  g.add(cylAt(0.05, 0.05, 0.02, 16, dark, 0, h, 0)); // lid knob
-  // rotor hint visible at seam
-  g.add(cylAt(w/2 - 0.06, w/2 - 0.06, 0.015, 24, metal, 0, h - 0.08, 0));
-  // control display on front
-  g.add(box(0.18, 0.1, 0.02, dark, 0, h - 0.18, w/2 - 0.01));
-  g.add(box(0.14, 0.06, 0.01, mat('#0a2a2a', 0.5, 0.1), 0, h - 0.18, w/2 + 0.002));
-  [[-0.08,0],[0.08,0]].forEach(([x]) => g.add(cylAt(0.018, 0.018, 0.015, 10, mat('#3b82f6', 0.5), x, h - 0.27, w/2 - 0.005)));
+  const body = mat(color, 0.45, 0.1, { env: 0.4 }), dark = mat('#2a2f33', 0.3, 0.2), metal = mat('#aab0b4', 0.3, 0.7);
+  const bodyH = h - 0.05;
+  const base = new THREE.Mesh(roundedBoxGeom(w, bodyH, d, 0.02, 3), body);
+  base.position.y = bodyH / 2; base.castShadow = true; base.userData.colorable = true; g.add(base);
+  // 前面の傾斜操作パネル (手前上部を斜めにカット)
+  const panel = box(w - 0.04, 0.09, 0.02, dark, 0, bodyH - 0.03, d/2 - 0.02); panel.rotation.x = -0.35; g.add(panel);
+  const disp = plainBox(0.09, 0.035, 0.006, mat('#0a2a2a', 0.5, 0.1), -0.06, bodyH - 0.02, d/2 - 0.005); disp.rotation.x = -0.35; g.add(disp);
+  [0.03, 0.08].forEach((x, i) => { const k = cylAt(0.014, 0.014, 0.012, 10, mat(i ? '#3b82f6' : '#22c55e', 0.5), x, bodyH - 0.02, d/2 - 0.004); k.rotation.x = Math.PI/2 - 0.35; g.add(k); });
+  // 丸いヒンジ蓋 (後ろ寄り) + 蓋のヒンジ・ラッチ
+  const lidR = Math.min(w, d) / 2 - 0.03, lidZ = -d/2 + lidR + 0.05;
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(lidR - 0.01, lidR, 0.05, 28), mat(shade(color, 0.96), 0.4, 0.15));
+  lid.position.set(0, bodyH + 0.025, lidZ); lid.castShadow = true; g.add(lid);
+  g.add(cylAt(lidR - 0.03, lidR - 0.03, 0.006, 24, mat(shade(color, 1.04), 0.4, 0.1), 0, bodyH + 0.053, lidZ)); // 蓋の縁段差
+  g.add(box(0.06, 0.02, 0.05, dark, 0, bodyH + 0.03, lidZ - lidR + 0.01));   // ヒンジ
+  g.add(box(0.04, 0.02, 0.03, metal, 0, bodyH + 0.03, lidZ + lidR - 0.005)); // ラッチ
+  // 排気スリット (側面)
+  for (let i = 0; i < 5; i++) g.add(box(0.004, 0.006, d * 0.45, dark, w/2 + 0.001, 0.06 + i * 0.03, -d * 0.1));
+  // ゴム脚
+  [[-w/2+0.04, d/2-0.04], [w/2-0.04, d/2-0.04], [-w/2+0.04, -d/2+0.04], [w/2-0.04, -d/2+0.04]].forEach(([x, z]) => g.add(cylAt(0.012, 0.014, 0.01, 8, dark, x, 0.004, z)));
   return g;
 }
 function buildAnalyticalBalance({ color='#e8e2d6', w=0.3, d=0.4, h=0.32 } = {}) {
@@ -229,11 +238,29 @@ function buildTestBench({ color='#3a4250', w=0.9, d=0.7, h=1.6 } = {}) {
   });
   return g;
 }
-function buildLathe({ color='#4f7a52', w=1.8, d=0.8, h=1.35 } = {}) {
+// 滝澤鉄工所 TAC-360 (フラット形NC旋盤, W2070×D1145×H1740): 主軸台・チャック・往復台・心押台に
+// 背面スプラッシュガードと NC操作盤(ペンダント)を追加。h は操作盤/ガード上端。
+function buildLathe({ color='#4f7a52', w=2.07, d=1.145, h=1.74 } = {}) {
   const g = new THREE.Group();
   const machine = mat(color, 0.45, 0.35, { env: 0.5 });
   const steel   = mat('#9aa4ac', 0.3, 0.7, { env: 0.9 });
   const dark    = mat('#2a2f33', 0.5, 0.3);
+
+  // 背面スプラッシュガード (切粉・切削油の飛散防止) + 天板
+  const guard = box(w - 0.1, h - 1.0, 0.04, mat(shade(color, 0.9), 0.5, 0.3), 0, 1.0 + (h - 1.0)/2, -d/2 + 0.03); guard.userData.colorable = true; g.add(guard);
+  g.add(box(w - 0.1, 0.03, d * 0.42, mat(shade(color, 0.85), 0.5, 0.3), 0, h - 0.015, -d/2 + d * 0.21)); // 天板(後方)
+  // 作業灯 (ガード上部)
+  const lampM = mat('#fff4d8', 0.3, 0.1); lampM.emissive = new THREE.Color('#ffe9b0'); lampM.emissiveIntensity = 0.6;
+  g.add(cylAt(0.025, 0.025, 0.5, 10, lampM, 0.2, h - 0.12, -d/2 + 0.12).rotateZ(Math.PI/2));
+  // NC操作盤 (右側, 前面に傾けたペンダント)
+  const pan = new THREE.Group(); pan.position.set(w/2 - 0.28, h - 0.36, -d/2 + 0.32); pan.rotation.x = -0.25; g.add(pan);
+  pan.add(box(0.42, 0.5, 0.08, dark, 0, 0, 0));
+  const scrM = new THREE.MeshStandardMaterial({ color: 0x0b1a24, roughness: 0.25, metalness: 0.1, emissive: new THREE.Color('#123a4a'), emissiveIntensity: 0.6 });
+  pan.add(plainBox(0.24, 0.18, 0.006, scrM, -0.06, 0.1, 0.043));
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) pan.add(box(0.03, 0.025, 0.008, mat('#cfcbc3', 0.6), -0.14 + c * 0.05, -0.08 - r * 0.045, 0.043));
+  const es = cylAt(0.028, 0.028, 0.02, 12, mat('#ef4444', 0.4, 0.1), 0.14, 0.12, 0.05); es.rotation.x = Math.PI/2; pan.add(es);
+  const mpg = cylAt(0.04, 0.04, 0.02, 18, mat('#3a3f45', 0.45), 0.14, -0.14, 0.05); mpg.rotation.x = Math.PI/2; pan.add(mpg);
+  g.add(box(0.05, 0.06, 0.28, dark, w/2 - 0.28, h - 0.2, -d/2 + 0.16)); // 支持アーム
 
   // Cabinet legs (two pedestals)
   [-w/2 + 0.3, w/2 - 0.3].forEach(x => {
@@ -317,11 +344,14 @@ function buildMillingMachine({ color='#4f7a52', w=1.2, d=1.1, h=1.95 } = {}) {
   const knee = box(0.6, 0.5, 0.55, machine, 0, 0.55, 0.05);
   knee.userData.colorable = true; g.add(knee);
 
-  // Work table with 5 T-slots
-  g.add(box(0.9, 0.1, 0.3, steel, 0, 0.86, 0.1));
+  // Work table (静岡 VHR-A: 1300×300 級) with T-slots — table length scales with w
+  const tblW = Math.max(0.9, w * 0.76);
+  g.add(box(tblW, 0.1, 0.3, steel, 0, 0.86, 0.1));
   for (let i = -0.34; i <= 0.34; i += 0.17) {
     g.add(box(0.015, 0.022, 0.3, dark, i, 0.92, 0.1));
   }
+  // 手動送りハンドル (テーブル両端)
+  [-tblW/2 - 0.03, tblW/2 + 0.03].forEach(x => g.add(cylAt(0.07, 0.07, 0.025, 14, dark, x, 0.86, 0.1).rotateZ(Math.PI/2)));
 
   // Milling vise on table
   g.add(box(0.22, 0.1, 0.16, dark, 0.1, 0.96, 0.1));
@@ -651,17 +681,31 @@ function buildHydraulicPress({ color='#3a5a3a', w=0.7, d=0.65, h=1.8 } = {}) {
   const pressPlate = new THREE.Mesh(roundedBoxGeom(w * 0.55, 0.04, d * 0.55, 0.01, 4), plate_m); pressPlate.position.set(0, h * 0.46, 0); pressPlate.castShadow = true; g.add(pressPlate);
   return g;
 }
-function build3DPrinter({ color='#f0f0f0', w=0.5, d=0.5, h=0.6 } = {}) {
+// Bambu Lab X1-Carbon (389×389×457): 密閉CoreXY機。ダークグレー筐体・前面ガラス扉・天面ガラス蓋・右上タッチパネル
+function build3DPrinter({ color='#3a3d42', w=0.389, d=0.389, h=0.457 } = {}) {
   const g = new THREE.Group();
-  const body = mat(color, 0.55, 0.05), frame_m = mat('#1a1a1a', 0.4, 0.3), glass_m = new THREE.MeshStandardMaterial({ color: 0xd0eaf8, transparent: true, opacity: 0.22, roughness: 0.05 }), filament_m = mat('#ff8822', 0.5);
-  const outer = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.03, 4), body); outer.position.set(0, h / 2, 0); outer.castShadow = true; outer.userData.colorable = true; g.add(outer);
-  const frontGlass = plainBox(w - 0.04, h * 0.7, 0.01, glass_m, 0, h * 0.42, d / 2 - 0.01); g.add(frontGlass);
-  const buildPlate = new THREE.Mesh(roundedBoxGeom(w * 0.75, 0.02, d * 0.75, 0.005, 4), mat('#888', 0.4, 0.3)); buildPlate.position.set(0, h * 0.18, 0); g.add(buildPlate);
-  const xRail = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, w * 0.8, 8), frame_m); xRail.rotation.z = Math.PI / 2; xRail.position.set(0, h * 0.72, 0); g.add(xRail);
-  const head = new THREE.Mesh(roundedBoxGeom(0.06, 0.05, 0.05, 0.01, 4), frame_m); head.position.set(0, h * 0.68, 0); g.add(head);
-  const nozzle = cylAt(0.006, 0.004, 0.04, 8, mat('#e08030', 0.3, 0.7), 0, h * 0.65, 0); g.add(nozzle);
-  const spool = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.018, 8, 24), filament_m); spool.rotation.x = Math.PI / 2; spool.position.set(w * 0.32, h * 0.8, -d * 0.3); spool.castShadow = true; g.add(spool);
-  const screen = plainBox(0.1, 0.07, 0.01, mat('#1a3a5a', 0.6, { emissive: '#1a3a5a', emissiveIntensity: 0.5 }), -w * 0.3, h * 0.85, d / 2 + 0.005); g.add(screen);
+  const body = mat(color, 0.5, 0.2, { env: 0.4 }), frame_m = mat('#1a1a1a', 0.4, 0.3);
+  const glass_m = new THREE.MeshStandardMaterial({ color: 0xc8dce8, transparent: true, opacity: 0.22, roughness: 0.05 });
+  const filament_m = mat('#ff8822', 0.5);
+  const outer = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.015, 4), body); outer.position.set(0, h / 2, 0); outer.castShadow = true; outer.userData.colorable = true; g.add(outer);
+  // 前面ガラス扉 (下段) と黒フレーム
+  g.add(box(w - 0.04, h * 0.62, 0.006, frame_m, 0, h * 0.4, d / 2 - 0.004));
+  const frontGlass = plainBox(w - 0.07, h * 0.58, 0.004, glass_m, 0, h * 0.4, d / 2 + 0.002); g.add(frontGlass);
+  g.add(box(0.012, 0.05, 0.01, mat('#888', 0.3, 0.6), w * 0.38, h * 0.4, d / 2 + 0.006)); // 扉ハンドル
+  // 天面ガラス蓋
+  g.add(plainBox(w - 0.06, 0.004, d - 0.06, glass_m, 0, h + 0.002, 0));
+  // 内部: ビルドプレート・X軸ガントリー・ツールヘッド
+  const buildPlate = new THREE.Mesh(roundedBoxGeom(w * 0.7, 0.012, d * 0.7, 0.004, 4), mat('#3a3a3a', 0.6, 0.3)); buildPlate.position.set(0, h * 0.2, 0); g.add(buildPlate);
+  g.add(box(w * 0.5, 0.01, 0.02, mat('#d8d8d8', 0.5), 0, h * 0.21, 0)); // 造形物(薄板)
+  const xRail = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, w * 0.8, 8), frame_m); xRail.rotation.z = Math.PI / 2; xRail.position.set(0, h * 0.8, 0); g.add(xRail);
+  const head = new THREE.Mesh(roundedBoxGeom(0.05, 0.06, 0.05, 0.008, 4), frame_m); head.position.set(0, h * 0.76, 0); g.add(head);
+  g.add(cylAt(0.005, 0.003, 0.02, 8, mat('#e08030', 0.3, 0.7), 0, h * 0.72, 0)); // ノズル
+  // 背面スプールホルダー
+  const spool = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.016, 8, 24), filament_m); spool.rotation.x = Math.PI / 2; spool.position.set(0, h * 0.6, -d / 2 - 0.03); spool.castShadow = true; g.add(spool);
+  // 右上 5インチ タッチパネル
+  const scrM = new THREE.MeshStandardMaterial({ color: 0x0c1a26, roughness: 0.3, metalness: 0.1, emissive: new THREE.Color('#1a4a6a'), emissiveIntensity: 0.55 });
+  g.add(box(0.12, 0.075, 0.008, frame_m, w * 0.28, h * 0.86, d / 2 + 0.002));
+  g.add(plainBox(0.105, 0.06, 0.004, scrM, w * 0.28, h * 0.86, d / 2 + 0.008));
   return g;
 }
 function buildLaserCutter({ color='#2a2a2a', w=1.0, d=0.7, h=0.35 } = {}) {

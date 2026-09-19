@@ -65,16 +65,33 @@ function buildUltrasonicCleaner({ color='#c0c8cc', w=0.35, d=0.28, h=0.28 } = {}
   const display = plainBox(0.08, 0.04, 0.008, mat('#001800', 0.7, 0, { emissive: '#00cc44', emissiveIntensity: 0.7 }), w * 0.18, h * 0.9, d * 0.15 + 0.005); g.add(display);
   return g;
 }
-function buildVacuumPump({ color='#4a4a4a', w=0.4, d=0.3, h=0.4 } = {}) {
+// ULVAC GLD-137CC (油回転真空ポンプ 直結型, W170×D488×H250): モーター(後)+ポンプ部(前)を奥行方向に直結。
+function buildVacuumPump({ color='#4a4a4a', w=0.17, d=0.488, h=0.25 } = {}) {
   const g = new THREE.Group();
   const body = mat(color, 0.45, 0.2, { env: 0.4 }), metal = mat('#888', 0.25, 0.7, { env: 0.7 }), oil_m = mat('#c8a020', 0.3, 0.1);
-  const motorBody = new THREE.Mesh(new THREE.CylinderGeometry(d / 2, d / 2, w * 0.62, 20), body); motorBody.rotation.z = Math.PI / 2; motorBody.position.set(-w * 0.1, h * 0.52, 0); motorBody.castShadow = true; motorBody.userData.colorable = true; g.add(motorBody);
-  const pumpBody = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.38, d * 0.38, w * 0.32, 16), mat(shade(color, 1.2), 0.35, 0.3)); pumpBody.rotation.z = Math.PI / 2; pumpBody.position.set(w * 0.28, h * 0.52, 0); pumpBody.castShadow = true; g.add(pumpBody);
-  const base = new THREE.Mesh(roundedBoxGeom(w, 0.06, d, 0.015, 4), mat('#333', 0.6)); base.position.set(0, 0.03, 0); base.castShadow = true; g.add(base);
-  const oilReservoir = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.12, 12), oil_m); oilReservoir.position.set(w * 0.3, h * 0.3, d * 0.3); oilReservoir.castShadow = true; g.add(oilReservoir);
-  const oilCap = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 12), metal); oilCap.position.set(w * 0.3, h * 0.36, d * 0.3); g.add(oilCap);
-  const inletPort = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.06, 10), metal); inletPort.rotation.x = Math.PI / 2; inletPort.position.set(w * 0.3, h * 0.58, d / 2 + 0.03); g.add(inletPort);
-  const exhaustPort = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.05, 10), metal); exhaustPort.rotation.z = Math.PI / 2; exhaustPort.position.set(w / 2 + 0.025, h * 0.62, 0); g.add(exhaustPort);
+  const r = Math.min(w, h - 0.06) / 2;                 // モーター半径 (幅・高さに収める)
+  const cy = 0.04 + r;                                 // 軸心高さ
+  const base = new THREE.Mesh(roundedBoxGeom(w, 0.03, d, 0.008, 4), mat('#333', 0.6)); base.position.set(0, 0.015, 0); base.castShadow = true; g.add(base);
+  [[-w/2+0.02, d/2-0.03], [w/2-0.02, d/2-0.03], [-w/2+0.02, -d/2+0.03], [w/2-0.02, -d/2+0.03]].forEach(([x, z]) => g.add(cylAt(0.01, 0.012, 0.01, 8, mat('#222', 0.8), x, 0.005, z))); // ゴム足
+  // モーター (後方, 冷却フィン付き)
+  const motorL = d * 0.5;
+  const motor = new THREE.Mesh(new THREE.CylinderGeometry(r, r, motorL, 20), body); motor.rotation.x = Math.PI / 2; motor.position.set(0, cy, -d/2 + motorL/2 + 0.02); motor.castShadow = true; motor.userData.colorable = true; g.add(motor);
+  for (let i = 0; i < 6; i++) { const fin = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.006, r + 0.006, 0.006, 20), mat(shade(color, 0.9), 0.5, 0.2)); fin.rotation.x = Math.PI / 2; fin.position.set(0, cy, -d/2 + 0.06 + i * motorL * 0.15); g.add(fin); }
+  g.add(cylAt(r * 0.6, r * 0.6, 0.02, 14, mat('#2a2a2a', 0.6), 0, cy, -d/2 + 0.01).rotateX(Math.PI / 2)); // ファンカバー
+  g.add(box(w * 0.5, 0.05, 0.08, mat('#2a2a2a', 0.6), 0, cy + r + 0.02, -d/2 + 0.12)); // 端子箱
+  // ポンプ部 (前方, 角型ハウジング + オイルケース)
+  const pumpL = d * 0.42;
+  const pump = new THREE.Mesh(roundedBoxGeom(w, h - 0.06, pumpL, 0.01, 4), mat(shade(color, 1.15), 0.4, 0.3)); pump.position.set(0, 0.04 + (h - 0.06)/2, d/2 - pumpL/2 - 0.01); pump.castShadow = true; g.add(pump);
+  const sight = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.006, 12), oil_m); sight.rotation.z = Math.PI / 2; sight.position.set(w/2 + 0.002, cy - 0.02, d/2 - pumpL * 0.5); g.add(sight); // オイル窓
+  // 吸気口 (KFフランジ, 上向き) と排気口 (前上部)
+  g.add(cylAt(0.014, 0.014, 0.05, 10, metal, 0, h - 0.03, d/2 - pumpL * 0.7));
+  g.add(cylAt(0.022, 0.022, 0.012, 12, metal, 0, h - 0.005, d/2 - pumpL * 0.7));      // フランジ
+  g.add(cylAt(0.011, 0.011, 0.04, 10, metal, w * 0.25, h - 0.035, d/2 - pumpL * 0.3));
+  g.add(cylAt(0.016, 0.016, 0.02, 10, mat('#c0392b', 0.5), w * 0.25, h - 0.01, d/2 - pumpL * 0.3)); // 排気キャップ
+  // オイル給油キャップ
+  g.add(cylAt(0.012, 0.012, 0.012, 10, oil_m, -w * 0.25, h - 0.03, d/2 - pumpL * 0.5));
+  // キャリングハンドル (モーター上)
+  const hd = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.005, 6, 14, Math.PI), metal); hd.rotation.y = Math.PI / 2; hd.position.set(0, cy + r, -d/2 + motorL * 0.55); g.add(hd);
   return g;
 }
 

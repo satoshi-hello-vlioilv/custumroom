@@ -410,7 +410,7 @@ function shade(hex, f) {
 // ===== js/core/version.js =====
 // アプリのバージョン番号。リリースのたびに更新し, CHANGELOG.md に対応するエントリを追記する。
 // セマンティックバージョニング(MAJOR.MINOR.PATCH): 破壊的変更/大規模刷新=MAJOR, 機能追加=MINOR, 修正=PATCH
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 
 // ===== js/core/orient.js =====
@@ -3412,14 +3412,16 @@ function buildZZPlant({ color='#2a5a28' } = {}) {
 
 // ===== js/builders/industrial.js =====
 
-function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.9 } = {}) {
+// TRUSCO 軽量作業台 AE型 (W1500×D750×H740, 均等荷重300kg): 角パイプ脚(緑)・ポリ化粧天板・下棚。万力は表現用の付属品。
+function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.74 } = {}) {
   const g = new THREE.Group();
-  const steel = mat('#5a6474', 0.28, 0.72);
+  const steel = mat('#4e8d69', 0.45, 0.35);   // TRUSCO グリーン塗装フレーム
   const darkM = mat('#3a4252', 0.32, 0.65);
 
-  // Thick steel work surface
-  const top = box(w, 0.07, d, mat(color, 0.35, 0.5), 0, h - 0.035, 0);
+  // ポリ化粧天板 (厚さ約30mm) — 色変更対象
+  const top = box(w, 0.03, d, mat(color, 0.5, 0.05), 0, h - 0.015, 0);
   top.userData.colorable = true; g.add(top);
+  g.add(box(w, 0.04, d, mat('#3f4a44', 0.6, 0.2), 0, h - 0.05, 0));   // 天板下の受け枠
 
   // 4 square-tube legs with leveling feet
   const lx = w / 2 - 0.06, lz = d / 2 - 0.06;
@@ -3442,21 +3444,8 @@ function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.9 } = {}) {
   g.add(box(0.05, 0.05, d - 0.12, steel, -lx, sY, 0));
   g.add(box(0.05, 0.05, d - 0.12, steel,  lx, sY, 0));
 
-  // Lower shelf
-  g.add(box(w - 0.16, 0.04, d - 0.16, mat(shade(color, 0.72), 0.55, 0.35), 0, sY + 0.045, 0));
-
-  // Back pegboard panel
-  const pbH = 0.62, pbZ = d / 2 - 0.011;
-  const pbY = h + pbH / 2 - 0.02;
-  g.add(box(w - 0.1, pbH, 0.022, mat('#8a9aaa', 0.65, 0.15), 0, pbY, pbZ));
-  for (let px = -(w / 2 - 0.16); px <= (w / 2 - 0.16); px += 0.095) {
-    for (let py = h + 0.06; py <= h + pbH - 0.09; py += 0.095) {
-      g.add(box(0.018, 0.018, 0.009, mat('#2a3038', 0.9, 0), px, py, pbZ + 0.012));
-    }
-  }
-  [-0.45, -0.15, 0.18, 0.42].forEach((px, i) => {
-    g.add(box(0.014, 0.038, 0.09, mat('#b8c0ca', 0.22, 0.88), px, h + 0.1 + i * 0.09, pbZ + 0.055));
-  });
+  // 下棚 (AE型付属の中棚)
+  g.add(box(w - 0.16, 0.02, d - 0.16, mat('#4e8d69', 0.5, 0.3), 0, sY + 0.035, 0));
 
   // Machinist bench vise (front-left corner)
   const vx = -w / 2 + 0.22, vz = -d / 2 + 0.01;
@@ -3478,7 +3467,8 @@ function buildWorkbench({ color='#6b7280', w=1.5, d=0.75, h=0.9 } = {}) {
   return g;
 }
 
-function buildToolCabinet({ color='#d4690a', w=0.7, d=0.45, h=1.12 } = {}) {
+// KTC ローラーキャビネット SKX3805 (W680×D460×H975): 5段引出し(浅3+深2)・キャスター・側面ハンドル
+function buildToolCabinet({ color='#c8102e', w=0.68, d=0.46, h=0.975 } = {}) {
   const g = new THREE.Group();
   const darkM = mat('#28303a', 0.32, 0.72);
   const chrM  = mat('#b0bac8', 0.14, 0.88);
@@ -3512,30 +3502,40 @@ function buildToolCabinet({ color='#d4690a', w=0.7, d=0.45, h=1.12 } = {}) {
   // Top rubber mat
   g.add(box(w - 0.04, 0.026, d - 0.04, mat('#1a1e26', 0.88, 0.04), 0, bodyBase + bodyH + 0.013, 0));
 
-  // 7 drawers with recessed panels and bar handles
-  const numDr = 7;
-  const drH = (bodyH - 0.06) / numDr;
+  // 5 drawers (KTC: shallow ×3 on top, deep ×2 below) with recessed panels and bar handles
+  const weights = [0.8, 0.8, 1.0, 1.45, 1.95];
+  const sumW = weights.reduce((a, b) => a + b, 0);
+  const drArea = bodyH - 0.06;
   const drGap = 0.011;
-  for (let i = 0; i < numDr; i++) {
-    const dy = bodyBase + 0.03 + drH * (i + 0.5);
+  let dy0 = bodyBase + 0.03;
+  weights.forEach(wt => {
+    const drH = drArea * wt / sumW;
+    const dy = dy0 + drH / 2; dy0 += drH;
     const drFront = box(w - 0.04, drH - drGap, 0.03, mat(shade(color, 1.06), 0.38, 0.52), 0, dy, d / 2 + 0.001);
     drFront.userData.colorable = true; g.add(drFront);
     // Recessed inset
     g.add(box(w - 0.1, drH - drGap - 0.03, 0.01, mat(shade(color, 0.84), 0.44, 0.48), 0, dy, d / 2 + 0.008));
-    // Bar handle
+    // Bar handle (full-width aluminium pull, KTC style)
     const bar = cyl(0.007, 0.007, w - 0.22, 10, chrM);
-    bar.rotation.z = Math.PI / 2; bar.position.set(0, dy, d / 2 + 0.03); g.add(bar);
+    bar.rotation.z = Math.PI / 2; bar.position.set(0, dy + drH * 0.28, d / 2 + 0.03); g.add(bar);
     // Handle bracket posts + end knobs
     [-(w / 2 - 0.15), (w / 2 - 0.15)].forEach(hx => {
-      g.add(box(0.01, 0.016, 0.022, chrM, hx, dy, d / 2 + 0.021));
+      g.add(box(0.01, 0.016, 0.022, chrM, hx, dy + drH * 0.28, d / 2 + 0.021));
       const knb = cyl(0.011, 0.011, 0.01, 8, chrM);
-      knb.rotation.z = Math.PI / 2; knb.position.set(hx, dy, d / 2 + 0.031); g.add(knb);
+      knb.rotation.z = Math.PI / 2; knb.position.set(hx, dy + drH * 0.28, d / 2 + 0.031); g.add(knb);
     });
-  }
+  });
 
-  // Vertical lock bar (right side)
-  g.add(box(0.015, bodyH - 0.06, 0.015, chrM, w / 2 - 0.015, bCY, d / 2 + 0.008));
-  g.add(box(0.022, 0.036, 0.022, darkM, w / 2 - 0.015, bodyBase + bodyH * 0.52, d / 2 + 0.018));
+  // Central key lock (top rail)
+  g.add(cylAt(0.012, 0.012, 0.01, 10, chrM, 0, bodyBase + bodyH - 0.02, d / 2 + 0.005).rotateX(Math.PI / 2));
+
+  // Side push handle (right side, tubular)
+  const hy = bodyBase + bodyH - 0.06;
+  const hbar = cyl(0.012, 0.012, d * 0.7, 10, chrM); hbar.rotation.x = Math.PI / 2; hbar.position.set(w / 2 + 0.045, hy, 0); g.add(hbar);
+  [-d * 0.3, d * 0.3].forEach(hz => { const post = cyl(0.01, 0.01, 0.05, 8, chrM); post.rotation.z = Math.PI / 2; post.position.set(w / 2 + 0.022, hy, hz); g.add(post); });
+
+  // Nameplate (front top rail)
+  g.add(box(0.12, 0.022, 0.004, mat('#f0eee8', 0.6), -w / 2 + 0.12, bodyBase + bodyH - 0.02, d / 2 + 0.004));
 
   return g;
 }
@@ -3809,32 +3809,72 @@ function buildPalletRack({ color='#e06010', w=1.7, d=0.5, h=2.46 } = {}) {
   return g;
 }
 
-function buildControlPanel(color) {
+// 日東工業 自立制御盤キャビネット E-A (W800×D500×H1800 相当): 基台100mm・片開き扉・表示灯・HMI・押ボタン・非常停止
+function buildControlPanel({ color='#e8e2d6', w=0.8, d=0.5, h=1.8 } = {}) {
   const g = new THREE.Group();
-  const cabinet = box(0.8, 1.8, 0.45, mat(color, 0.4, 0.3), 0, 0.9, 0); cabinet.userData.colorable = true; g.add(cabinet);
-  const top = box(0.82, 0.06, 0.47, mat('#222', 0.5, 0.3), 0, 1.83, 0); g.add(top);
-  const door = box(0.68, 1.5, 0.02, mat('#d4dae0', 0.3, 0.4), 0, 0.85, 0.235); g.add(door);
-  // indicators
-  const colors = ['#22c55e','#22c55e','#f59e0b','#ef4444','#3b82f6'];
-  colors.forEach((cl, i) => {
-    const ind = cyl(0.022, 0.022, 0.04, 8, mat(cl, 0.3, 0.2));
-    ind.rotation.z = Math.PI/2; ind.position.set(0.25 - i*0.1, 1.35, 0.248); g.add(ind);
+  const bodyM = mat(color, 0.45, 0.25, { env: 0.4 });
+  const doorM = mat(shade(color, 1.03), 0.42, 0.25, { env: 0.4 });
+  const darkM = mat('#2a2d31', 0.5, 0.3);
+  const chrM  = mat('#b8bec6', 0.25, 0.8, { env: 0.9 });
+  const baseH = 0.1;                         // チャンネルベース(基台) 100mm
+  const capH  = 0.02;
+  const bodyH = h - baseH - capH;
+  const bodyCY = baseH + bodyH / 2;
+  const fz = d / 2;
+
+  // 基台 (黒, 少し内側に引っ込む)
+  g.add(box(w - 0.04, baseH, d - 0.04, darkM, 0, baseH / 2, 0));
+  // 本体箱 + 天板 (雨水よけの縁付き)
+  const body = box(w, bodyH, d, bodyM, 0, bodyCY, 0); body.userData.colorable = true; g.add(body);
+  const cap = box(w + 0.02, capH, d + 0.02, mat(shade(color, 0.85), 0.45, 0.25), 0, h - capH / 2, 0); cap.userData.colorable = true; g.add(cap);
+  // 吊り用アイボルト
+  [-w / 2 + 0.08, w / 2 - 0.08].forEach(x => { const eb = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.006, 6, 12), chrM); eb.position.set(x, h + 0.02, 0); g.add(eb); });
+
+  // 前面 片開き扉 (右ハンドル / 左ヒンジ)
+  const door = box(w - 0.06, bodyH - 0.06, 0.02, doorM, 0, bodyCY, fz + 0.005); door.userData.colorable = true; g.add(door);
+  g.add(box(0.03, 0.16, 0.02, chrM, w / 2 - 0.09, bodyCY, fz + 0.026));                       // 平面ハンドル
+  g.add(box(0.045, 0.045, 0.03, darkM, w / 2 - 0.09, bodyCY + 0.13, fz + 0.02));              // 錠
+  [0.15, 0.5, 0.85].forEach(t => { const hg = cyl(0.011, 0.011, 0.08, 8, chrM); hg.position.set(-w / 2 + 0.012, baseH + bodyH * t, fz + 0.012); g.add(hg); }); // ヒンジ
+
+  // 表示灯 (電源=緑 / 運転=橙 / 異常=赤)
+  const lampY = h - 0.32;
+  [['#22c55e', -0.16], ['#f59e0b', -0.05], ['#ef4444', 0.06]].forEach(([c, dx]) => {
+    const lm = mat(c, 0.3, 0.1); lm.emissive = new THREE.Color(c); lm.emissiveIntensity = 0.55;
+    const ind = cyl(0.016, 0.016, 0.03, 10, lm); ind.rotation.x = Math.PI / 2; ind.position.set(dx, lampY, fz + 0.03); g.add(ind);
+    const ring = cyl(0.021, 0.021, 0.012, 10, darkM); ring.rotation.x = Math.PI / 2; ring.position.set(dx, lampY, fz + 0.02); g.add(ring);
   });
-  // switches
+  // 電力計 (アナログメーター)
+  g.add(box(0.09, 0.09, 0.02, darkM, 0.22, lampY, fz + 0.02));
+  g.add(plainBox(0.07, 0.07, 0.006, mat('#f2f0ea', 0.6), 0.22, lampY, fz + 0.033));
+  g.add(box(0.003, 0.03, 0.004, mat('#c0392b', 0.5), 0.225, lampY + 0.008, fz + 0.037));
+
+  // HMI タッチパネル
+  const hmiY = h - 0.62;
+  g.add(box(0.30, 0.22, 0.02, darkM, -0.05, hmiY, fz + 0.02));
+  const scrM = new THREE.MeshStandardMaterial({ color: 0x0c1a26, roughness: 0.25, metalness: 0.1, emissive: new THREE.Color('#1a4a6a'), emissiveIntensity: 0.5 });
+  g.add(plainBox(0.26, 0.17, 0.006, scrM, -0.05, hmiY, fz + 0.033));
+  // 押ボタン (運転/停止/リセット ×2列) + セレクタ
   for (let i = 0; i < 6; i++) {
-    const sw = box(0.04, 0.08, 0.03, mat('#555', 0.5, 0.3), -0.25 + (i%3)*0.24, 0.9 + Math.floor(i/3)*0.18, 0.248); g.add(sw);
+    const bx = -0.22 + (i % 3) * 0.1, by = h - 0.92 - Math.floor(i / 3) * 0.1;
+    const c = ['#22c55e', '#ef4444', '#2b2b2b'][i % 3];
+    const ring = cyl(0.02, 0.02, 0.012, 12, darkM); ring.rotation.x = Math.PI / 2; ring.position.set(bx, by, fz + 0.02); g.add(ring);
+    const btn = cyl(0.014, 0.014, 0.022, 12, mat(c, 0.4, 0.1)); btn.rotation.x = Math.PI / 2; btn.position.set(bx, by, fz + 0.032); g.add(btn);
   }
-  // display screen
-  const screen = box(0.5, 0.26, 0.015, mat('#001a1a', 0.9, 0.1), 0, 1.1, 0.24);
-  g.add(screen);
-  // base
-  const base = box(0.82, 0.06, 0.47, mat('#222', 0.5, 0.2), 0, 0.03, 0); g.add(base);
+  // 非常停止 (黄色台座 + 赤キノコ)
+  g.add(box(0.08, 0.08, 0.012, mat('#f2c200', 0.5, 0.1), 0.2, h - 0.97, fz + 0.02));
+  const es = cyl(0.024, 0.02, 0.03, 14, mat('#ef4444', 0.4, 0.1)); es.rotation.x = Math.PI / 2; es.position.set(0.2, h - 0.97, fz + 0.04); g.add(es);
+  // 銘板
+  g.add(box(0.14, 0.05, 0.004, mat('#d8d4c8', 0.6), 0, baseH + bodyH - 0.08, fz + 0.027));
+  // 側面ルーバー (放熱)
+  for (let i = 0; i < 6; i++) g.add(box(0.006, 0.01, 0.16, darkM, w / 2 + 0.001, baseH + 0.25 + i * 0.03, -d * 0.15));
   return g;
 }
 
-function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) {
+// ブラザー SPEEDIO S500Xd1 (W1560×D2223×H2498) を基準にしたコンパクト立形マシニングセンタ。
+// 左右キャビネット幅・操作盤・工具マガジンは w に比例して収まるよう配置する。
+function buildCNCMachiningCenter({ color='#e8e2d6', w=1.56, d=2.223, h=2.498 } = {}) {
   const g = new THREE.Group();
-  // ---- materials (off-white sheet-metal body + charcoal base, per VC-850 reference) ----
+  // ---- materials (off-white sheet-metal body + charcoal base) ----
   const cream  = mat(color, 0.5, 0.06, { env: 0.3 });               // body panels (colorable)
   const creamD = mat(shade(color, 0.9), 0.5, 0.06);                 // shaded panel insets
   const charc  = mat('#34383c', 0.6, 0.2);                          // base plinth
@@ -3849,9 +3889,9 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   const screenMat = new THREE.MeshStandardMaterial({ color: 0x0c1620, roughness: 0.2, metalness: 0.1, emissive: new THREE.Color('#0a1e2c'), emissiveIntensity: 0.4 });
 
   // ---- key layout dimensions ----
-  const baseH = 0.78, encTop = 2.0;
+  const baseH = 0.78, encTop = h - 0.5;
   const encH = encTop - baseH, encY = baseH + encH / 2;             // cream cabinet band
-  const leftW = 1.0, rightW = 1.1;
+  const leftW = w * 0.32, rightW = w * 0.37;                        // 1.56m 機で 0.50 / 0.58
   const leftX = -w/2 + leftW/2, rightX = w/2 - rightW/2;
   const openL = -w/2 + leftW, openR = w/2 - rightW;                 // central work opening
   const openW = openR - openL, openCx = (openL + openR) / 2;
@@ -3871,23 +3911,25 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   g.add(box(w, 0.05, 0.01, yellow, 0, baseH + 0.03, fz + 0.006));  // warning stripe at base of cabinets
 
   // ---- left enclosure front detail: nameplate, window, warning labels, handle ----
-  // nameplate (VC-850) via canvas texture
+  // nameplate (SPEEDIO S500Xd1) via canvas texture
   const nameCv = document.createElement('canvas'); nameCv.width = 384; nameCv.height = 128;
   const nctx = nameCv.getContext('2d');
   nctx.fillStyle = '#e8e2d6'; nctx.fillRect(0,0,384,128);
-  nctx.fillStyle = '#1c1c1c'; nctx.font = 'bold 76px Arial'; nctx.fillText('VC-850', 14, 70);
-  nctx.font = 'bold 26px Arial'; nctx.fillStyle = '#3a3a3a'; nctx.fillText('CNC MACHINING CENTER', 16, 108);
+  nctx.fillStyle = '#1c1c1c'; nctx.font = 'bold 70px Arial'; nctx.fillText('SPEEDIO', 14, 70);
+  nctx.font = 'bold 24px Arial'; nctx.fillStyle = '#3a3a3a'; nctx.fillText('S500Xd1  MACHINING CENTER', 16, 108);
   const nameTex = new THREE.CanvasTexture(nameCv); nameTex.anisotropy = 4;
-  const namePlane = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.24), new THREE.MeshBasicMaterial({ map: nameTex }));
-  namePlane.position.set(leftX - 0.1, encY + 0.40, fz + 0.012); g.add(namePlane);
+  const npW = Math.min(0.72, leftW * 0.9);
+  const namePlane = new THREE.Mesh(new THREE.PlaneGeometry(npW, npW / 3), new THREE.MeshBasicMaterial({ map: nameTex }));
+  namePlane.position.set(leftX, encY + 0.40, fz + 0.012); g.add(namePlane);
   // viewing window (dark frame + glass)
-  g.add(box(0.36, 0.30, 0.03, dark, leftX - 0.2, encY + 0.02, fz + 0.006));
-  const lwin = plainBox(0.30, 0.24, 0.01, glass, leftX - 0.2, encY + 0.02, fz + 0.02);
+  const winW = Math.min(0.36, leftW * 0.72);
+  g.add(box(winW, 0.30, 0.03, dark, leftX, encY + 0.05, fz + 0.006));
+  const lwin = plainBox(winW - 0.06, 0.24, 0.01, glass, leftX, encY + 0.05, fz + 0.02);
   lwin.castShadow = false; g.add(lwin);
-  // warning label cluster (orange stickers with header bar)
-  [0.16, -0.02, -0.20].forEach((ly, i) => {
-    g.add(box(0.16, 0.14, 0.008, mat('#f0f0ea',0.6), leftX + 0.32, encY + ly, fz + 0.006));
-    g.add(box(0.16, 0.03, 0.009, mat('#e08a10',0.5), leftX + 0.32, encY + ly + 0.055, fz + 0.007));
+  // warning label cluster (orange stickers with header bar), below the window
+  [-0.1, 0.1].forEach((lx, i) => {
+    g.add(box(0.16, 0.14, 0.008, mat('#f0f0ea',0.6), leftX + lx, encY - 0.30, fz + 0.006));
+    g.add(box(0.16, 0.03, 0.009, mat(i ? '#e08a10' : '#d83a3a',0.5), leftX + lx, encY - 0.30 + 0.055, fz + 0.007));
   });
 
   // ---- door handles (black vertical tubes) ----
@@ -3909,17 +3951,17 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   g.add(box(tblW, 0.1, tblD, steel, openCx, tableY, 0.04));                       // table top
   for (let tx = -tblW/2 + 0.09; tx < tblW/2 - 0.02; tx += 0.13)
     g.add(box(0.022, 0.045, tblD - 0.04, dark, openCx + tx, tableY + 0.055, 0.04)); // T-slots
-  // machine vise on the table
-  const viseY = tableY + 0.05;
-  g.add(box(0.46, 0.13, 0.30, grayL, openCx, viseY + 0.065, 0.04));               // vise base
-  g.add(box(0.12, 0.18, 0.32, grayC, openCx - 0.15, viseY + 0.13, 0.04));          // fixed jaw
-  g.add(box(0.12, 0.18, 0.32, grayC, openCx + 0.07, viseY + 0.13, 0.04));          // movable jaw
-  g.add(box(0.14, 0.10, 0.20, steel, openCx - 0.04, viseY + 0.155, 0.04));         // workpiece
+  // machine vise on the table (scaled to the table width)
+  const viseY = tableY + 0.05, vw = Math.min(0.46, tblW * 0.95);
+  g.add(box(vw, 0.13, 0.30, grayL, openCx, viseY + 0.065, 0.04));                          // vise base
+  g.add(box(vw * 0.26, 0.18, 0.32, grayC, openCx - vw * 0.33, viseY + 0.13, 0.04));       // fixed jaw
+  g.add(box(vw * 0.26, 0.18, 0.32, grayC, openCx + vw * 0.15, viseY + 0.13, 0.04));       // movable jaw
+  g.add(box(vw * 0.3, 0.10, 0.20, steel, openCx - vw * 0.09, viseY + 0.155, 0.04));      // workpiece
 
   // spindle head (Z-axis) + cross rail
   const headY = 1.42;
   g.add(box(openW - 0.16, 0.20, 0.42, grayC, openCx, openTopY - 0.02, -d/2 + 0.34)); // Z-slide on column
-  g.add(box(0.52, 0.46, 0.46, grayL, openCx, headY, -0.02));                          // spindle head box
+  g.add(box(Math.min(0.52, openW - 0.02), 0.46, 0.46, grayL, openCx, headY, -0.02));   // spindle head box
   g.add(box(0.30, 0.12, 0.30, dark, openCx, headY - 0.27, -0.02));                    // spindle housing nose
   g.add(cylAt(0.085, 0.07, 0.16, 18, steel, openCx, headY - 0.40, -0.02));            // spindle nose
   g.add(cylAt(0.07, 0.038, 0.13, 16, chrome, openCx, headY - 0.53, -0.02));           // tool taper holder
@@ -3932,12 +3974,12 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
     g.add(box(0.03, 0.03, 0.06, nozzle, openCx + cx*0.3, headY - 0.52, 0.06));
   });
 
-  // ---- top spindle-drive column housing (gray, rear-center) ----
-  g.add(box(0.92, 0.62, 0.72, grayC, openCx, encTop + 0.27, -0.18));
-  g.add(box(0.6, 0.22, 0.56, grayL, openCx, encTop + 0.66, -0.18));   // top cap
+  // ---- top spindle-drive column housing (gray, rear-center); top cap reaches h ----
+  g.add(box(Math.min(0.92, w * 0.6), 0.5, 0.72, grayC, openCx, encTop + 0.25, -0.18));
+  g.add(box(Math.min(0.6, w * 0.4), 0.14, 0.56, grayL, openCx, encTop + 0.43, -0.18));   // top cap
 
   // ---- ATC tool carousel (dark drum with yellow tool pockets) ----
-  const atc = new THREE.Group(); atc.position.set(openR + 0.42, encTop + 0.18, -0.05); atc.rotation.x = -0.5;
+  const atc = new THREE.Group(); atc.position.set(Math.min(openR + 0.42, w/2 - 0.42), encTop + 0.18, -0.05); atc.rotation.x = -0.5;
   atc.add(cyl(0.38, 0.38, 0.12, 30, dark));
   atc.add(cyl(0.12, 0.12, 0.16, 16, grayL));
   for (let i = 0; i < 18; i++) {
@@ -3956,8 +3998,9 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   });
   g.add(cylAt(0.04, 0.04, 0.04, 12, dark, lx, ly + 0.01, lz));        // top cap
 
-  // ---- CNC control panel (right side, angled toward operator) ----
-  const pan = new THREE.Group(); pan.position.set(rightX - 0.05, encY + 0.06, fz + 0.05); pan.rotation.y = -0.16; g.add(pan);
+  // ---- CNC control panel (right side, angled toward operator; scaled to the right cabinet width) ----
+  const pan = new THREE.Group(); pan.position.set(rightX - 0.03, encY + 0.06, fz + 0.05); pan.rotation.y = -0.16; g.add(pan);
+  const pk = Math.min(1, (rightW - 0.06) / 0.92); pan.scale.set(pk, pk, 1);
   pan.add(box(0.92, 1.06, 0.09, dark, 0, 0, 0));                      // panel housing
   pan.add(box(0.84, 0.98, 0.02, mat('#23272c', 0.5), 0, 0, 0.055));   // bezel
   // display screen (canvas texture: X/Y/Z readout)
@@ -3965,7 +4008,7 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   const sctx = sCv.getContext('2d');
   sctx.fillStyle = '#0a161e'; sctx.fillRect(0, 0, 256, 192);
   sctx.fillStyle = '#163a2a'; sctx.fillRect(8, 8, 240, 30);
-  sctx.fillStyle = '#7fd6a8'; sctx.font = '16px monospace'; sctx.fillText('VC-850  AUTO', 16, 30);
+  sctx.fillStyle = '#7fd6a8'; sctx.font = '16px monospace'; sctx.fillText('S500Xd1  AUTO', 16, 30);
   sctx.font = 'bold 28px monospace'; sctx.fillStyle = '#bdeed0';
   sctx.fillText('X  123.456', 18, 88);
   sctx.fillText('Y  654.321', 18, 126);
@@ -3986,10 +4029,11 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=3.0, d=2.2, h=2.8 } = {}) 
   const mpg = cyl(0.085, 0.085, 0.04, 22, mat('#2a2e33', 0.45)); mpg.rotation.x = Math.PI/2; mpg.position.set(0.22, -0.40, 0.075); pan.add(mpg);
   pan.add(box(0.03, 0.03, 0.045, chrome, 0.22, -0.32, 0.1));          // handwheel knob
 
-  // ---- handheld pendant on cable (right) ----
-  const pcable = cyl(0.012, 0.012, 0.42, 8, dark); pcable.position.set(rightX + 0.32, encY - 0.36, fz + 0.04); g.add(pcable);
-  g.add(box(0.1, 0.2, 0.05, mat('#2a2e33', 0.5), rightX + 0.34, encY - 0.66, fz + 0.07));
-  g.add(box(0.07, 0.07, 0.01, screenMat, rightX + 0.34, encY - 0.61, fz + 0.1));
+  // ---- handheld pendant on cable (right edge) ----
+  const pdx = Math.min(rightX + 0.34, w/2 - 0.08);
+  const pcable = cyl(0.012, 0.012, 0.42, 8, dark); pcable.position.set(pdx - 0.02, encY - 0.36, fz + 0.04); g.add(pcable);
+  g.add(box(0.1, 0.2, 0.05, mat('#2a2e33', 0.5), pdx, encY - 0.66, fz + 0.07));
+  g.add(box(0.07, 0.07, 0.01, screenMat, pdx, encY - 0.61, fz + 0.1));
 
   // ---- mark body panels colorable ----
   g.traverse(o => { if (o.isMesh && o.material === cream) o.userData.colorable = true; });
@@ -4304,10 +4348,11 @@ function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
   g.userData.parts = { door: doorGroup };
   return g;
 }
-function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
+function buildInjectionMolder({ color='#e8e4dc', w=5.133, d=1.365, h=1.923 } = {}) {
   const g = new THREE.Group();
-  // horizontal injection molding machine (TOYO Si-180 style): off-white shrouds,
-  // blue safety guard, charcoal machine bed, stainless hopper. Clamp LEFT, injection RIGHT.
+  // horizontal all-electric injection molding machine (住友重機械 SE180EV-A, 5133×1365×1923):
+  // off-white shrouds, blue safety guard, charcoal machine bed, stainless hopper. Clamp LEFT, injection RIGHT.
+  // 型締ユニット/射出ユニットのシュラウドは w に応じて伸縮する。
   const body   = mat(color, 0.45, 0.12, { env: 0.4 });               // off-white shrouds (colorable)
   const bodyD  = mat(shade(color, 0.9), 0.45, 0.12);
   const charc  = mat('#34373b', 0.55, 0.3, { env: 0.4 });            // machine bed / cabinets
@@ -4355,12 +4400,12 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   const clmp = new THREE.Mesh(roundedBoxGeom(0.78, 0.86, d - 0.1, 0.12, 4), body);
   clmp.position.set(clmpCx, deckY + 0.45, 0); clmp.castShadow = true; g.add(clmp);
   g.add(box(0.1, 0.7, d - 0.2, bodyD, clmpCx + 0.4, deckY + 0.42, 0));            // rear shading face
-  // nameplate "Si-180-6 / TOYO PLASTAR"
+  // nameplate "SE180EV-A / SUMITOMO"
   const nCv = document.createElement('canvas'); nCv.width = 384; nCv.height = 192;
   const nx = nCv.getContext('2d'); nx.fillStyle = '#e8e4dc'; nx.fillRect(0,0,384,192);
-  nx.fillStyle = '#23262b'; nx.font = 'bold 64px Arial'; nx.fillText('Si-180-6', 20, 78);
-  nx.fillStyle = '#2c4fa0'; nx.font = 'bold 40px Arial'; nx.fillText('TOYO', 20, 132);
-  nx.fillStyle = '#23262b'; nx.font = 'bold 30px Arial'; nx.fillText('PLASTAR', 20, 168);
+  nx.fillStyle = '#23262b'; nx.font = 'bold 60px Arial'; nx.fillText('SE180EV-A', 20, 78);
+  nx.fillStyle = '#2c4fa0'; nx.font = 'bold 40px Arial'; nx.fillText('SUMITOMO', 20, 132);
+  nx.fillStyle = '#23262b'; nx.font = 'bold 28px Arial'; nx.fillText('ALL-ELECTRIC', 20, 168);
   const nTex = new THREE.CanvasTexture(nCv); nTex.anisotropy = 4;
   const nPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.3), new THREE.MeshBasicMaterial({ map: nTex }));
   nPlane.position.set(clmpCx - 0.12, deckY + 0.5, fz - 0.04); g.add(nPlane);
@@ -4374,9 +4419,10 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
 
   // ===== mold area: platens + tie bars (visible behind the blue guard) =====
   const moldY = deckY + 0.42;
-  // 4 chrome tie bars running along x
+  // 4 chrome tie bars running along x (from inside the clamp shroud to the moving platen)
+  const tbX0 = -w/2 + 0.6, tbX1 = 0.2;
   [[0.32,0.32],[0.32,-0.32],[-0.32,0.32],[-0.32,-0.32]].forEach(([dy,tz]) => {
-    const tb = cyl(0.045, 0.045, 1.5, 14, chrome); tb.rotation.z = Math.PI/2; tb.position.set(-0.55, moldY + dy, tz); g.add(tb);
+    const tb = cyl(0.045, 0.045, tbX1 - tbX0, 14, chrome); tb.rotation.z = Math.PI/2; tb.position.set((tbX0 + tbX1)/2, moldY + dy, tz); g.add(tb);
   });
   // fixed platen (left) with bore-hole pattern, moving platen (right), mold block
   const platen = (px) => { const p = box(0.12, 0.62, d - 0.28, steel, px, moldY, 0); g.add(p);
@@ -4401,7 +4447,7 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   const sCv = document.createElement('canvas'); sCv.width = 200; sCv.height = 160;
   const sc = sCv.getContext('2d'); sc.fillStyle = '#d8dde2'; sc.fillRect(0,0,200,160);
   sc.fillStyle = '#1f5fa8'; sc.fillRect(0,0,200,22);
-  sc.fillStyle = '#ffffff'; sc.font = '12px Arial'; sc.fillText('TOYO Si-180', 6, 16);
+  sc.fillStyle = '#ffffff'; sc.font = '12px Arial'; sc.fillText('SE180EV-A', 6, 16);
   const cols = ['#2f7fd0','#39b54a','#f0a020','#d04545'];
   for (let i=0;i<8;i++){ sc.fillStyle = cols[i%4]; sc.fillRect(8 + (i%4)*46, 32 + Math.floor(i/4)*40, 40, 32); }
   sc.fillStyle = '#222'; sc.font = '11px monospace'; sc.fillText('CYCLE 18.6s  OK', 8, 150);
@@ -4423,19 +4469,20 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   const barrel = cyl(0.09,0.09,0.7,18, steel); barrel.rotation.z = Math.PI/2; barrel.position.set(0.62, deckY + 0.32, 0); g.add(barrel);
   for (let bx = 0.4; bx < 0.85; bx += 0.13) g.add(box(0.1, 0.21, 0.21, mat('#8a4a20',0.7), bx, deckY + 0.32, 0)); // band heaters
   const nozzle = cyl(0.045,0.03,0.16,12, chrome); nozzle.rotation.z = Math.PI/2; nozzle.position.set(0.18, deckY + 0.32, 0); g.add(nozzle);
+  // injection unit span: from the control area to just before the drive housing (grows with w)
+  const injX0 = 0.6, injX1 = w/2 - 0.36, injW = injX1 - injX0, injCx = (injX0 + injX1)/2;
   // injection unit base / tilt cradle (dark)
-  g.add(box(1.1, 0.18, d - 0.2, charc, 1.05, deckY + 0.08, 0));
-  g.add(box(0.5, 0.16, d - 0.34, charc2, 1.05, deckY + 0.2, 0));
+  g.add(box(injW + 0.1, 0.18, d - 0.2, charc, injCx, deckY + 0.08, 0));
+  g.add(box(injW * 0.5, 0.16, d - 0.34, charc2, injCx, deckY + 0.2, 0));
   // off-white barrel shroud
-  const injCx = 1.1;
-  const injShroud = new THREE.Mesh(roundedBoxGeom(1.0, 0.6, d - 0.16, 0.1, 4), body);
+  const injShroud = new THREE.Mesh(roundedBoxGeom(injW, 0.6, d - 0.16, 0.1, 4), body);
   injShroud.position.set(injCx, deckY + 0.5, 0); injShroud.castShadow = true; g.add(injShroud);
-  // "180 / TOYO PLASTAR" label
+  // "180 / SUMITOMO SE-EV-A" label
   const iCv = document.createElement('canvas'); iCv.width = 256; iCv.height = 160;
   const ix = iCv.getContext('2d'); ix.fillStyle = '#e8e4dc'; ix.fillRect(0,0,256,160);
   ix.fillStyle = '#23262b'; ix.font = 'bold 80px Arial'; ix.fillText('180', 16, 80);
-  ix.fillStyle = '#2c4fa0'; ix.font = 'bold 34px Arial'; ix.fillText('TOYO', 18, 120);
-  ix.fillStyle = '#23262b'; ix.font = 'bold 24px Arial'; ix.fillText('PLASTAR', 18, 148);
+  ix.fillStyle = '#2c4fa0'; ix.font = 'bold 30px Arial'; ix.fillText('SUMITOMO', 18, 120);
+  ix.fillStyle = '#23262b'; ix.font = 'bold 24px Arial'; ix.fillText('SE-EV-A', 18, 148);
   const iTex = new THREE.CanvasTexture(iCv); iTex.anisotropy = 4;
   const iPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.31), new THREE.MeshBasicMaterial({ map: iTex }));
   iPlane.position.set(injCx + 0.05, deckY + 0.5, fz - 0.08); g.add(iPlane);
@@ -4443,31 +4490,34 @@ function buildInjectionMolder({ color='#e8e4dc', w=3.5, d=1.5, h=2.2 } = {}) {
   g.add(box(0.42, 0.56, d - 0.24, charc, w/2 - 0.12, deckY + 0.42, 0));
   g.add(cylAt(0.03,0.03,0.02,10, mat('#ef4444',0.3,0.1,{emissive:'#cc0000',emissiveIntensity:0.5}), w/2 - 0.12, deckY + 0.62, fz - 0.16).rotateX(Math.PI/2));
 
-  // ===== stainless steel hopper on top of the injection unit =====
-  const hX = injCx - 0.05, hBaseY = deckY + 0.8;
-  g.add(cylAt(0.05, 0.05, 0.12, 14, stain, hX, hBaseY, 0));                       // throat onto barrel
-  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.05, 0.26, 18), stain);
-  funnel.position.set(hX, hBaseY + 0.19, 0); funnel.castShadow = true; g.add(funnel); // cone
-  g.add(cylAt(0.2, 0.2, 0.22, 18, stain, hX, hBaseY + 0.43, 0));                  // cylindrical bin
-  g.add(cylAt(0.21, 0.21, 0.02, 18, mat('#a8b0b6',0.2,0.85), hX, hBaseY + 0.55, 0)); // rim
-  g.add(cylAt(0.14, 0.14, 0.03, 16, stain, hX, hBaseY + 0.58, 0));                // lid
-  g.add(box(0.16, 0.012, 0.012, dark, hX, hBaseY + 0.3, 0.2));                    // sight-glass strip
+  // ===== stainless steel hopper on top of the injection unit (top ≈ h, ホッパー付き全高) =====
+  const hX = injCx - injW * 0.2, hBaseY = deckY + 0.74;
+  g.add(cylAt(0.05, 0.05, 0.1, 14, stain, hX, hBaseY, 0));                        // throat onto barrel
+  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.05, 0.16, 18), stain);
+  funnel.position.set(hX, hBaseY + 0.12, 0); funnel.castShadow = true; g.add(funnel); // cone
+  g.add(cylAt(0.18, 0.18, 0.14, 18, stain, hX, hBaseY + 0.27, 0));                // cylindrical bin
+  g.add(cylAt(0.19, 0.19, 0.02, 18, mat('#a8b0b6',0.2,0.85), hX, hBaseY + 0.35, 0)); // rim
+  g.add(cylAt(0.13, 0.13, 0.03, 16, stain, hX, hBaseY + 0.37, 0));                // lid
+  g.add(box(0.14, 0.012, 0.012, dark, hX, hBaseY + 0.2, 0.18));                   // sight-glass strip
 
   // mark off-white shrouds colorable
   g.traverse(o => { if (o.isMesh && o.material === body) o.userData.colorable = true; });
   return g;
 }
 
-function buildForklift({ color='#f5c020', w=1.45, d=4.0, h=2.25 } = {}) {
-  // 3.5t-class counterbalance forklift. Built at native (real-machine) scale into
-  // `lift`, then uniformly scaled and recentred to fit the catalogue footprint.
-  // Front faces -z. Fork blades: 1.09 m long, 0.59 m centres — sized to standard
-  // 1100 mm pallets / stillages so the loads are actually carryable.
+function buildForklift({ color='#f5c020', w=1.15, d=3.0, h=2.1 } = {}) {
+  // トヨタ 8FBE15 (1.5t 3輪バッテリーカウンター, 全長3.0×全幅1.15×全高2.1m) 基準。
+  // Built at a native reference scale into `lift` (z-extent -3.94..+2.34 = 6.28,
+  // width 2.2, mast top 3.5), then scaled per axis to the catalogue w/d/h and
+  // recentred. Wheel groups are counter-scaled in y so tyres stay round.
+  // Front faces -z. Fork blades: 1.7 native → 0.81 m at 8FBE15 scale (920 mm forks).
   const g = new THREE.Group();
-  const SCALE = 0.64;
+  const NAT_W = 2.2, NAT_D = 6.28, NAT_H = 3.5;
+  const sx = w / NAT_W, sy = h / NAT_H, sz = d / NAT_D;
+  const kY = sz / sy;              // wheel y counter-scale (keeps tyres circular)
   const lift = new THREE.Group();
-  lift.scale.setScalar(SCALE);
-  lift.position.z = 0.8 * SCALE;   // recentre native z-extent (-3.94..+2.34) on origin
+  lift.scale.set(sx, sy, sz);
+  lift.position.z = 0.8 * sz;      // recentre native z-extent (-3.94..+2.34) on origin
   g.add(lift);
 
   // ---------- local helpers (match the reference model signatures) ----------
@@ -4531,25 +4581,27 @@ function buildForklift({ color='#f5c020', w=1.45, d=4.0, h=2.25 } = {}) {
   lbox(1.7, 0.62, 0.32, MAT.counter, 0, 0.62, 2.18, bodyG);
   const hzMat = new THREE.MeshStandardMaterial({ map: hazardTexture(), roughness:.6 });
   lbox(1.9, 0.3, 0.03, hzMat, 0, 1.32, 2.215, bodyG);         // rear hazard plate
-  const lblT = labelTexture('3.5t');
+  const lblT = labelTexture('1.5t');
   [-1, 1].forEach(s => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.42), new THREE.MeshStandardMaterial({ map: lblT, roughness:.6 }));
     p.position.set(s*1.105, 1.15, 1.62); p.rotation.y = s*Math.PI/2; bodyG.add(p);
   });
 
-  // ---------- overhead guard ----------
+  // ---------- overhead guard (ヘッドガード上面 ≈ 全高 = マスト格納高) ----------
   const guard = new THREE.Group(); lift.add(guard);
-  const postGeoF = new THREE.CylinderGeometry(.05, .05, 1.62, 12);
-  const postGeoR = new THREE.CylinderGeometry(.05, .05, 1.35, 12);
+  const GT = 3.36;                                              // guard roof top (native)
+  const postGeoF = new THREE.CylinderGeometry(.05, .05, GT - 1.14, 12);
+  const postGeoR = new THREE.CylinderGeometry(.05, .05, GT - 1.4, 12);
   [-1, 1].forEach(s => {
-    const pf = new THREE.Mesh(postGeoF, MAT.steel); pf.position.set(s*0.92, 1.95, -0.86); pf.rotation.x = 0.13; pf.castShadow = true; guard.add(pf);
-    const pr = new THREE.Mesh(postGeoR, MAT.steel); pr.position.set(s*0.92, 2.06, 0.92); pr.rotation.x = -0.08; pr.castShadow = true; guard.add(pr);
+    const pf = new THREE.Mesh(postGeoF, MAT.steel); pf.position.set(s*0.92, (GT + 1.14)/2, -0.86); pf.rotation.x = 0.1; pf.castShadow = true; guard.add(pf);
+    const pr = new THREE.Mesh(postGeoR, MAT.steel); pr.position.set(s*0.92, (GT + 1.4)/2, 0.92); pr.rotation.x = -0.06; pr.castShadow = true; guard.add(pr);
   });
-  lbox(1.94, 0.07, 1.9, MAT.steel, 0, 2.75, 0.03, guard);
-  for (let i = 0; i < 5; i++) lbox(0.06, 0.05, 1.78, MAT.steelLite, -0.7 + i*0.35, 2.80, 0.03, guard);
-  lcyl(.07, .09, .16, MAT.beacon, 0.72, 2.87, 0.75, guard, 14);   // beacon
-  lcyl(.1, .1, .04, MAT.steel, 0.72, 2.78, 0.75, guard, 14);
-  lcyl(.06, .06, 1.1, MAT.steel, -0.92, 2.2, 1.08, guard, 12);    // exhaust pipe
+  lbox(1.94, 0.07, 1.9, MAT.steel, 0, GT - 0.035, 0.03, guard);
+  for (let i = 0; i < 5; i++) lbox(0.06, 0.05, 1.78, MAT.steelLite, -0.7 + i*0.35, GT + 0.015, 0.03, guard);
+  lcyl(.07, .09, .16, MAT.beacon, 0.72, GT + 0.1, 0.75, guard, 14);   // beacon
+  lcyl(.1, .1, .04, MAT.steel, 0.72, GT + 0.01, 0.75, guard, 14);
+  // (バッテリー車のため排気管なし) バッテリーカバー上のコネクタ
+  lbox(0.16, 0.1, 0.12, MAT.steel, -0.75, 1.64, 0.75, lift);
 
   // ---------- seat / controls ----------
   lbox(0.62, 0.16, 0.6, MAT.seat, 0, 1.66, 0.32, lift);   // seat base
@@ -4572,10 +4624,11 @@ function buildForklift({ color='#f5c020', w=1.45, d=4.0, h=2.25 } = {}) {
     return wg;
   }
   const frontWheelR = 0.62, rearWheelR = 0.50;
-  // single drive wheel per side (3.5t class), not the 8t's dual tyres
-  [-1, 1].forEach(s => { const sp = new THREE.Group(); sp.position.set(s*0.9, frontWheelR, -1.45); sp.add(makeWheel(frontWheelR, 0.42)); lift.add(sp); });
+  // single drive wheel per side; wheel groups counter-scaled in y (kY) so tyres stay round
+  [-1, 1].forEach(s => { const sp = new THREE.Group(); sp.position.set(s*0.9, frontWheelR * kY, -1.45); sp.scale.y = kY; sp.add(makeWheel(frontWheelR, 0.42)); lift.add(sp); });
+  // 3輪カウンター: 後輪は車体中央寄りのダブルタイヤ
   const rearSteer = [];
-  [-1, 1].forEach(s => { const st = new THREE.Group(); st.position.set(s*0.78, rearWheelR, 1.05); st.add(makeWheel(rearWheelR, 0.34)); lift.add(st); rearSteer.push(st); });
+  [-1, 1].forEach(s => { const st = new THREE.Group(); st.position.set(s*0.22, rearWheelR * kY, 1.05); st.scale.y = kY; st.add(makeWheel(rearWheelR, 0.3)); lift.add(st); rearSteer.push(st); });
 
   // ---------- mast (tilt pivot) ----------
   const mast = new THREE.Group(); mast.position.set(0, 0.25, -1.95); lift.add(mast);
@@ -6003,8 +6056,10 @@ function buildFumeHood({ color='#e8e2d6', w=1.4, d=0.8, h=2.3 } = {}) {
   g.add(cylAt(0.015, 0.015, 0.01, 8, mat('#22c55e', 0.5), w/2 - 0.24, hoodY + 0.13, d/2 - 0.02));
   return g;
 }
-function buildMicroscope({ color='#3a3f47', w=0.3, d=0.4, h=0.45 } = {}) {
+// オリンパス CX23 (教育用生物顕微鏡, W198×D258×H384): 形状は 0.22×0.24×0.47 で作成し w/d/h にスケール
+function buildMicroscope({ color='#3a3f47', w=0.198, d=0.258, h=0.384 } = {}) {
   const g = new THREE.Group();
+  g.scale.set(w / 0.22, h / 0.4725, d / 0.24);
   const body = mat(color, 0.4, 0.4, { env: 0.6 }), metal = mat('#c0c4c8', 0.25, 0.85, { env: 1.0 }), glass = mat('#8fbfd8', 0.05, 0.3);
   // foot base (horseshoe)
   const base = box(0.22, 0.04, 0.3, mat('#2a2e34', 0.45, 0.4), 0, 0.02, 0.02); base.userData.colorable = true; g.add(base);
@@ -6024,21 +6079,28 @@ function buildMicroscope({ color='#3a3f47', w=0.3, d=0.4, h=0.45 } = {}) {
   g.add(cylAt(0.03, 0.03, 0.02, 12, mat('#444', 0.4), 0.05, 0.24, -0.1));
   return g;
 }
-function buildCentrifuge({ color='#e8e2d6', w=0.55, d=0.55, h=0.4 } = {}) {
+// 久保田商事 テーブルトップ遠心機 Model 2420 (W350×D420×H320): 角型ボディ + 丸いヒンジ蓋 + 前面傾斜の操作パネル
+function buildCentrifuge({ color='#e8e2d6', w=0.35, d=0.42, h=0.32 } = {}) {
   const g = new THREE.Group();
-  const body = mat('#eef0f1', 0.4, 0.15, { env: 0.4 }), dark = mat('#2a2f33', 0.3, 0.2), metal = mat('#aab0b4', 0.3, 0.7);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(w/2, w/2 + 0.02, h - 0.08, 28), body);
-  base.position.y = (h - 0.08)/2; base.castShadow = true; base.userData.colorable = true; g.add(base);
-  // hinged lid (slightly domed)
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(w/2 - 0.01, w/2, 0.08, 28), mat(shade(color,0.95), 0.35, 0.2));
-  lid.position.y = h - 0.04; lid.castShadow = true; g.add(lid);
-  g.add(cylAt(0.05, 0.05, 0.02, 16, dark, 0, h, 0)); // lid knob
-  // rotor hint visible at seam
-  g.add(cylAt(w/2 - 0.06, w/2 - 0.06, 0.015, 24, metal, 0, h - 0.08, 0));
-  // control display on front
-  g.add(box(0.18, 0.1, 0.02, dark, 0, h - 0.18, w/2 - 0.01));
-  g.add(box(0.14, 0.06, 0.01, mat('#0a2a2a', 0.5, 0.1), 0, h - 0.18, w/2 + 0.002));
-  [[-0.08,0],[0.08,0]].forEach(([x]) => g.add(cylAt(0.018, 0.018, 0.015, 10, mat('#3b82f6', 0.5), x, h - 0.27, w/2 - 0.005)));
+  const body = mat(color, 0.45, 0.1, { env: 0.4 }), dark = mat('#2a2f33', 0.3, 0.2), metal = mat('#aab0b4', 0.3, 0.7);
+  const bodyH = h - 0.05;
+  const base = new THREE.Mesh(roundedBoxGeom(w, bodyH, d, 0.02, 3), body);
+  base.position.y = bodyH / 2; base.castShadow = true; base.userData.colorable = true; g.add(base);
+  // 前面の傾斜操作パネル (手前上部を斜めにカット)
+  const panel = box(w - 0.04, 0.09, 0.02, dark, 0, bodyH - 0.03, d/2 - 0.02); panel.rotation.x = -0.35; g.add(panel);
+  const disp = plainBox(0.09, 0.035, 0.006, mat('#0a2a2a', 0.5, 0.1), -0.06, bodyH - 0.02, d/2 - 0.005); disp.rotation.x = -0.35; g.add(disp);
+  [0.03, 0.08].forEach((x, i) => { const k = cylAt(0.014, 0.014, 0.012, 10, mat(i ? '#3b82f6' : '#22c55e', 0.5), x, bodyH - 0.02, d/2 - 0.004); k.rotation.x = Math.PI/2 - 0.35; g.add(k); });
+  // 丸いヒンジ蓋 (後ろ寄り) + 蓋のヒンジ・ラッチ
+  const lidR = Math.min(w, d) / 2 - 0.03, lidZ = -d/2 + lidR + 0.05;
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(lidR - 0.01, lidR, 0.05, 28), mat(shade(color, 0.96), 0.4, 0.15));
+  lid.position.set(0, bodyH + 0.025, lidZ); lid.castShadow = true; g.add(lid);
+  g.add(cylAt(lidR - 0.03, lidR - 0.03, 0.006, 24, mat(shade(color, 1.04), 0.4, 0.1), 0, bodyH + 0.053, lidZ)); // 蓋の縁段差
+  g.add(box(0.06, 0.02, 0.05, dark, 0, bodyH + 0.03, lidZ - lidR + 0.01));   // ヒンジ
+  g.add(box(0.04, 0.02, 0.03, metal, 0, bodyH + 0.03, lidZ + lidR - 0.005)); // ラッチ
+  // 排気スリット (側面)
+  for (let i = 0; i < 5; i++) g.add(box(0.004, 0.006, d * 0.45, dark, w/2 + 0.001, 0.06 + i * 0.03, -d * 0.1));
+  // ゴム脚
+  [[-w/2+0.04, d/2-0.04], [w/2-0.04, d/2-0.04], [-w/2+0.04, -d/2+0.04], [w/2-0.04, -d/2+0.04]].forEach(([x, z]) => g.add(cylAt(0.012, 0.014, 0.01, 8, dark, x, 0.004, z)));
   return g;
 }
 function buildAnalyticalBalance({ color='#e8e2d6', w=0.3, d=0.4, h=0.32 } = {}) {
@@ -6176,11 +6238,29 @@ function buildTestBench({ color='#3a4250', w=0.9, d=0.7, h=1.6 } = {}) {
   });
   return g;
 }
-function buildLathe({ color='#4f7a52', w=1.8, d=0.8, h=1.35 } = {}) {
+// 滝澤鉄工所 TAC-360 (フラット形NC旋盤, W2070×D1145×H1740): 主軸台・チャック・往復台・心押台に
+// 背面スプラッシュガードと NC操作盤(ペンダント)を追加。h は操作盤/ガード上端。
+function buildLathe({ color='#4f7a52', w=2.07, d=1.145, h=1.74 } = {}) {
   const g = new THREE.Group();
   const machine = mat(color, 0.45, 0.35, { env: 0.5 });
   const steel   = mat('#9aa4ac', 0.3, 0.7, { env: 0.9 });
   const dark    = mat('#2a2f33', 0.5, 0.3);
+
+  // 背面スプラッシュガード (切粉・切削油の飛散防止) + 天板
+  const guard = box(w - 0.1, h - 1.0, 0.04, mat(shade(color, 0.9), 0.5, 0.3), 0, 1.0 + (h - 1.0)/2, -d/2 + 0.03); guard.userData.colorable = true; g.add(guard);
+  g.add(box(w - 0.1, 0.03, d * 0.42, mat(shade(color, 0.85), 0.5, 0.3), 0, h - 0.015, -d/2 + d * 0.21)); // 天板(後方)
+  // 作業灯 (ガード上部)
+  const lampM = mat('#fff4d8', 0.3, 0.1); lampM.emissive = new THREE.Color('#ffe9b0'); lampM.emissiveIntensity = 0.6;
+  g.add(cylAt(0.025, 0.025, 0.5, 10, lampM, 0.2, h - 0.12, -d/2 + 0.12).rotateZ(Math.PI/2));
+  // NC操作盤 (右側, 前面に傾けたペンダント)
+  const pan = new THREE.Group(); pan.position.set(w/2 - 0.28, h - 0.36, -d/2 + 0.32); pan.rotation.x = -0.25; g.add(pan);
+  pan.add(box(0.42, 0.5, 0.08, dark, 0, 0, 0));
+  const scrM = new THREE.MeshStandardMaterial({ color: 0x0b1a24, roughness: 0.25, metalness: 0.1, emissive: new THREE.Color('#123a4a'), emissiveIntensity: 0.6 });
+  pan.add(plainBox(0.24, 0.18, 0.006, scrM, -0.06, 0.1, 0.043));
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) pan.add(box(0.03, 0.025, 0.008, mat('#cfcbc3', 0.6), -0.14 + c * 0.05, -0.08 - r * 0.045, 0.043));
+  const es = cylAt(0.028, 0.028, 0.02, 12, mat('#ef4444', 0.4, 0.1), 0.14, 0.12, 0.05); es.rotation.x = Math.PI/2; pan.add(es);
+  const mpg = cylAt(0.04, 0.04, 0.02, 18, mat('#3a3f45', 0.45), 0.14, -0.14, 0.05); mpg.rotation.x = Math.PI/2; pan.add(mpg);
+  g.add(box(0.05, 0.06, 0.28, dark, w/2 - 0.28, h - 0.2, -d/2 + 0.16)); // 支持アーム
 
   // Cabinet legs (two pedestals)
   [-w/2 + 0.3, w/2 - 0.3].forEach(x => {
@@ -6264,11 +6344,14 @@ function buildMillingMachine({ color='#4f7a52', w=1.2, d=1.1, h=1.95 } = {}) {
   const knee = box(0.6, 0.5, 0.55, machine, 0, 0.55, 0.05);
   knee.userData.colorable = true; g.add(knee);
 
-  // Work table with 5 T-slots
-  g.add(box(0.9, 0.1, 0.3, steel, 0, 0.86, 0.1));
+  // Work table (静岡 VHR-A: 1300×300 級) with T-slots — table length scales with w
+  const tblW = Math.max(0.9, w * 0.76);
+  g.add(box(tblW, 0.1, 0.3, steel, 0, 0.86, 0.1));
   for (let i = -0.34; i <= 0.34; i += 0.17) {
     g.add(box(0.015, 0.022, 0.3, dark, i, 0.92, 0.1));
   }
+  // 手動送りハンドル (テーブル両端)
+  [-tblW/2 - 0.03, tblW/2 + 0.03].forEach(x => g.add(cylAt(0.07, 0.07, 0.025, 14, dark, x, 0.86, 0.1).rotateZ(Math.PI/2)));
 
   // Milling vise on table
   g.add(box(0.22, 0.1, 0.16, dark, 0.1, 0.96, 0.1));
@@ -6598,17 +6681,31 @@ function buildHydraulicPress({ color='#3a5a3a', w=0.7, d=0.65, h=1.8 } = {}) {
   const pressPlate = new THREE.Mesh(roundedBoxGeom(w * 0.55, 0.04, d * 0.55, 0.01, 4), plate_m); pressPlate.position.set(0, h * 0.46, 0); pressPlate.castShadow = true; g.add(pressPlate);
   return g;
 }
-function build3DPrinter({ color='#f0f0f0', w=0.5, d=0.5, h=0.6 } = {}) {
+// Bambu Lab X1-Carbon (389×389×457): 密閉CoreXY機。ダークグレー筐体・前面ガラス扉・天面ガラス蓋・右上タッチパネル
+function build3DPrinter({ color='#3a3d42', w=0.389, d=0.389, h=0.457 } = {}) {
   const g = new THREE.Group();
-  const body = mat(color, 0.55, 0.05), frame_m = mat('#1a1a1a', 0.4, 0.3), glass_m = new THREE.MeshStandardMaterial({ color: 0xd0eaf8, transparent: true, opacity: 0.22, roughness: 0.05 }), filament_m = mat('#ff8822', 0.5);
-  const outer = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.03, 4), body); outer.position.set(0, h / 2, 0); outer.castShadow = true; outer.userData.colorable = true; g.add(outer);
-  const frontGlass = plainBox(w - 0.04, h * 0.7, 0.01, glass_m, 0, h * 0.42, d / 2 - 0.01); g.add(frontGlass);
-  const buildPlate = new THREE.Mesh(roundedBoxGeom(w * 0.75, 0.02, d * 0.75, 0.005, 4), mat('#888', 0.4, 0.3)); buildPlate.position.set(0, h * 0.18, 0); g.add(buildPlate);
-  const xRail = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, w * 0.8, 8), frame_m); xRail.rotation.z = Math.PI / 2; xRail.position.set(0, h * 0.72, 0); g.add(xRail);
-  const head = new THREE.Mesh(roundedBoxGeom(0.06, 0.05, 0.05, 0.01, 4), frame_m); head.position.set(0, h * 0.68, 0); g.add(head);
-  const nozzle = cylAt(0.006, 0.004, 0.04, 8, mat('#e08030', 0.3, 0.7), 0, h * 0.65, 0); g.add(nozzle);
-  const spool = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.018, 8, 24), filament_m); spool.rotation.x = Math.PI / 2; spool.position.set(w * 0.32, h * 0.8, -d * 0.3); spool.castShadow = true; g.add(spool);
-  const screen = plainBox(0.1, 0.07, 0.01, mat('#1a3a5a', 0.6, { emissive: '#1a3a5a', emissiveIntensity: 0.5 }), -w * 0.3, h * 0.85, d / 2 + 0.005); g.add(screen);
+  const body = mat(color, 0.5, 0.2, { env: 0.4 }), frame_m = mat('#1a1a1a', 0.4, 0.3);
+  const glass_m = new THREE.MeshStandardMaterial({ color: 0xc8dce8, transparent: true, opacity: 0.22, roughness: 0.05 });
+  const filament_m = mat('#ff8822', 0.5);
+  const outer = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.015, 4), body); outer.position.set(0, h / 2, 0); outer.castShadow = true; outer.userData.colorable = true; g.add(outer);
+  // 前面ガラス扉 (下段) と黒フレーム
+  g.add(box(w - 0.04, h * 0.62, 0.006, frame_m, 0, h * 0.4, d / 2 - 0.004));
+  const frontGlass = plainBox(w - 0.07, h * 0.58, 0.004, glass_m, 0, h * 0.4, d / 2 + 0.002); g.add(frontGlass);
+  g.add(box(0.012, 0.05, 0.01, mat('#888', 0.3, 0.6), w * 0.38, h * 0.4, d / 2 + 0.006)); // 扉ハンドル
+  // 天面ガラス蓋
+  g.add(plainBox(w - 0.06, 0.004, d - 0.06, glass_m, 0, h + 0.002, 0));
+  // 内部: ビルドプレート・X軸ガントリー・ツールヘッド
+  const buildPlate = new THREE.Mesh(roundedBoxGeom(w * 0.7, 0.012, d * 0.7, 0.004, 4), mat('#3a3a3a', 0.6, 0.3)); buildPlate.position.set(0, h * 0.2, 0); g.add(buildPlate);
+  g.add(box(w * 0.5, 0.01, 0.02, mat('#d8d8d8', 0.5), 0, h * 0.21, 0)); // 造形物(薄板)
+  const xRail = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, w * 0.8, 8), frame_m); xRail.rotation.z = Math.PI / 2; xRail.position.set(0, h * 0.8, 0); g.add(xRail);
+  const head = new THREE.Mesh(roundedBoxGeom(0.05, 0.06, 0.05, 0.008, 4), frame_m); head.position.set(0, h * 0.76, 0); g.add(head);
+  g.add(cylAt(0.005, 0.003, 0.02, 8, mat('#e08030', 0.3, 0.7), 0, h * 0.72, 0)); // ノズル
+  // 背面スプールホルダー
+  const spool = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.016, 8, 24), filament_m); spool.rotation.x = Math.PI / 2; spool.position.set(0, h * 0.6, -d / 2 - 0.03); spool.castShadow = true; g.add(spool);
+  // 右上 5インチ タッチパネル
+  const scrM = new THREE.MeshStandardMaterial({ color: 0x0c1a26, roughness: 0.3, metalness: 0.1, emissive: new THREE.Color('#1a4a6a'), emissiveIntensity: 0.55 });
+  g.add(box(0.12, 0.075, 0.008, frame_m, w * 0.28, h * 0.86, d / 2 + 0.002));
+  g.add(plainBox(0.105, 0.06, 0.004, scrM, w * 0.28, h * 0.86, d / 2 + 0.008));
   return g;
 }
 function buildLaserCutter({ color='#2a2a2a', w=1.0, d=0.7, h=0.35 } = {}) {
@@ -6701,16 +6798,33 @@ function buildUltrasonicCleaner({ color='#c0c8cc', w=0.35, d=0.28, h=0.28 } = {}
   const display = plainBox(0.08, 0.04, 0.008, mat('#001800', 0.7, 0, { emissive: '#00cc44', emissiveIntensity: 0.7 }), w * 0.18, h * 0.9, d * 0.15 + 0.005); g.add(display);
   return g;
 }
-function buildVacuumPump({ color='#4a4a4a', w=0.4, d=0.3, h=0.4 } = {}) {
+// ULVAC GLD-137CC (油回転真空ポンプ 直結型, W170×D488×H250): モーター(後)+ポンプ部(前)を奥行方向に直結。
+function buildVacuumPump({ color='#4a4a4a', w=0.17, d=0.488, h=0.25 } = {}) {
   const g = new THREE.Group();
   const body = mat(color, 0.45, 0.2, { env: 0.4 }), metal = mat('#888', 0.25, 0.7, { env: 0.7 }), oil_m = mat('#c8a020', 0.3, 0.1);
-  const motorBody = new THREE.Mesh(new THREE.CylinderGeometry(d / 2, d / 2, w * 0.62, 20), body); motorBody.rotation.z = Math.PI / 2; motorBody.position.set(-w * 0.1, h * 0.52, 0); motorBody.castShadow = true; motorBody.userData.colorable = true; g.add(motorBody);
-  const pumpBody = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.38, d * 0.38, w * 0.32, 16), mat(shade(color, 1.2), 0.35, 0.3)); pumpBody.rotation.z = Math.PI / 2; pumpBody.position.set(w * 0.28, h * 0.52, 0); pumpBody.castShadow = true; g.add(pumpBody);
-  const base = new THREE.Mesh(roundedBoxGeom(w, 0.06, d, 0.015, 4), mat('#333', 0.6)); base.position.set(0, 0.03, 0); base.castShadow = true; g.add(base);
-  const oilReservoir = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.12, 12), oil_m); oilReservoir.position.set(w * 0.3, h * 0.3, d * 0.3); oilReservoir.castShadow = true; g.add(oilReservoir);
-  const oilCap = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 12), metal); oilCap.position.set(w * 0.3, h * 0.36, d * 0.3); g.add(oilCap);
-  const inletPort = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.06, 10), metal); inletPort.rotation.x = Math.PI / 2; inletPort.position.set(w * 0.3, h * 0.58, d / 2 + 0.03); g.add(inletPort);
-  const exhaustPort = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.05, 10), metal); exhaustPort.rotation.z = Math.PI / 2; exhaustPort.position.set(w / 2 + 0.025, h * 0.62, 0); g.add(exhaustPort);
+  const r = Math.min(w, h - 0.06) / 2;                 // モーター半径 (幅・高さに収める)
+  const cy = 0.04 + r;                                 // 軸心高さ
+  const base = new THREE.Mesh(roundedBoxGeom(w, 0.03, d, 0.008, 4), mat('#333', 0.6)); base.position.set(0, 0.015, 0); base.castShadow = true; g.add(base);
+  [[-w/2+0.02, d/2-0.03], [w/2-0.02, d/2-0.03], [-w/2+0.02, -d/2+0.03], [w/2-0.02, -d/2+0.03]].forEach(([x, z]) => g.add(cylAt(0.01, 0.012, 0.01, 8, mat('#222', 0.8), x, 0.005, z))); // ゴム足
+  // モーター (後方, 冷却フィン付き)
+  const motorL = d * 0.5;
+  const motor = new THREE.Mesh(new THREE.CylinderGeometry(r, r, motorL, 20), body); motor.rotation.x = Math.PI / 2; motor.position.set(0, cy, -d/2 + motorL/2 + 0.02); motor.castShadow = true; motor.userData.colorable = true; g.add(motor);
+  for (let i = 0; i < 6; i++) { const fin = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.006, r + 0.006, 0.006, 20), mat(shade(color, 0.9), 0.5, 0.2)); fin.rotation.x = Math.PI / 2; fin.position.set(0, cy, -d/2 + 0.06 + i * motorL * 0.15); g.add(fin); }
+  g.add(cylAt(r * 0.6, r * 0.6, 0.02, 14, mat('#2a2a2a', 0.6), 0, cy, -d/2 + 0.01).rotateX(Math.PI / 2)); // ファンカバー
+  g.add(box(w * 0.5, 0.05, 0.08, mat('#2a2a2a', 0.6), 0, cy + r + 0.02, -d/2 + 0.12)); // 端子箱
+  // ポンプ部 (前方, 角型ハウジング + オイルケース)
+  const pumpL = d * 0.42;
+  const pump = new THREE.Mesh(roundedBoxGeom(w, h - 0.06, pumpL, 0.01, 4), mat(shade(color, 1.15), 0.4, 0.3)); pump.position.set(0, 0.04 + (h - 0.06)/2, d/2 - pumpL/2 - 0.01); pump.castShadow = true; g.add(pump);
+  const sight = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.006, 12), oil_m); sight.rotation.z = Math.PI / 2; sight.position.set(w/2 + 0.002, cy - 0.02, d/2 - pumpL * 0.5); g.add(sight); // オイル窓
+  // 吸気口 (KFフランジ, 上向き) と排気口 (前上部)
+  g.add(cylAt(0.014, 0.014, 0.05, 10, metal, 0, h - 0.03, d/2 - pumpL * 0.7));
+  g.add(cylAt(0.022, 0.022, 0.012, 12, metal, 0, h - 0.005, d/2 - pumpL * 0.7));      // フランジ
+  g.add(cylAt(0.011, 0.011, 0.04, 10, metal, w * 0.25, h - 0.035, d/2 - pumpL * 0.3));
+  g.add(cylAt(0.016, 0.016, 0.02, 10, mat('#c0392b', 0.5), w * 0.25, h - 0.01, d/2 - pumpL * 0.3)); // 排気キャップ
+  // オイル給油キャップ
+  g.add(cylAt(0.012, 0.012, 0.012, 10, oil_m, -w * 0.25, h - 0.03, d/2 - pumpL * 0.5));
+  // キャリングハンドル (モーター上)
+  const hd = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.005, 6, 14, Math.PI), metal); hd.rotation.y = Math.PI / 2; hd.position.set(0, cy + r, -d/2 + motorL * 0.55); g.add(hd);
   return g;
 }
 
@@ -6765,96 +6879,116 @@ function buildTent({ color='#3f7a4a', w=2.2, d=2.4, h=1.35 } = {}) {
   return g;
 }
 
-// ============================================================ CAMP CHAIR (folding)
-function buildCampChair({ color='#2f5fa0', w=0.6, d=0.62, h=0.85 } = {}) {
+// ============================================================ CAMP CHAIR (Helinox チェアワン 52.5×51×65, 座面高33.5)
+// 左右のハブから4本の脚と4本の支柱(前2本=座面前隅, 後2本=背もたれ上端)が伸びるポールフレーム + 吊り布シート
+function buildCampChair({ color='#2f5fa0', w=0.525, d=0.51, h=0.65 } = {}) {
   const g = new THREE.Group();
-  const frame = mat('#9aa0a6', 0.35, 0.7, { env: 0.8 });
+  const pole = mat('#3a3d42', 0.35, 0.6, { env: 0.7 });
+  const hubM = mat('#1e2024', 0.6, 0.2);
   const fabric = fabricMat(color);
-  const seatY = 0.42;
-  // Front legs (toward +Z), splayed
-  g.add((() => { const c = cylAt(0.016, 0.016, 0.5, 10, frame, -w / 2 + 0.06, 0.2, d / 2 - 0.12); c.rotation.x = 0.25; return c; })());
-  g.add((() => { const c = cylAt(0.016, 0.016, 0.5, 10, frame,  w / 2 - 0.06, 0.2, d / 2 - 0.12); c.rotation.x = 0.25; return c; })());
-  // Back legs (toward -Z), taller, splayed
-  g.add((() => { const c = cylAt(0.016, 0.016, 0.86, 10, frame, -w / 2 + 0.06, 0.43, -d / 2 + 0.16); c.rotation.x = -0.18; return c; })());
-  g.add((() => { const c = cylAt(0.016, 0.016, 0.86, 10, frame,  w / 2 - 0.06, 0.43, -d / 2 + 0.16); c.rotation.x = -0.18; return c; })());
-  // Cross brace under seat (X)
-  const br1 = cylAt(0.012, 0.012, w - 0.08, 10, frame, 0, 0.22, 0); br1.rotation.z = Math.PI / 2; g.add(br1);
-  // Armrest tubes
-  [-w / 2 + 0.06, w / 2 - 0.06].forEach(ax => {
-    const arm = cylAt(0.014, 0.014, d - 0.12, 10, frame, ax, h - 0.18, 0.02); arm.rotation.x = Math.PI / 2; g.add(arm);
+  const seatY = 0.335, hubY = 0.2, hubX = w / 2 - 0.05;
+  const UP = new THREE.Vector3(0, 1, 0);
+  const seg = (p0, p1, r, m) => {
+    const a = new THREE.Vector3(...p0), b = new THREE.Vector3(...p1);
+    const dir = new THREE.Vector3().subVectors(b, a), len = dir.length();
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), m);
+    c.position.copy(a).addScaledVector(dir, 0.5); c.quaternion.setFromUnitVectors(UP, dir.normalize()); c.castShadow = true; return c;
+  };
+  [-1, 1].forEach(s => {
+    const hub = [s * hubX, hubY, 0];
+    const hb = cylAt(0.022, 0.022, 0.06, 10, hubM, s * hubX, hubY, 0); hb.rotation.z = Math.PI / 2; g.add(hb);
+    g.add(seg(hub, [s * (w / 2), 0.01, d / 2 - 0.02], 0.007, pole));            // 前脚
+    g.add(seg(hub, [s * (w / 2), 0.01, -d / 2 + 0.02], 0.007, pole));           // 後脚
+    g.add(seg(hub, [s * (w / 2 - 0.03), seatY + 0.02, d / 2 - 0.08], 0.007, pole)); // 前支柱
+    g.add(seg(hub, [s * (w / 2 - 0.02), h, -d / 2 + 0.1], 0.007, pole));        // 後支柱
+    [d / 2 - 0.02, -d / 2 + 0.02].forEach(z => g.add(cylAt(0.014, 0.012, 0.02, 8, hubM, s * (w / 2), 0.01, z))); // 脚キャップ
   });
-  // Seat fabric (slung, slight dip)
-  const seat = new THREE.Mesh(roundedBoxGeom(w - 0.06, 0.05, d - 0.16, 0.03, 3), fabric);
-  seat.position.set(0, seatY, 0.04); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
-  // Backrest fabric (tilted)
-  const backrest = new THREE.Mesh(roundedBoxGeom(w - 0.06, 0.42, 0.05, 0.03, 3), fabric);
-  backrest.position.set(0, h - 0.06, -d / 2 + 0.18); backrest.rotation.x = -0.16; backrest.castShadow = true; backrest.userData.colorable = true; g.add(backrest);
-  // Cup holder ring on right armrest
-  const holder = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.01, 6, 14), frame);
-  holder.rotation.x = Math.PI / 2; holder.position.set(w / 2 - 0.06, h - 0.18, d / 2 - 0.16); g.add(holder);
+  g.add(seg([-hubX, hubY, 0], [hubX, hubY, 0], 0.007, pole));                     // ハブ間の横ポール
+  // 吊り布シート (前が高く, 後ろに沈む)
+  const seat = new THREE.Mesh(roundedBoxGeom(w - 0.08, 0.02, d - 0.16, 0.01, 2), fabric);
+  seat.position.set(0, seatY - 0.02, 0.02); seat.rotation.x = -0.15; seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  // 背もたれ (後傾, 後支柱の先端まで)
+  const back = new THREE.Mesh(roundedBoxGeom(w - 0.06, h - seatY + 0.03, 0.02, 0.02, 2), fabric);
+  back.position.set(0, seatY + (h - seatY) / 2 - 0.03, -d / 2 + 0.14); back.rotation.x = -0.28; back.castShadow = true; back.userData.colorable = true; g.add(back);
+  // 側面のメッシュ布
+  [-1, 1].forEach(s => {
+    const side = new THREE.Mesh(roundedBoxGeom(0.012, 0.16, d * 0.45, 0.005, 2), fabricMat(shade(color, 0.9)));
+    side.position.set(s * (w / 2 - 0.045), seatY + 0.07, -d / 2 + 0.2); side.rotation.x = -0.28;
+    side.material.transparent = true; side.material.opacity = 0.85; g.add(side);
+  });
   return g;
 }
 
-// ============================================================ CAMPFIRE
-function buildCampfire({ color='#7a7a78', w=0.7, d=0.7, h=0.45 } = {}) {
+// ============================================================ CAMPFIRE (コールマン ファイアーディスク φ45×H23 + 薪・炎)
+function buildCampfire({ color='#c8ccd0', w=0.45, d=0.45, h=0.45 } = {}) {
   const g = new THREE.Group();
-  const stoneMat = mat(color, 0.95, 0.0);
-  // Stone ring (9 stones)
-  const N = 9, R = 0.3;
-  for (let i = 0; i < N; i++) {
-    const a = (i / N) * Math.PI * 2;
-    const s = new THREE.Mesh(roundedBoxGeom(0.13, 0.1, 0.11, 0.04, 2), mat(shade(color, 0.85 + (i % 3) * 0.1), 0.95));
-    s.position.set(Math.cos(a) * R, 0.05, Math.sin(a) * R);
-    s.rotation.y = a + 0.3; s.castShadow = true; g.add(s);
+  const steel = mat(color, 0.3, 0.8, { env: 1.0 }); steel.side = THREE.DoubleSide;
+  const legM = mat('#3a3d42', 0.4, 0.6);
+  const R = Math.min(w, d) / 2, rimY = 0.23, dishH = 0.09;
+  // ステンレスの皿 (浅い円錐台, 内外両面) + 底 + 縁
+  const dish = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.55, dishH, 32, 1, true), steel);
+  dish.position.y = rimY - dishH / 2; dish.castShadow = true; dish.userData.colorable = true; g.add(dish);
+  g.add(cylAt(R * 0.55, R * 0.55, 0.01, 32, steel, 0, rimY - dishH, 0));
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(R, 0.008, 8, 40), steel); rim.rotation.x = Math.PI / 2; rim.position.y = rimY; g.add(rim);
+  // 折りたたみ脚 3本 (皿底から外側斜め下へ)
+  const UP = new THREE.Vector3(0, 1, 0);
+  for (let i = 0; i < 3; i++) {
+    const a = i / 3 * Math.PI * 2 + Math.PI / 6;
+    const top = new THREE.Vector3(Math.cos(a) * R * 0.45, rimY - dishH, Math.sin(a) * R * 0.45);
+    const foot = new THREE.Vector3(Math.cos(a) * R * 0.85, 0.01, Math.sin(a) * R * 0.85);
+    const dir = new THREE.Vector3().subVectors(foot, top), len = dir.length();
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, len, 8), legM);
+    leg.position.copy(top).addScaledVector(dir, 0.5); leg.quaternion.setFromUnitVectors(UP, dir.normalize()); leg.castShadow = true; g.add(leg);
+    g.add(cylAt(0.014, 0.012, 0.015, 8, mat('#222', 0.7), foot.x, 0.008, foot.z));
   }
-  // Ash bed
-  g.add(cylAt(0.26, 0.28, 0.03, 16, mat('#3a3632', 0.95), 0, 0.015, 0));
-  // Crossed logs
-  const logMat = mat('#5a3a24', 0.8, 0.02);
-  const logBurnt = mat('#2a201a', 0.85);
-  [[0, 0.2], [Math.PI / 3, -0.05], [-Math.PI / 3, 0.08]].forEach(([rot, off], i) => {
-    const log = cylAt(0.035, 0.04, 0.42, 8, i === 0 ? logBurnt : logMat, 0, 0.08 + i * 0.015, off);
+  // 灰 + 薪 (皿の中)
+  g.add(cylAt(R * 0.5, R * 0.5, 0.015, 24, mat('#3a3632', 0.95), 0, rimY - dishH + 0.012, 0));
+  const logMat = mat('#5a3a24', 0.8, 0.02), logBurnt = mat('#2a201a', 0.85);
+  [[0, 0.03], [Math.PI / 3, -0.02], [-Math.PI / 3, 0.02]].forEach(([rot, off], i) => {
+    const log = cylAt(0.025, 0.03, R * 1.1, 8, i === 0 ? logBurnt : logMat, 0, rimY - dishH + 0.04 + i * 0.012, off);
     log.rotation.z = Math.PI / 2; log.rotation.y = rot; g.add(log);
   });
-  // Glowing embers
-  g.add(cylAt(0.12, 0.14, 0.025, 12, new THREE.MeshBasicMaterial({ color: 0xff5a1a, transparent: true, opacity: 0.85 }), 0, 0.05, 0));
-  // Flames (3 cones, emissive, translucent)
+  // 熾火 + 炎 (3つの半透明コーン)
+  g.add(cylAt(0.08, 0.1, 0.02, 12, new THREE.MeshBasicMaterial({ color: 0xff5a1a, transparent: true, opacity: 0.85 }), 0, rimY - dishH + 0.05, 0));
   const flameColors = [0xff8a1a, 0xffb840, 0xff5a1a];
-  const flameH = [0.34, 0.26, 0.22];
-  const flamePos = [[0, 0], [-0.07, 0.05], [0.08, -0.04]];
+  const flameH = [h - rimY + 0.06, 0.16, 0.13];
+  const flamePos = [[0, 0], [-0.05, 0.04], [0.06, -0.03]];
   for (let i = 0; i < 3; i++) {
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.08 - i * 0.015, flameH[i], 10),
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.06 - i * 0.012, flameH[i], 10),
       new THREE.MeshBasicMaterial({ color: flameColors[i], transparent: true, opacity: 0.6 }));
-    flame.position.set(flamePos[i][0], 0.1 + flameH[i] / 2, flamePos[i][1]); g.add(flame);
+    flame.position.set(flamePos[i][0], rimY - 0.03 + flameH[i] / 2, flamePos[i][1]); g.add(flame);
   }
   return g;
 }
 
 // ============================================================ COOLER BOX
-function buildCoolerBox({ color='#d83a3a', w=0.6, d=0.4, h=0.42 } = {}) {
+// コールマン 54QT スチールベルトクーラー (62×42×41cm): 塗装スチールのボディにステンレスの帯(ベルト)・クロームのラッチと側面ハンドル
+function buildCoolerBox({ color='#d83a3a', w=0.62, d=0.42, h=0.41 } = {}) {
   const g = new THREE.Group();
-  const bodyMat = mat(color, 0.5, 0.08);
-  const lidMat = mat(shade(color, 1.1), 0.5, 0.08);
-  const trim = mat('#e8e8e4', 0.55, 0.05);
-  const metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
+  const bodyMat = mat(color, 0.35, 0.35, { env: 0.7 });
+  const lidMat = mat(shade(color, 1.08), 0.35, 0.35, { env: 0.7 });
+  const trim = mat('#d8dde2', 0.2, 0.85, { env: 1.0 });   // ステンレスベルト
+  const metal = mat('#b9c2cb', 0.25, 0.9, { env: 1.0 });  // クローム金具
   // Body
-  const body = new THREE.Mesh(roundedBoxGeom(w, h * 0.72, d, 0.03, 3), bodyMat);
+  const body = new THREE.Mesh(roundedBoxGeom(w, h * 0.72, d, 0.02, 3), bodyMat);
   body.position.set(0, h * 0.36, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
-  // Base feet rail
-  g.add(box(w - 0.04, 0.03, d - 0.04, mat(shade(color, 0.7), 0.6), 0, 0.015, 0));
-  // Lid (overhanging)
-  const lid = new THREE.Mesh(roundedBoxGeom(w + 0.02, h * 0.22, d + 0.02, 0.025, 3), lidMat);
+  // Stainless belts: base band + upper band (just under the lid)
+  g.add(box(w + 0.006, 0.04, d + 0.006, trim, 0, 0.03, 0));
+  g.add(box(w + 0.006, 0.035, d + 0.006, trim, 0, h * 0.72 - 0.025, 0));
+  // Lid (overhanging, with stainless edge band)
+  const lid = new THREE.Mesh(roundedBoxGeom(w + 0.02, h * 0.22, d + 0.02, 0.02, 3), lidMat);
   lid.position.set(0, h * 0.72 + h * 0.11, 0); lid.castShadow = true; lid.userData.colorable = true; g.add(lid);
+  g.add(box(w + 0.026, 0.02, d + 0.026, trim, 0, h * 0.72 + 0.012, 0));
   // Lid top recessed panel
-  g.add(box(w - 0.1, 0.012, d - 0.1, mat(shade(color, 0.95), 0.55), 0, h * 0.72 + h * 0.22, 0));
-  // Hinge bar (back)
-  g.add(box(w - 0.08, 0.02, 0.02, metal, 0, h * 0.72 + 0.01, -d / 2 + 0.02));
-  // Front latch
-  g.add(box(0.07, 0.05, 0.025, trim, 0, h * 0.7, d / 2 + 0.005));
-  g.add(box(0.04, 0.025, 0.02, metal, 0, h * 0.69, d / 2 + 0.018));
-  // Side handles (fold-down, 2)
+  g.add(box(w - 0.1, 0.012, d - 0.1, mat(shade(color, 0.95), 0.4, 0.3), 0, h * 0.72 + h * 0.22, 0));
+  // Hinges (back, 2)
+  [-w * 0.3, w * 0.3].forEach(hx => g.add(box(0.05, 0.03, 0.02, metal, hx, h * 0.72 + 0.01, -d / 2 - 0.005)));
+  // Front chrome latch
+  g.add(box(0.05, 0.06, 0.015, metal, 0, h * 0.72, d / 2 + 0.008));
+  g.add(box(0.03, 0.025, 0.02, metal, 0, h * 0.68, d / 2 + 0.018));
+  // Side handles (chrome loop, 2)
   [-w / 2 - 0.005, w / 2 + 0.005].forEach(hx => {
-    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 12, Math.PI), trim);
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.01, 6, 12, Math.PI), metal);
     handle.rotation.y = Math.PI / 2; handle.rotation.z = hx > 0 ? Math.PI : 0;
     handle.position.set(hx, h * 0.4, 0); g.add(handle);
   });
@@ -6864,8 +6998,10 @@ function buildCoolerBox({ color='#d83a3a', w=0.6, d=0.4, h=0.42 } = {}) {
 }
 
 // ============================================================ CAMPING LANTERN
-function buildLantern({ color='#2f6f4a', w=0.18, d=0.18, h=0.32 } = {}) {
+// コールマン ワンマントルランタン 286A (φ16×H31cm): 形状は φ0.18×0.32 で作成し w/d/h にスケール
+function buildLantern({ color='#2f6f4a', w=0.16, d=0.16, h=0.31 } = {}) {
   const g = new THREE.Group();
+  g.scale.set(w / 0.18, h / 0.32, d / 0.18);
   const metalMat = mat(color, 0.4, 0.5, { env: 0.7 });
   const steelMat = mat('#b8bcc0', 0.3, 0.75, { env: 0.9 });
   // Fuel tank base
@@ -7086,8 +7222,10 @@ function buildPerson({ h = 1.6, skin = '#f4cba0', hair = '#4a3526', style = 'sho
 }
 
 // ---------------------------------------------------------------- ぬいぐるみ・玩具
-function buildTeddyBear({ color = '#c79a6a', w = 0.36, d = 0.32, h = 0.46 } = {}) {
+// IKEA DJUNGELSKOG 子グマ 32cm: 形状は 0.36×0.32×0.49 で作成し w/d/h にスケール (座らせた姿勢)
+function buildTeddyBear({ color = '#c79a6a', w = 0.28, d = 0.24, h = 0.32 } = {}) {
   const g = new THREE.Group();
+  g.scale.set(w / 0.36, h / 0.49, d / 0.32);
   const fur = mat(color, 0.9), pad = mat(shade(color, 1.25), 0.85), face = mat('#3a2a1f', 0.5);
   const body = sph(0.13, fur, 0, 0.17, 0); body.scale.set(1, 1.15, 0.95); body.userData.colorable = true; g.add(body);
   g.add(sph(0.085, pad, 0, 0.2, 0.085)); // belly
@@ -7101,8 +7239,10 @@ function buildTeddyBear({ color = '#c79a6a', w = 0.36, d = 0.32, h = 0.46 } = {}
   g.add(new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.018, 6, 14), mat('#ef7fa6', 0.5)).translateY(0.27).translateZ(0.02)); // bow
   return g;
 }
-function buildBunnyPlush({ color = '#fbf4f6', w = 0.3, d = 0.3, h = 0.52 } = {}) {
+// IKEA VANDRING HARE 40cm: 形状は 0.31×0.30×0.61 で作成し w/d/h にスケール (座らせた姿勢, 耳先端まで)
+function buildBunnyPlush({ color = '#fbf4f6', w = 0.22, d = 0.22, h = 0.40 } = {}) {
   const g = new THREE.Group();
+  g.scale.set(w / 0.31, h / 0.61, d / 0.30);
   const fur = mat(color, 0.92), inner = mat('#f4b9cf', 0.85), face = mat('#6a4a55', 0.5);
   const body = sph(0.12, fur, 0, 0.16, 0); body.scale.set(1, 1.2, 0.95); body.userData.colorable = true; g.add(body);
   const head = sph(0.1, fur, 0, 0.33, 0.02); head.userData.colorable = true; g.add(head);
@@ -7165,39 +7305,57 @@ function buildBuildingBlocks({ color = '#ff9aa2', w = 0.3, d = 0.3, h = 0.3 } = 
   });
   return g;
 }
-function buildToyBox({ color = '#9ad0ec', w = 0.6, d = 0.42, h = 0.4 } = {}) {
+// IKEA FLISAT おもちゃ収納 キャスター付き (44×39×31): パイン無垢材のオープンボックス, 側面に手掛け穴, 4輪キャスター
+function buildToyBox({ color = '#e6cfa3', w = 0.44, d = 0.39, h = 0.31 } = {}) {
   const g = new THREE.Group();
-  const boxM = mat(color, 0.6), rimM = mat(shade(color, 0.82), 0.6);
-  const bodyH = 0.34;
-  [[0, -d / 2 + 0.02, w, 0.04], [0, d / 2 - 0.02, w, 0.04]].forEach(([x, z, ww, t]) => g.add(box(ww, bodyH, t, boxM, x, bodyH / 2, z)));
-  [[-w / 2 + 0.02, 0, 0.04, d], [w / 2 - 0.02, 0, 0.04, d]].forEach(([x, z, t, dd]) => g.add(box(t, bodyH, dd, boxM, x, bodyH / 2, z)));
-  g.add(box(w - 0.02, 0.03, d - 0.02, rimM, 0, bodyH, 0)); // top rim
-  g.add(box(w - 0.06, 0.02, d - 0.06, mat(shade(color, 0.7), 0.7), 0, 0.02, 0)); // floor
-  // spilling toys
-  g.add(sph(0.06, mat('#ff9aa2', 0.6), -0.12, bodyH + 0.04, 0.05));
-  g.add(new THREE.Mesh(roundedBoxGeom(0.09, 0.09, 0.09, 0.012, 2), mat('#ffd382', 0.65)).translateX(0.08).translateY(bodyH + 0.05).translateZ(-0.04));
-  g.add(sph(0.05, mat('#a9e7cf', 0.6), 0.16, bodyH + 0.02, 0.08));
-  g.add(new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 10), mat('#c9b3ec', 0.6)).translateX(-0.02).translateY(bodyH + 0.06));
-  // label heart
-  g.add(box(0.1, 0.1, 0.01, mat('#ff8fab', 0.6), 0, bodyH * 0.55, d / 2 + 0.005));
+  const pine = mat(color, 0.65), pineD = mat(shade(color, 0.85), 0.7), dark = mat('#2a2a2a', 0.6);
+  const castH = 0.045, t = 0.015;
+  const bodyH = h - castH;
+  // casters
+  [[-w / 2 + 0.05, d / 2 - 0.05], [w / 2 - 0.05, d / 2 - 0.05], [-w / 2 + 0.05, -d / 2 + 0.05], [w / 2 - 0.05, -d / 2 + 0.05]].forEach(([x, z]) => {
+    const wh = cylAt(0.02, 0.02, 0.018, 12, dark, x, 0.02, z); wh.rotation.z = Math.PI / 2; g.add(wh);
+    g.add(box(0.03, 0.012, 0.03, mat('#888', 0.4, 0.6), x, castH - 0.006, z));
+  });
+  // bottom
+  g.add(box(w, t, d, pineD, 0, castH + t / 2, 0));
+  // long walls (front/back) + short walls (sides) with handle cutouts
+  [-d / 2 + t / 2, d / 2 - t / 2].forEach(z => { const p = box(w, bodyH, t, pine, 0, castH + bodyH / 2, z); p.userData.colorable = true; g.add(p); });
+  [-w / 2 + t / 2, w / 2 - t / 2].forEach(x => {
+    const p = box(t, bodyH, d - 2 * t, pine, x, castH + bodyH / 2, 0); p.userData.colorable = true; g.add(p);
+    g.add(box(t + 0.004, 0.03, 0.09, dark, x, castH + bodyH - 0.05, 0)); // handle cutout
+  });
+  // toys inside (peeking above the rim)
+  g.add(sph(0.05, mat('#ff9aa2', 0.6), -0.1, castH + bodyH - 0.01, 0.05));
+  g.add(new THREE.Mesh(roundedBoxGeom(0.08, 0.08, 0.08, 0.01, 2), mat('#ffd382', 0.65)).translateX(0.07).translateY(castH + bodyH - 0.02).translateZ(-0.05));
+  g.add(sph(0.04, mat('#a9e7cf', 0.6), 0.14, castH + bodyH - 0.03, 0.08));
+  g.add(new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 10), mat('#c9b3ec', 0.6)).translateX(-0.02).translateY(castH + bodyH + 0.02));
   return g;
 }
-function buildDollhouse({ color = '#ffd1e0', w = 0.6, d = 0.42, h = 0.7 } = {}) {
+// IKEA FLISAT ドールハウス/ウォールシェルフ (58×22×59): パイン材の前面オープンな家型シェルフ (2層 + 切妻屋根)
+function buildDollhouse({ color = '#e6cfa3', w = 0.58, d = 0.22, h = 0.59 } = {}) {
   const g = new THREE.Group();
-  const wallM = mat(color, 0.7), roofM = mat('#f29bb6', 0.65), doorM = mat('#caa46d', 0.6), winM = mat('#bfe3f5', 0.3, 0.2);
-  const bodyH = 0.46;
-  const body = new THREE.Mesh(roundedBoxGeom(w, bodyH, d, 0.02, 2), wallM); body.position.set(0, bodyH / 2 + 0.02, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
-  // gable roof
-  const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.001, w * 0.62, 0.22, 4), roofM); roof.rotation.y = Math.PI / 4; roof.position.set(0, bodyH + 0.13, 0); roof.scale.set(1, 1, d / w); roof.castShadow = true; g.add(roof);
-  // door + heart window + side windows
-  g.add(box(0.13, 0.22, 0.02, doorM, 0, 0.15, d / 2 + 0.005));
-  g.add(sph(0.018, mat('#ffe08a', 0.4), 0.04, 0.16, d / 2 + 0.02, 8)); // knob
-  g.add(box(0.1, 0.1, 0.02, winM, -0.17, 0.3, d / 2 + 0.005));
-  g.add(box(0.1, 0.1, 0.02, winM, 0.17, 0.3, d / 2 + 0.005));
-  g.add(box(0.012, 0.1, 0.022, mat('#fff', 0.6), -0.17, 0.3, d / 2 + 0.008));
-  g.add(box(0.1, 0.012, 0.022, mat('#fff', 0.6), -0.17, 0.3, d / 2 + 0.008));
-  // chimney
-  g.add(box(0.06, 0.12, 0.06, wallM, w * 0.28, bodyH + 0.16, 0));
+  const pine = mat(color, 0.65), pineD = mat(shade(color, 0.88), 0.7);
+  const t = 0.015;
+  const bodyH = h * 0.66;                 // 壁の高さ (屋根の下端)
+  const roofH = h - bodyH;
+  // 底板・側板・背板
+  g.add(box(w, t, d, pineD, 0, t / 2, 0));
+  [-w / 2 + t / 2, w / 2 - t / 2].forEach(x => { const s = box(t, bodyH, d, pine, x, bodyH / 2, 0); s.userData.colorable = true; g.add(s); });
+  g.add(box(w - 2 * t, bodyH, t, pineD, 0, bodyH / 2, -d / 2 + t / 2));
+  // 背板の切妻部 (三角柱: 3角形断面のシリンダーを回転・スケール)
+  const gable = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, t, 3, 1, false, 0, Math.PI * 2), pineD);
+  gable.rotation.x = -Math.PI / 2;
+  gable.scale.set((w / 2 - t) / 0.866, 1, (roofH - 0.01) / 1.5);
+  gable.position.set(0, bodyH + 0.5 * (roofH - 0.01) / 1.5, -d / 2 + t / 2); g.add(gable);
+  // 中段の棚板 (2階の床)
+  g.add(box(w - 2 * t, t, d - t, pineD, 0, bodyH * 0.5, 0));
+  // 切妻屋根 (2枚の傾斜板, 少し軒を出す)
+  const half = w / 2 + 0.02, slope = Math.hypot(half, roofH), ang = Math.atan2(roofH, half);
+  [-1, 1].forEach(s => { const rp = box(slope, t, d + 0.03, pine, s * half / 2, bodyH + roofH / 2, 0); rp.rotation.z = -s * ang; rp.userData.colorable = true; g.add(rp); });
+  // 小さな家具 (ベッド・テーブル)
+  g.add(box(0.1, 0.03, 0.06, mat('#f4b9cf', 0.6), -0.15, bodyH * 0.5 + t / 2 + 0.015, 0.02));
+  g.add(cylAt(0.03, 0.03, 0.03, 10, mat('#ffffff', 0.6), 0.15, t + 0.015, 0.02));
+  g.add(box(0.06, 0.05, 0.05, mat('#a9d8f0', 0.6), 0.16, t + 0.025, -0.05));
   return g;
 }
 function buildCake({ color = '#fff3ea', w = 0.32, d = 0.32, h = 0.2 } = {}) {
@@ -7258,22 +7416,42 @@ function buildKidsBed({ color = '#fbe3ec', w = 1.05, d = 1.9, h = 1.7 } = {}) {
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildKidsDesk({ color = '#bfe3f5', w = 0.8, d = 0.5, h = 0.56 } = {}) {
+// IKEA FLISAT 子ども用デスク (92×67, 高さ調節 ≈56cm): パイン材の角脚フレーム, 背面に MÅLA 紙ロールホルダー
+function buildKidsDesk({ color = '#e6cfa3', w = 0.92, d = 0.67, h = 0.56 } = {}) {
   const g = new THREE.Group();
-  const woodM = mat(color, 0.6), legM = mat('#f4b9cf', 0.6);
-  const top = new THREE.Mesh(roundedBoxGeom(w, 0.04, d, 0.02, 2), woodM); top.position.set(0, h - 0.02, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
-  [[-w / 2 + 0.06, d / 2 - 0.06], [w / 2 - 0.06, d / 2 - 0.06], [-w / 2 + 0.06, -(d / 2 - 0.06)], [w / 2 - 0.06, -(d / 2 - 0.06)]].forEach(([x, z]) => g.add(cylAt(0.03, 0.03, h - 0.04, 8, legM, x, (h - 0.04) / 2, z)));
-  g.add(box(w - 0.12, 0.12, 0.03, woodM, 0, h - 0.12, -(d / 2 - 0.05))); // back panel
-  g.add(box(0.16, 0.1, 0.012, mat('#ff8fab', 0.6), 0, h - 0.12, -(d / 2 - 0.066))); // heart deco
+  const pine = mat(color, 0.65), pineD = mat(shade(color, 0.88), 0.7);
+  const top = new THREE.Mesh(roundedBoxGeom(w, 0.025, d, 0.008, 2), pine); top.position.set(0, h - 0.0125, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  // 角脚 45mm (前後脚を側枠でつなぐ)
+  const lx = w / 2 - 0.06, lz = d / 2 - 0.05, legH = h - 0.025;
+  [[-lx, lz], [lx, lz], [-lx, -lz], [lx, -lz]].forEach(([x, z]) => g.add(box(0.045, legH, 0.045, pineD, x, legH / 2, z)));
+  [-lx, lx].forEach(x => g.add(box(0.04, 0.06, d - 0.1 - 0.045, pineD, x, 0.18, 0)));          // 側面貫
+  g.add(box(w - 0.12 - 0.045, 0.06, 0.04, pineD, 0, 0.18, -lz));                                  // 背面貫
+  g.add(box(w - 0.12 - 0.045, 0.08, 0.02, pineD, 0, h - 0.07, lz - 0.01));                       // 幕板(前)
+  g.add(box(w - 0.12 - 0.045, 0.08, 0.02, pineD, 0, h - 0.07, -lz + 0.01));                      // 幕板(後)
+  // 紙ロールホルダー (背面, MÅLA ロール)
+  const roll = cylAt(0.045, 0.045, w - 0.2, 16, mat('#fbf7f2', 0.8), 0, h - 0.14, -lz + 0.06); roll.rotation.z = Math.PI / 2; g.add(roll);
+  const axle = cylAt(0.008, 0.008, w - 0.12, 8, mat('#9aa0a4', 0.3, 0.7), 0, h - 0.14, -lz + 0.06); axle.rotation.z = Math.PI / 2; g.add(axle);
+  // 天板上のペン立て
+  g.add(cylAt(0.03, 0.03, 0.08, 12, mat('#a9d8f0', 0.6), w * 0.35, h + 0.04, -d * 0.3));
   return g;
 }
-function buildKidsChair({ color = '#ffd382', w = 0.34, d = 0.34, h = 0.6 } = {}) {
+// IKEA MAMMUT 子ども用チェア (39×36×67, 座面 30×26 高さ30): 一体成形プラスチックの丸いシェル + 太めの脚
+function buildKidsChair({ color = '#ffd382', w = 0.39, d = 0.36, h = 0.67 } = {}) {
   const g = new THREE.Group();
-  const seatM = mat(color, 0.6), legM = mat('#a9e7cf', 0.6);
-  const seat = new THREE.Mesh(roundedBoxGeom(w, 0.04, d, 0.02, 2), seatM); seat.position.set(0, 0.32, 0); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
-  const back = new THREE.Mesh(roundedBoxGeom(w, 0.24, 0.04, 0.04, 3), seatM); back.position.set(0, 0.48, -(d / 2 - 0.03)); back.userData.colorable = true; g.add(back);
-  g.add(box(0.1, 0.09, 0.012, mat('#ff8fab', 0.6), 0, 0.49, -(d / 2 - 0.045))); // heart on back
-  [[-w / 2 + 0.04, d / 2 - 0.04], [w / 2 - 0.04, d / 2 - 0.04], [-w / 2 + 0.04, -(d / 2 - 0.04)], [w / 2 - 0.04, -(d / 2 - 0.04)]].forEach(([x, z]) => g.add(cylAt(0.022, 0.022, 0.32, 8, legM, x, 0.16, z)));
+  const shell = mat(color, 0.45, 0.05, { env: 0.4 });
+  const seatH = 0.30, seatW = 0.30, seatD = 0.26;
+  const seat = new THREE.Mesh(roundedBoxGeom(seatW + 0.04, 0.035, seatD + 0.04, 0.015, 3), shell);
+  seat.position.set(0, seatH, 0.02); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  // 背もたれ (上が丸い一枚シェル, やや後傾)
+  const back = new THREE.Mesh(roundedBoxGeom(w - 0.02, h - seatH, 0.035, 0.05, 4), shell);
+  back.position.set(0, seatH + (h - seatH) / 2 - 0.02, -d / 2 + 0.05); back.rotation.x = -0.1; back.castShadow = true; back.userData.colorable = true; g.add(back);
+  // 脚 (4本, テーパー, 外側に開く)
+  [[-w / 2 + 0.05, d / 2 - 0.05], [w / 2 - 0.05, d / 2 - 0.05], [-w / 2 + 0.05, -d / 2 + 0.05], [w / 2 - 0.05, -d / 2 + 0.05]].forEach(([x, z]) => {
+    const leg = cyl(0.024, 0.03, seatH - 0.02, 10, shell);
+    leg.position.set(x * 0.85, (seatH - 0.02) / 2, z * 0.85 + 0.02);
+    leg.rotation.z = x > 0 ? 0.12 : -0.12; leg.rotation.x = z > 0 ? -0.12 : 0.12;
+    leg.castShadow = true; leg.userData.colorable = true; g.add(leg);
+  });
   return g;
 }
 // 壁飾り: 顔(柄)を +Z に向ける壁掛け
@@ -7651,6 +7829,112 @@ const PRODUCT = {
   zabuton: { brand:'洛中高岡屋', model:'京座布団 銘仙判 55×59cm', name:'座布団 銘仙判', mm:{ w:550, d:590, h:80 }, checked:'2026-09-19',
     note:'銘仙判 55×59cm（JIS Mサイズ）。八端判は59×63cm。',
     sources:[ { label:'洛中高岡屋 京座布団 銘仙判', url:'https://www.takaokaya-shop.com/?pid=67250297' }, { label:'参考: シーツ.jp 座布団のサイズ', url:'https://sheets.jp/125' } ] },
+  // ---- ステップ4: 工場・実験室・キッズ・アウトドア ----
+  workbench: { brand:'TRUSCO（トラスコ中山）', model:'軽荷重作業台（300kg）AE型 1500×750×H740 基本タイプ RAE-1500', name:'TRUSCO AE型作業台 1500', mm:{ w:1500, d:750, h:740 }, checked:'2026-09-19',
+    note:'幅1500×奥行750×高さ740mm、均等荷重300kg、ポリ化粧天板、下棚付。モデルの万力は表現用の付属品。',
+    sources:[ { label:'オレンジブック TRUSCO AE型作業台 1500X750XH740', url:'https://www.orange-book.com/ja/c/products/index.html?itemCd=AE1500++++++++++++++++++++++++8500' }, { label:'参考: モノタロウ AE1500', url:'https://www.monotaro.com/g/00417765/' } ] },
+  toolcab: { brand:'KTC（京都機械工具）', model:'ローラーキャビネット 5段5引出し SKX3805', name:'KTC SKX3805', mm:{ w:680, d:460, h:975 }, checked:'2026-09-19',
+    note:'幅680×奥行460×高さ975mm、引き出し5段、キャスター付き。',
+    sources:[ { label:'参考: ビルディ KTC SKX3805', url:'https://www.bildy.jp/handtools/tools_cabinet-model-skx3805/25839' }, { label:'ミスミ SKX3805', url:'https://jp.misumi-ec.com/vona2/detail/223005595124/?HissuCode=SKX3805' } ] },
+  conveyor: { brand:'マキテック', model:'ベルトコンベヤ ベルゴッチ Model 34-SI（機長2000×ベルト幅500）＋スタンド脚', name:'マキテック ベルゴッチ 34-SI', mm:{ w:2400, d:500, h:820 }, checked:'2026-09-19',
+    note:'スタンダードモデルは機長500〜2000mm・ベルト幅100〜600mm・機高169mm。モデルは機長2000＋モーター部を含む全長2.4m、脚で搬送面高さ約820mmとした状態。',
+    sources:[ { label:'マキテック ベルトコンベヤ一覧', url:'https://online.makitech.co.jp/belt-conveyor' }, { label:'マキテック ベルト有効幅選定表', url:'https://www.makitech.co.jp/conveyor/3/belt-width.html' } ] },
+  robot: { brand:'FANUC', model:'FANUC Robot M-20iD/25（可搬25kg・リーチ1831mm・6軸）', name:'FANUC M-20iD/25', mm:{ w:650, d:650, h:1650 }, checked:'2026-09-19',
+    note:'可搬質量25kg、リーチ1831mm、繰返し精度±0.02mm。モデルの外形（設置面0.65m角・全高1.65m）はカタログ図の概略で、正確な機構部寸法は公式図面を参照。',
+    sources:[ { label:'FANUC 製品カタログ M-10iD/20iD（PDF）', url:'https://www.fanuc.co.jp/ja/product/catalog/pdf/robot/RM-10iD(J)-06.pdf' }, { label:'参考: ロボットスコープ M-20iD/25', url:'https://robotscope.jp/robots/fanuc-m-20id-25/' } ] },
+  ctrlpanel: { brand:'日東工業', model:'自立制御盤キャビネット E-A（フカサ500mm）W800×H1800 相当', name:'日東工業 自立制御盤キャビネット E-A', mm:{ w:800, d:500, h:1800 }, checked:'2026-09-19',
+    note:'E-Aシリーズの奥行500mmタイプ。幅800×高さ1800mmはシリーズ内の標準サイズ（型式はサイズ組合せで決まる）。',
+    sources:[ { label:'日東工業 N-TEC 自立制御盤キャビネット(E-A)', url:'https://ntec.nito.co.jp/content/pcategory.html?code=C683-C605-C1744' } ] },
+  forklift: { brand:'トヨタL&F', model:'バッテリーフォークリフト 8FBE15（1.5t・3輪カウンター）', name:'トヨタ 8FBE15', mm:{ w:1150, d:3000, h:2100 }, checked:'2026-09-19',
+    note:'全長3000×全幅1150mm、最大荷重1500kg、車両重量2830kg、最大揚高3000mm。全高はマスト格納時の目安（約2.1m）。',
+    sources:[ { label:'KENKEY トヨタ 8FBE15 カタログ・スペック', url:'https://kenkey.jp/catalog/transportation-vehicles/toyota/forklifts/8fbe15' }, { label:'トヨタL&F 1.0〜2.0ton カウンタータイプ（PDF）', url:'https://www.toyota-lf.com/pdf/02007001.pdf' } ] },
+  fire_ext: { brand:'ヤマトプロテック', model:'粉末(ABC)蓄圧式消火器 10型 YA-10NX', name:'ヤマト YA-10NX 10型消火器', mm:{ w:180, d:126, h:490 }, weightKg:5.0, checked:'2026-09-19',
+    note:'高さ490×幅180×奥行126mm、総質量約5.0kg、薬剤3.0kg、能力単位A-3・B-7・C。',
+    sources:[ { label:'ヤマトプロテック公式 YA-10NX', url:'https://www.yamatoprotec.co.jp/products/syokaki/YA-10NX/46721/' } ] },
+  resinpallet: { brand:'三甲（サンコー）', model:'プラスチックパレット LX-1111R4（1100×1100×145, 4方差し）', name:'サンコー LX-1111R4', mm:{ w:1100, d:1100, h:145 }, weightKg:16.4, checked:'2026-09-19',
+    note:'1100×1100×145mm、質量16.4kg。JIS T11型と同じ1100角。',
+    sources:[ { label:'三甲 1100×1100サイズ 製品情報', url:'https://www.sanko-kk.co.jp/products/pallet/1100/index.html' }, { label:'参考: アスクル LX-1111R4', url:'https://www.askul.co.jp/p/K920369/' } ] },
+  cnc_center: { brand:'ブラザー工業', model:'コンパクトマシニングセンタ SPEEDIO S500Xd1', name:'ブラザー SPEEDIO S500Xd1', mm:{ w:1560, d:2223, h:2498 }, weightKg:2400, checked:'2026-09-19',
+    note:'機械寸法 幅1560×奥行2223（150Lクーラントタンク）×高さ2498mm、機械重量2400kg。',
+    sources:[ { label:'ブラザー公式 S300Xd1/S500Xd1/S700Xd1 スペック', url:'https://www.brother.co.jp/product/machine/sxd1/spec/index.aspx' }, { label:'ブラザー 機械仕様（PDF）', url:'https://download.brother.com/pub/jp/news/2022/srxd1-spec.pdf' } ] },
+  ind_robot: { brand:'FANUC', model:'FANUC Robot R-2000iC/210F（可搬210kg・リーチ2655mm）', name:'FANUC R-2000iC/210F', mm:{ w:1200, d:1200, h:2400 }, weightKg:1370, checked:'2026-09-19',
+    note:'可搬質量210kg、リーチ2655mm、本体質量1370kg。モデルの外形は設置ベース1.2m角・全高2.4mの概略。',
+    sources:[ { label:'FANUC 製品カタログ R-2000iC（PDF）', url:'https://www.fanuc.co.jp/ja/product/catalog/pdf/robot/RR-2000iC(J)-09a.pdf' } ] },
+  inj_molder: { brand:'住友重機械工業', model:'全電動射出成形機 SE180EV-A（型締力1800kN）', name:'住友 SE180EV-A', mm:{ w:5133, d:1365, h:1923 }, weightKg:6600, checked:'2026-09-19',
+    note:'機械寸法 長さ5133×幅1365×高さ1923mm（ホッパー回転装置付は2018mm）、機械質量6.4〜6.8t。幅(W)に長さを採用。',
+    sources:[ { label:'住友重機械 SE-EV-A 技術資料（PDF）', url:'https://www.shi.co.jp/plastics/products/pdf/products/jp01_seev-a-t.pdf' }, { label:'Sumitomo (SHI) Demag SE180EV-A Metric specs', url:'https://sumitomo-shi-demag.us/wp-content/uploads/2020/12/SE180EV-AspecsMETRIC.pdf' } ] },
+  lathe: { brand:'TAKISAWA（滝澤鉄工所）', model:'フラット形NC旋盤 TAC-360', name:'滝沢 TAC-360', mm:{ w:2070, d:1145, h:1740 }, weightKg:1200, checked:'2026-09-19',
+    note:'機械寸法 幅2070×奥行1145×高さ1740mm、質量1200kg。',
+    sources:[ { label:'TAKISAWA公式 TAC-360', url:'https://www.takisawa.co.jp/product/tac/tac/tac-360.html' }, { label:'参考: 小林機械 TAC-360', url:'https://www.kkmt.co.jp/machines/8382' } ] },
+  milling: { brand:'静岡鐵工所', model:'立フライス盤（ラム型）VHR-A', name:'静岡 VHR-A', mm:{ w:1700, d:1980, h:2075 }, weightKg:2100, checked:'2026-09-19',
+    note:'機械寸法 幅1700×奥行1980×高さ2075mm、重量2100kg。',
+    sources:[ { label:'静岡鐵工所 手動フライス盤', url:'https://www.shizuokatekko.co.jp/manual-milling-machine' }, { label:'参考: マシンライフ VHR-A', url:'https://www.zenkiren.net/machines/369877?r=rss' } ] },
+  welder: { brand:'ダイヘン', model:'CO2/MAG半自動溶接機 デジタルオート DM-350', name:'ダイヘン DM-350', mm:{ w:250, d:560, h:370 }, weightKg:28, checked:'2026-09-19',
+    note:'溶接電源本体 幅250×奥行560×高さ370mm（ハンドル含まず）、質量28kg。モデルはワイヤ送給装置・台車込みの状態（カタログ寸法は台車込み）。',
+    sources:[ { label:'モノタロウ ダイヘン DM-350', url:'https://www.monotaro.com/g/00411063/' } ] },
+  labbench: { brand:'ダルトン', model:'サイド実験台 EWAW-1800（W1800×D750×H800）', name:'ダルトン サイド実験台 1800', mm:{ w:1800, d:750, h:800 }, checked:'2026-09-19',
+    note:'幅1800×奥行750×高さ800mm。モデルの試薬棚・流し・ガス栓は表現用。',
+    sources:[ { label:'ダルトン 実験台 製品ラインアップ', url:'https://www.dalton.co.jp/product/education/science_facility/laboratory_table' }, { label:'参考: BIOff ダルトン EWAW-1800', url:'https://yamap.jp/2022/06/23/2884-%E3%83%BB%E3%83%80%E3%83%AB%E3%83%88%E3%83%B3-ewaw-1800-%E3%82%B5%E3%82%A4%E3%83%89%E5%AE%9F%E9%A8%93%E5%8F%B0-%EF%BD%971800xd750xh800-%EF%BF%A5100000-%E7%A8%8E%E8%BE%BC%E3%83%BB/' } ] },
+  microscope: { brand:'エビデント（オリンパス）', model:'教育用生物顕微鏡 CX23', name:'オリンパス CX23', mm:{ w:198, d:258, h:384 }, weightKg:5.9, checked:'2026-09-19',
+    note:'外形寸法 幅198×奥行258×高さ384mm、質量約5.9kg。',
+    sources:[ { label:'Evident（オリンパス）CX23', url:'https://evidentscientific.com/ja/products/upright/cx23' } ] },
+  centrifuge: { brand:'久保田商事', model:'テーブルトップ遠心機 Model 2420', name:'KUBOTA 2420', mm:{ w:350, d:420, h:320 }, checked:'2026-09-19',
+    note:'外形寸法 幅350×奥行420×高さ320mm。',
+    sources:[ { label:'久保田商事 テーブルトップ遠心機 Model 2420', url:'https://www.kubotacorp.co.jp/products/kubota/centrifuge/2420.php' } ] },
+  oscilloscope: { brand:'Tektronix', model:'デジタル・オシロスコープ TBS1102C（100MHz・2ch）', name:'Tektronix TBS1102C', mm:{ w:325, d:107, h:155 }, weightKg:2.0, checked:'2026-09-19',
+    note:'TBS1000Cシリーズ 幅325.1×高さ155.0×奥行106.7mm、質量約2.0kg。',
+    sources:[ { label:'テクトロニクス TBS1000Cシリーズ データシート（PDF）', url:'https://www.keisokuki-world.jp/user_data/files/TBS1000.pdf' }, { label:'参考: RS TBS1102C', url:'https://jp.rs-online.com/web/p/oscilloscopes/2024905' } ] },
+  spectropho: { brand:'島津製作所', model:'紫外可視分光光度計 UV-1900i', name:'島津 UV-1900i', mm:{ w:450, d:501, h:244 }, weightKg:16.6, checked:'2026-09-19',
+    note:'外形寸法 幅450×奥行501×高さ244mm、質量16.6kg。',
+    sources:[ { label:'島津製作所 UV-1900i Plus', url:'https://www.an.shimadzu.co.jp/products/uv-vis/uv-vis-nir-spectroscopy/uv-1900i-plus/index.html' }, { label:'参考: アズワン UV-1900i', url:'https://axel.as-1.co.jp/asone/d/67-7089-71/' } ] },
+  laboven: { brand:'ヤマト科学', model:'定温乾燥器（自然対流方式）DX302', name:'ヤマト DX302', mm:{ w:400, d:440, h:630 }, checked:'2026-09-19',
+    note:'外形寸法 幅400×奥行440×高さ630mm。',
+    sources:[ { label:'ヤマト科学 定温乾燥器 DX302', url:'https://www.yamato-net.co.jp/product/show/dx302/' } ] },
+  ultrasonic: { brand:'アズワン', model:'超音波洗浄器 ASU-6（ASUシリーズ）', name:'アズワン ASU-6', mm:{ w:380, d:247, h:340 }, checked:'2026-09-19',
+    note:'外形寸法 380×247×340mm（ASU-6）。ステンレス製のASU-6Mも同等サイズ。',
+    sources:[ { label:'アズワン AXEL 超音波洗浄器 ASU-6', url:'https://axel.as-1.co.jp/asone/d/1-2160-03/' } ] },
+  vacpump: { brand:'アルバック', model:'油回転真空ポンプ GLD-137CC（直結型・AC100〜240V）', name:'ULVAC GLD-137CC', mm:{ w:170, d:488, h:250 }, weightKg:29, checked:'2026-09-19',
+    note:'大きさ 170×488×250mm、重量29.0kg。',
+    sources:[ { label:'ULVAC SHOWCASE GLD-137CC', url:'https://showcase.ulvac.co.jp/ja/products/vacuum-pump/oil-rotary-pump/highfunctionality/gld-137cc.html' } ] },
+  printer3d: { brand:'Bambu Lab', model:'X1-Carbon 3Dプリンター', name:'Bambu Lab X1-Carbon', mm:{ w:389, d:389, h:457 }, weightKg:14.13, checked:'2026-09-19',
+    note:'本体サイズ 389×389×457mm、正味重量14.13kg。',
+    sources:[ { label:'Bambu Lab公式ストア X1-Carbon', url:'https://jp.store.bambulab.com/products/x1-carbon' }, { label:'Bambu Lab X1-Carbon Technical Specifications（PDF）', url:'https://public-cdn.bambulab.com/store/bambulab-X1-carbon-tech-specs.pdf' } ] },
+  lasercutter: { brand:'xTool', model:'P2 55W デスクトップCO2レーザーカッター', name:'xTool P2', mm:{ w:1000, d:639, h:268 }, weightKg:45, checked:'2026-09-19',
+    note:'製品サイズ 1000×639×268mm、重量45kg。',
+    sources:[ { label:'xTool公式 P2', url:'https://www.xtool.com/products/xtool-p2-55w-co2-laser-cutter' }, { label:'参考: レーザーコネクト xTool P2', url:'https://www.laserconnect.co.jp/products/xtool_p2.html' } ] },
+  kidschair: { brand:'IKEA', model:'MAMMUT 子ども用チェア 室内/屋外用 105.819.89 ほか', name:'MAMMUT 子ども用チェア', mm:{ w:390, d:360, h:670 }, checked:'2026-09-19',
+    note:'幅39×奥行36×高さ67cm、座面 幅30×奥行26×高さ30cm。',
+    sources:[ { label:'IKEA公式（日本）MAMMUT 子ども用チェア', url:IKEA('mammut-childrens-chair-in-outdoor-lilac-10581989/') } ] },
+  kidsdesk: { brand:'IKEA', model:'FLISAT 子ども用デスク アジャスタブル 602.930.62', name:'FLISAT 子ども用デスク', mm:{ w:920, d:670, h:560 }, checked:'2026-09-19',
+    note:'幅92×奥行67cm、高さ3段階調節（モデルは中間の約56cm）。天板は傾斜可能、MÅLA紙ロールホルダー付き。',
+    sources:[ { label:'IKEA公式（日本）FLISAT 子ども用デスク', url:IKEA('flisat-childrens-desk-adjustable-60293062/') } ] },
+  toybox: { brand:'IKEA', model:'FLISAT おもちゃ収納 キャスター付き 902.984.21', name:'FLISAT おもちゃ収納', mm:{ w:440, d:390, h:310 }, checked:'2026-09-19',
+    note:'長さ44×幅39×高さ31cm、最大荷重20kg。',
+    sources:[ { label:'IKEA公式（日本）FLISAT おもちゃ収納 キャスター付き', url:IKEA('flisat-toy-storage-with-wheels-90298421/') } ] },
+  dollhouse: { brand:'IKEA', model:'FLISAT ドールハウス/ウォールシェルフ 702.969.65', name:'FLISAT ドールハウス', mm:{ w:580, d:220, h:590 }, checked:'2026-09-19',
+    note:'幅58×奥行22×高さ59cm、パイン無垢材。床置き・壁掛け両用。',
+    sources:[ { label:'IKEA公式（日本）FLISAT ドールハウス/ウォールシェルフ', url:IKEA('flisat-doll-s-house-wall-shelf-70296965/') } ] },
+  teddy: { brand:'IKEA', model:'DJUNGELSKOG ぬいぐるみ ブラウン/子グマ 32cm 605.523.57', name:'DJUNGELSKOG 子グマ', mm:{ w:280, d:240, h:320 }, checked:'2026-09-19',
+    note:'全長32cm。幅・奥行はモデル上の座らせた姿勢の目安。',
+    sources:[ { label:'IKEA公式（日本）DJUNGELSKOG ぬいぐるみ 子グマ 32cm', url:IKEA('djungelskog-soft-toy-brown-bear-cub-60552357/') } ] },
+  bunny: { brand:'IKEA', model:'VANDRING HARE ソフトトイ ウサギ 40cm 102.160.85', name:'VANDRING HARE', mm:{ w:220, d:220, h:400 }, checked:'2026-09-19',
+    note:'全長40cm。幅・奥行はモデル上の座らせた姿勢の目安。',
+    sources:[ { label:'IKEA公式（日本）VANDRING HARE ソフトトイ', url:IKEA('vandring-hare-soft-toy-10216085/') } ] },
+  tent: { brand:'Coleman', model:'ツーリングドーム/LX（2〜3人用）2000038142', name:'コールマン ツーリングドームLX', mm:{ w:2100, d:1800, h:1140 }, weightKg:5.2, checked:'2026-09-19',
+    note:'使用時 インナーサイズ 約210×180×高さ114cm（フライ・前室を除く）、収納時 約φ21×49cm、重量約5.2kg。',
+    sources:[ { label:'コールマン公式 ツーリングドーム/LX', url:'https://ec.coleman.co.jp/item/2000038142.html' } ] },
+  campchair: { brand:'Helinox', model:'チェアワン', name:'ヘリノックス チェアワン', mm:{ w:525, d:510, h:650 }, weightKg:1.05, checked:'2026-09-19',
+    note:'使用時 幅52.5×奥行51×高さ65cm、座面高33.5cm、総重量1.05kg、耐荷重145kg。',
+    sources:[ { label:'Helinox公式 チェアワン', url:'https://helinox.co.jp/type/chair/chair_one' }, { label:'参考: モンベル チェアワン', url:'https://webshop.montbell.jp/goods/disp.php?product_id=1822221' } ] },
+  campfire: { brand:'Coleman', model:'ファイアーディスク 2000031235', name:'コールマン ファイアーディスク', mm:{ w:450, d:450, h:230 }, weightKg:1.6, checked:'2026-09-19',
+    note:'使用時 約φ45×高さ23cm、重量約1.6kg、ステンレス製。モデルの薪・炎は表現用（外形は炎を除く焚火台）。',
+    sources:[ { label:'コールマン公式 ファイアーディスク', url:'https://ec.coleman.co.jp/item/2000031235.html' } ] },
+  coolerbox: { brand:'Coleman', model:'54QT スチールベルトクーラー（約51L）', name:'コールマン 54QT スチールベルトクーラー', mm:{ w:620, d:420, h:410 }, weightKg:7.5, checked:'2026-09-19',
+    note:'約62×42×41(h)cm、容量約51L、重量約7.5kg、フタ耐荷重約100kg。',
+    sources:[ { label:'コールマン公式 54QT スチールベルトクーラー', url:'https://ec.coleman.co.jp/item/2159598.html' } ] },
+  lantern: { brand:'Coleman', model:'ワンマントルランタン 286A', name:'コールマン 286A', mm:{ w:160, d:160, h:310 }, weightKg:1.4, checked:'2026-09-19',
+    note:'約φ16×高さ31cm、重量約1.4kg、タンク容量約590cc。',
+    sources:[ { label:'コールマン パーツカタログ ワンマントルランタン', url:'http://partscatalog.special-coleman.com/catalog/detail/866' }, { label:'参考: ハピキャン 286A', url:'https://happycamper.jp/_ct/17404493/' } ] },
 };
 
 const FURNITURE_DEFS = [
@@ -7672,13 +7956,13 @@ const FURNITURE_DEFS = [
   { id:'plant',   cat:'deco',    name:'観葉植物',          icon:'fa-leaf',           w:0.4, d:0.4,  h:1.3,  colorIdx:5, build:buildPlant, stack:true },
   { id:'tv',      cat:'deco',    name:'テレビ（65V型）',   icon:'fa-tv',             w:1.446,d:0.316,h:0.885,colorIdx:13,build:buildRegza65E770S, stack:true, product:PRODUCT.tv },
   { id:'rug',     cat:'deco',    name:'ラグ',              icon:'fa-rug',            w:1.95,d:1.33, h:0.02, colorIdx:10,build:buildRug,         product:PRODUCT.rug },
-  { id:'workbench',  cat:'factory', name:'作業台',          icon:'fa-screwdriver-wrench', w:1.5,  d:0.75, h:0.9,  colorIdx:2, build:buildWorkbench },
-  { id:'toolcab',    cat:'factory', name:'ツールキャビネット', icon:'fa-toolbox',          w:0.7,  d:0.45, h:1.12, colorIdx:3, build:buildToolCabinet },
-  { id:'conveyor',   cat:'factory', name:'コンベアベルト',   icon:'fa-arrows-left-right',  w:2.4,  d:0.5,  h:0.82, colorIdx:14, build:buildConveyor },
-  { id:'robot',      cat:'factory', name:'産業ロボット',     icon:'fa-robot',              w:0.65, d:0.65, h:1.65, colorIdx:7, build:buildIndustrialRobot },
+  { id:'workbench',  cat:'factory', name:'作業台',          icon:'fa-screwdriver-wrench', w:1.5,  d:0.75, h:0.74, colorIdx:10, build:buildWorkbench,       product:PRODUCT.workbench },
+  { id:'toolcab',    cat:'factory', name:'ツールキャビネット', icon:'fa-toolbox',          w:0.68, d:0.46, h:0.975,colorIdx:3, build:buildToolCabinet,     product:PRODUCT.toolcab },
+  { id:'conveyor',   cat:'factory', name:'コンベアベルト',   icon:'fa-arrows-left-right',  w:2.4,  d:0.5,  h:0.82, colorIdx:14, build:buildConveyor,       product:PRODUCT.conveyor },
+  { id:'robot',      cat:'factory', name:'産業ロボット',     icon:'fa-robot',              w:0.65, d:0.65, h:1.65, colorIdx:12, build:buildIndustrialRobot, product:PRODUCT.robot },
   { id:'cnc',        cat:'factory', name:'CNC工作機械',      icon:'fa-gear',               w:1.2,  d:1.0,  h:1.54, colorIdx:2, build:buildCNCMachine },
   { id:'palletrack', cat:'factory', name:'パレットラック',   icon:'fa-layer-group',         w:1.7,  d:0.5,  h:2.46, colorIdx:3, build:buildPalletRack },
-  { id:'ctrlpanel',  cat:'factory', name:'制御盤',           icon:'fa-sliders',            w:0.8,  d:0.45, h:1.86, colorIdx:2, build:buildControlPanel },
+  { id:'ctrlpanel',  cat:'factory', name:'制御盤',           icon:'fa-sliders',            w:0.8,  d:0.5,  h:1.8,  colorIdx:10, build:buildControlPanel,    product:PRODUCT.ctrlpanel },
   { id:'shoebox',  cat:'storage',  name:'下駄箱',        icon:'fa-shoe-prints',     w:1.07,d:0.22, h:1.01, colorIdx:1,  build:buildShoeCabinet,    product:PRODUCT.shoebox },
   { id:'closet',   cat:'storage',  name:'クローゼット',  icon:'fa-door-closed',     w:2.0, d:0.66, h:2.01, colorIdx:1,  build:buildCloset,         product:PRODUCT.closet },
   { id:'cupboard', cat:'kitchen',  name:'食器棚',        icon:'fa-wine-glass',      w:0.9, d:0.51, h:2.01, colorIdx:1,  build:buildCupboard,       product:PRODUCT.cupboard },
@@ -7792,52 +8076,52 @@ const FURNITURE_DEFS = [
   // ---- storage variant ----
   { id:'glasscab',   cat:'storage', name:'ガラス棚',           icon:'fa-wine-glass',        w:0.8, d:0.3,  h:2.02, colorIdx:1,  build:buildGlassCabinet, product:PRODUCT.glasscab },
   // ---- lab (実験 / 試験 / 加工) ----
-  { id:'labbench',   cat:'lab',     name:'実験台',            icon:'fa-flask-vial',        w:2.0,  d:0.75, h:0.85, colorIdx:1,  build:buildLabBench },
+  { id:'labbench',   cat:'lab',     name:'実験台',            icon:'fa-flask-vial',        w:1.8,  d:0.75, h:0.8,  colorIdx:1,  build:buildLabBench,   product:PRODUCT.labbench },
   { id:'fumehood',   cat:'lab',     name:'ドラフトチャンバー',icon:'fa-wind',              w:1.4,  d:0.8,  h:2.3,  colorIdx:10, build:buildFumeHood },
-  { id:'microscope', cat:'lab',     name:'顕微鏡',            icon:'fa-microscope',        w:0.3,  d:0.4,  h:0.45, colorIdx:2,  build:buildMicroscope, stack:true },
-  { id:'centrifuge', cat:'lab',     name:'遠心分離機',        icon:'fa-fan',               w:0.55, d:0.55, h:0.4,  colorIdx:10, build:buildCentrifuge, stack:true },
+  { id:'microscope', cat:'lab',     name:'顕微鏡',            icon:'fa-microscope',        w:0.198,d:0.258,h:0.384,colorIdx:2,  build:buildMicroscope, stack:true, product:PRODUCT.microscope },
+  { id:'centrifuge', cat:'lab',     name:'遠心分離機',        icon:'fa-fan',               w:0.35, d:0.42, h:0.32, colorIdx:10, build:buildCentrifuge, stack:true, product:PRODUCT.centrifuge },
   { id:'analbalance',cat:'lab',     name:'電子天秤',          icon:'fa-scale-balanced',    w:0.3,  d:0.4,  h:0.32, colorIdx:10, build:buildAnalyticalBalance, stack:true },
   { id:'chemshelf',  cat:'lab',     name:'薬品棚',            icon:'fa-bottle-droplet',    w:1.0,  d:0.4,  h:1.9,  colorIdx:1,  build:buildChemShelf },
   { id:'glassware',  cat:'lab',     name:'実験ガラス器具',    icon:'fa-vial',              w:0.4,  d:0.3,  h:0.32, colorIdx:5,  build:buildGlassware, stack:true },
-  { id:'oscilloscope',cat:'lab',    name:'オシロスコープ',    icon:'fa-wave-square',       w:0.42, d:0.4,  h:0.3,  colorIdx:2,  build:buildOscilloscope, stack:true },
+  { id:'oscilloscope',cat:'lab',    name:'オシロスコープ',    icon:'fa-wave-square',       w:0.325,d:0.107,h:0.155,colorIdx:2,  build:buildOscilloscope, stack:true, product:PRODUCT.oscilloscope },
   { id:'testbench',  cat:'lab',     name:'測定試験機',        icon:'fa-gauge-high',        w:0.9,  d:0.7,  h:1.6,  colorIdx:2,  build:buildTestBench },
-  { id:'lathe',      cat:'lab',     name:'旋盤',              icon:'fa-gears',             w:1.8,  d:0.8,  h:1.35, colorIdx:6,  build:buildLathe },
-  { id:'milling',    cat:'lab',     name:'フライス盤',        icon:'fa-screwdriver-wrench',w:1.2,  d:1.1,  h:1.95, colorIdx:6,  build:buildMillingMachine },
+  { id:'lathe',      cat:'lab',     name:'旋盤',              icon:'fa-gears',             w:2.07, d:1.145,h:1.74, colorIdx:6,  build:buildLathe,          product:PRODUCT.lathe },
+  { id:'milling',    cat:'lab',     name:'フライス盤',        icon:'fa-screwdriver-wrench',w:1.7,  d:1.98, h:2.075,colorIdx:6,  build:buildMillingMachine, product:PRODUCT.milling },
   { id:'drillpress', cat:'lab',     name:'ボール盤',          icon:'fa-arrow-down-long',   w:0.6,  d:0.7,  h:1.75, colorIdx:6,  build:buildDrillPress },
   { id:'grinder',    cat:'lab',     name:'グラインダー',      icon:'fa-circle-notch',      w:0.7,  d:0.45, h:1.25, colorIdx:6,  build:buildBenchGrinder },
   { id:'toolrack',   cat:'lab',     name:'工具ラック',        icon:'fa-toolbox',           w:1.0,  d:0.12, h:1.2,  colorIdx:2,  build:buildToolRack, wallMount:true },
   // ---- machining equipment ----
   { id:'bandsaw',    cat:'lab',     name:'帯鋸盤',            icon:'fa-saw',               w:0.6,  d:0.55, h:1.55, colorIdx:6,  build:buildBandSaw },
-  { id:'welder',     cat:'lab',     name:'溶接機',            icon:'fa-bolt',              w:0.55, d:0.45, h:0.9,  colorIdx:6,  build:buildWelderStation },
+  { id:'welder',     cat:'lab',     name:'溶接機',            icon:'fa-bolt',              w:0.55, d:0.45, h:0.9,  colorIdx:6,  build:buildWelderStation, product:PRODUCT.welder },
   { id:'hydpress',   cat:'lab',     name:'プレス機',          icon:'fa-arrow-down',        w:0.7,  d:0.65, h:1.8,  colorIdx:6,  build:buildHydraulicPress },
-  { id:'printer3d',  cat:'lab',     name:'3Dプリンター',      icon:'fa-cube',              w:0.5,  d:0.5,  h:0.6,  colorIdx:10, build:build3DPrinter,   stack:true },
-  { id:'lasercutter',cat:'lab',     name:'レーザーカッター',  icon:'fa-laser-pointer',     w:1.0,  d:0.7,  h:0.35, colorIdx:2,  build:buildLaserCutter },
+  { id:'printer3d',  cat:'lab',     name:'3Dプリンター',      icon:'fa-cube',              w:0.389,d:0.389,h:0.457,colorIdx:13, build:build3DPrinter,   stack:true, product:PRODUCT.printer3d },
+  { id:'lasercutter',cat:'lab',     name:'レーザーカッター',  icon:'fa-laser-pointer',     w:1.0,  d:0.639,h:0.268,colorIdx:10,  build:buildLaserCutter, product:PRODUCT.lasercutter },
   { id:'scrollsaw',  cat:'lab',     name:'糸鋸盤',            icon:'fa-scissors',          w:0.55, d:0.45, h:0.95, colorIdx:6,  build:buildScrollSaw },
   // ---- analytical instruments ----
   { id:'hplc',       cat:'lab',     name:'HPLCクロマトグラフ',icon:'fa-chart-line',        w:0.5,  d:0.55, h:1.6,  colorIdx:10, build:buildHPLC },
-  { id:'spectropho', cat:'lab',     name:'分光光度計',        icon:'fa-radiation',         w:0.55, d:0.4,  h:0.35, colorIdx:10, build:buildSpectrophotometer, stack:true },
-  { id:'laboven',    cat:'lab',     name:'乾燥オーブン',      icon:'fa-fire',              w:0.6,  d:0.5,  h:0.6,  colorIdx:2,  build:buildLabOven },
+  { id:'spectropho', cat:'lab',     name:'分光光度計',        icon:'fa-radiation',         w:0.45, d:0.501,h:0.244,colorIdx:10, build:buildSpectrophotometer, stack:true, product:PRODUCT.spectropho },
+  { id:'laboven',    cat:'lab',     name:'乾燥オーブン',      icon:'fa-fire',              w:0.4,  d:0.44, h:0.63, colorIdx:2,  build:buildLabOven,           product:PRODUCT.laboven },
   { id:'incubator',  cat:'lab',     name:'インキュベーター',  icon:'fa-temperature-half',  w:0.7,  d:0.65, h:0.85, colorIdx:10, build:buildIncubator },
-  { id:'ultrasonic', cat:'lab',     name:'超音波洗浄機',      icon:'fa-water',             w:0.35, d:0.28, h:0.28, colorIdx:10, build:buildUltrasonicCleaner, stack:true },
-  { id:'vacpump',    cat:'lab',     name:'真空ポンプ',        icon:'fa-pump-soap',         w:0.4,  d:0.3,  h:0.4,  colorIdx:6,  build:buildVacuumPump,  stack:true },
+  { id:'ultrasonic', cat:'lab',     name:'超音波洗浄機',      icon:'fa-water',             w:0.38, d:0.247,h:0.34, colorIdx:10, build:buildUltrasonicCleaner, stack:true, product:PRODUCT.ultrasonic },
+  { id:'vacpump',    cat:'lab',     name:'真空ポンプ',        icon:'fa-pump-soap',         w:0.17, d:0.488,h:0.25, colorIdx:6,  build:buildVacuumPump,  stack:true, product:PRODUCT.vacpump },
   // ---- factory heavy equipment ----
-  { id:'forklift',   cat:'factory', name:'フォークリフト',   icon:'fa-truck-moving',      w:1.45, d:4.0,  h:2.25, colorIdx:12, build:buildForklift },
+  { id:'forklift',   cat:'factory', name:'フォークリフト',   icon:'fa-truck-moving',      w:1.15, d:3.0,  h:2.1,  colorIdx:12, build:buildForklift,    product:PRODUCT.forklift },
   { id:'alumcoil',   cat:'factory', name:'アルミコイル',     icon:'fa-circle',            w:1.0,  d:0.8,  h:0.8,  colorIdx:10, build:buildAluminumCoil },
   { id:'scrpbucket', cat:'factory', name:'屑バケット',       icon:'fa-trash',             w:1.0,  d:1.0,  h:0.7,  colorIdx:13, build:buildScrapBucket },
   { id:'tensile',    cat:'lab',     name:'引張試験機',       icon:'fa-arrows-up-down',    w:0.8,  d:0.7,  h:2.0,  colorIdx:10, build:buildTensileTestMachine },
   { id:'woodpallet', cat:'factory', name:'木製パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.145, colorIdx:0,  build:buildWoodPallet },
   { id:'steelpallet',cat:'factory', name:'鉄パレット',       icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:6,  build:buildSteelPallet },
-  { id:'resinpallet',cat:'factory', name:'樹脂パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.15, colorIdx:9,  build:buildResinPallet },
+  { id:'resinpallet',cat:'factory', name:'樹脂パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.145,colorIdx:9,  build:buildResinPallet, product:PRODUCT.resinpallet },
   { id:'drum',           cat:'factory', name:'ドラム缶',           icon:'fa-circle',              w:0.58, d:0.58, h:0.88,  colorIdx:9,  build:buildDrum },
   // ---- 大型工業機械 ----
-  { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:3.0,  d:2.2,  h:2.8,   colorIdx:10, build:buildCNCMachiningCenter },
-  { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:10, build:buildIndustrialRobotLg },
+  { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:1.56, d:2.223,h:2.498, colorIdx:10, build:buildCNCMachiningCenter, product:PRODUCT.cnc_center },
+  { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:12, build:buildIndustrialRobotLg,  product:PRODUCT.ind_robot },
   { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:3.2,  d:2.6,  h:5.5,   colorIdx:11, build:buildLargeHydraulicPress },
   { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
-  { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:3.5,  d:1.5,  h:2.2,   colorIdx:10, build:buildInjectionMolder },
+  { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:5.133,d:1.365,h:1.923, colorIdx:10, build:buildInjectionMolder,    product:PRODUCT.inj_molder },
   // ---- 新規アイテム ----
   { id:'jib_crane',      cat:'factory', name:'ジブクレーン',        icon:'fa-arrow-up-from-bracket', w:2.2,  d:0.5,  h:4.2,   colorIdx:7,  build:buildJibCrane },
-  { id:'fire_ext',       cat:'factory', name:'消火器',              icon:'fa-fire-extinguisher',     w:0.2,  d:0.2,  h:0.65,  colorIdx:3,  build:buildFireExtinguisher, stack:true },
+  { id:'fire_ext',       cat:'factory', name:'消火器',              icon:'fa-fire-extinguisher',     w:0.18, d:0.18, h:0.49,  colorIdx:3,  build:buildFireExtinguisher, stack:true, product:PRODUCT.fire_ext },
   { id:'alumcoil_banded',cat:'factory', name:'バンド掛けアルミコイル',icon:'fa-circle',              w:1.0,  d:0.8,  h:0.8,   colorIdx:10, build:buildBandedAlumCoil },
   { id:'alumcoil_packed', cat:'factory',name:'梱包済みアルミコイル', icon:'fa-box-archive',          w:1.0,  d:0.8,  h:0.8,   colorIdx:1,  build:buildPackagedAlumCoil },
   { id:'alumcoil_export', cat:'factory',name:'輸出梱包アルミコイル', icon:'fa-pallet',               w:1.2,  d:1.2,  h:1.0,   colorIdx:8,  build:buildExportAlumCoil },
@@ -7860,30 +8144,30 @@ const FURNITURE_DEFS = [
   // ---- 和室 ----
   { id:'zabuton',     cat:'seating',  name:'座布団',              icon:'fa-square',         w:0.55, d:0.59, h:0.08, colorIdx:6,  build:buildZabuton,    product:PRODUCT.zabuton },
   // ---- アウトドア ----
-  { id:'tent',        cat:'outdoor',  name:'テント',              icon:'fa-tent',           w:2.2,  d:2.4,  h:1.35, colorIdx:5,  build:buildTent },
-  { id:'campchair',   cat:'outdoor',  name:'キャンプチェア',      icon:'fa-chair',          w:0.6,  d:0.62, h:0.85, colorIdx:4,  build:buildCampChair },
-  { id:'campfire',    cat:'outdoor',  name:'焚き火',              icon:'fa-fire',           w:0.7,  d:0.7,  h:0.45, colorIdx:2,  build:buildCampfire },
-  { id:'coolerbox',   cat:'outdoor',  name:'クーラーボックス',    icon:'fa-box-archive',    w:0.6,  d:0.4,  h:0.42, colorIdx:3,  build:buildCoolerBox },
-  { id:'lantern',     cat:'outdoor',  name:'ランタン',            icon:'fa-lightbulb',      w:0.18, d:0.18, h:0.32, colorIdx:14, build:buildLantern,   stack:true },
+  { id:'tent',        cat:'outdoor',  name:'テント',              icon:'fa-tent',           w:2.1,  d:1.8,  h:1.14, colorIdx:5,  build:buildTent,      product:PRODUCT.tent },
+  { id:'campchair',   cat:'outdoor',  name:'キャンプチェア',      icon:'fa-chair',          w:0.525,d:0.51, h:0.65, colorIdx:4,  build:buildCampChair, product:PRODUCT.campchair },
+  { id:'campfire',    cat:'outdoor',  name:'焚き火',              icon:'fa-fire',           w:0.45, d:0.45, h:0.45, colorIdx:10,  build:buildCampfire,  product:PRODUCT.campfire },
+  { id:'coolerbox',   cat:'outdoor',  name:'クーラーボックス',    icon:'fa-box-archive',    w:0.62, d:0.42, h:0.41, colorIdx:3,  build:buildCoolerBox, product:PRODUCT.coolerbox },
+  { id:'lantern',     cat:'outdoor',  name:'ランタン',            icon:'fa-lightbulb',      w:0.16, d:0.16, h:0.31, colorIdx:14, build:buildLantern,   stack:true, product:PRODUCT.lantern },
   // ---- キッズ / 人物 ----
   { id:'girl',     cat:'kids', name:'女の子(小学生)',   icon:'fa-child-dress', w:0.5,  d:0.5,  h:1.28, colorIdx:15, build:(o)=>buildPerson({ ...o, h:1.28, style:'twin',  skirt:true, bag:'randoseru', headBig:true, bottom:'#ef7fa6', hair:'#5a3a26', shoe:'#e2607a' }) },
   { id:'boy',      cat:'kids', name:'男の子(小学生)',   icon:'fa-child',       w:0.5,  d:0.5,  h:1.34, colorIdx:19, build:(o)=>buildPerson({ ...o, h:1.34, style:'short', bag:'randoseru', headBig:true, bottom:'#3a4f68', hair:'#2e2017', shoe:'#3a4f68' }) },
   { id:'woman',    cat:'kids', name:'女性',             icon:'fa-person-dress',w:0.5,  d:0.5,  h:1.62, colorIdx:6,  build:(o)=>buildPerson({ ...o, h:1.62, style:'long',  skirt:true, bottom:'#7a5a8a', hair:'#3a2a1f', shoe:'#caa' }) },
   { id:'man',      cat:'kids', name:'男性',             icon:'fa-person',      w:0.5,  d:0.5,  h:1.76, colorIdx:9,  build:(o)=>buildPerson({ ...o, h:1.76, style:'short', bottom:'#37506a', hair:'#241a12', shoe:'#2a2a2a' }) },
   { id:'toddler',  cat:'kids', name:'幼児',             icon:'fa-baby',        w:0.4,  d:0.4,  h:0.88, colorIdx:16, build:(o)=>buildPerson({ ...o, h:0.88, style:'short', headBig:true, bottom:'#ffd382', hair:'#6a4a30', shoe:'#ff9aa2' }) },
-  { id:'teddy',    cat:'kids', name:'テディベア',        icon:'fa-paw',          w:0.36, d:0.32, h:0.46, colorIdx:0,  build:buildTeddyBear,      stack:true },
-  { id:'bunny',    cat:'kids', name:'うさぎぬいぐるみ',  icon:'fa-paw',          w:0.3,  d:0.3,  h:0.52, colorIdx:1,  build:buildBunnyPlush,     stack:true },
+  { id:'teddy',    cat:'kids', name:'テディベア',        icon:'fa-paw',          w:0.28, d:0.24, h:0.32, colorIdx:0,  build:buildTeddyBear,      stack:true, product:PRODUCT.teddy },
+  { id:'bunny',    cat:'kids', name:'うさぎぬいぐるみ',  icon:'fa-paw',          w:0.22, d:0.22, h:0.40, colorIdx:1,  build:buildBunnyPlush,     stack:true, product:PRODUCT.bunny },
   { id:'unicorn',  cat:'kids', name:'ユニコーン',        icon:'fa-horse-head',   w:0.5,  d:0.26, h:0.6,  colorIdx:17, build:buildUnicornToy,     stack:true },
   { id:'balloon',  cat:'kids', name:'風船',              icon:'fa-circle',       w:0.34, d:0.34, h:1.5,  colorIdx:15, build:buildBalloon },
   { id:'heartcushion', cat:'kids', name:'ハートクッション', icon:'fa-heart',      w:0.5,  d:0.5,  h:0.18, colorIdx:15, build:buildHeartCushion,   stack:true },
   { id:'blocks',   cat:'kids', name:'つみき',            icon:'fa-cubes',        w:0.3,  d:0.3,  h:0.3,  colorIdx:15, build:buildBuildingBlocks, stack:true },
-  { id:'toybox',   cat:'kids', name:'おもちゃ箱',        icon:'fa-box-open',     w:0.6,  d:0.42, h:0.4,  colorIdx:19, build:buildToyBox },
-  { id:'dollhouse',cat:'kids', name:'ドールハウス',      icon:'fa-house-chimney',w:0.6,  d:0.42, h:0.7,  colorIdx:15, build:buildDollhouse },
+  { id:'toybox',   cat:'kids', name:'おもちゃ箱',        icon:'fa-box-open',     w:0.44, d:0.39, h:0.31, colorIdx:0, build:buildToyBox,    product:PRODUCT.toybox },
+  { id:'dollhouse',cat:'kids', name:'ドールハウス',      icon:'fa-house-chimney',w:0.58, d:0.22, h:0.59, colorIdx:0, build:buildDollhouse, product:PRODUCT.dollhouse },
   { id:'cake',     cat:'kids', name:'ホールケーキ',      icon:'fa-cake-candles', w:0.32, d:0.32, h:0.27, colorIdx:1,  build:buildCake,           stack:true },
   { id:'cupcake',  cat:'kids', name:'カップケーキ',      icon:'fa-cookie',       w:0.14, d:0.14, h:0.17, colorIdx:15, build:buildCupcake,        stack:true },
   { id:'kidsbed',  cat:'kids', name:'お姫様ベッド',      icon:'fa-bed',          w:1.05, d:1.9,  h:1.72, colorIdx:15, build:buildKidsBed },
-  { id:'kidsdesk', cat:'kids', name:'キッズデスク',      icon:'fa-pen-ruler',    w:0.8,  d:0.5,  h:0.56, colorIdx:19, build:buildKidsDesk },
-  { id:'kidschair',cat:'kids', name:'キッズチェア',      icon:'fa-chair',        w:0.34, d:0.34, h:0.6,  colorIdx:18, build:buildKidsChair },
+  { id:'kidsdesk', cat:'kids', name:'キッズデスク',      icon:'fa-pen-ruler',    w:0.92, d:0.67, h:0.56, colorIdx:0, build:buildKidsDesk,  product:PRODUCT.kidsdesk },
+  { id:'kidschair',cat:'kids', name:'キッズチェア',      icon:'fa-chair',        w:0.39, d:0.36, h:0.67, colorIdx:18, build:buildKidsChair, product:PRODUCT.kidschair },
   { id:'garland',  cat:'kids', name:'ガーランド',        icon:'fa-ribbon',       w:1.3,  d:0.04, h:0.4,  colorIdx:15, build:buildGarland,  wallMount:true },
   { id:'starwall', cat:'kids', name:'星の壁飾り',        icon:'fa-star',         w:0.6,  d:0.04, h:0.55, colorIdx:18, build:buildStarWall, wallMount:true },
 ];
@@ -8058,7 +8342,7 @@ const PRESETS = [
       P('conveyor', +9.4, -4.5, 0),
 
       // ===== 射出成形機 (ダイキャストサブライン, 西壁沿い, 東向き rotY=90) =====
-      P('inj_molder', -12.0, +1.5, 90),
+      P('inj_molder', -12.0, -2.3, 90),   // 全長5.1m: 制御室壁(z=-5)と原材料エリア(z=+2)の間に収める
 
       // ===== 炉前 原材料待機エリア (x=-8〜-3, z=-6.3) =====
       P('woodpallet', -7.5, -6.3, 0),
@@ -8699,7 +8983,7 @@ const PRESETS = [
       P('analbalance', -3.3, -0.9, 0, '#e8e2d6'),  // labbench上に移動(-3.5±0.75の範囲内)
       P('labbench', -3.5,  1.2, 180, '#f3ece0'),
       P('microscope', -4.0, 1.2, 180, '#2a2e34'),
-      P('glassware',  -2.5, 1.2, 180),
+      P('glassware',  -2.9, 1.2, 180),  // labbench(W1800)上: -3.5±0.9 の範囲内
       // デスク作業
       P('desk', -5.2, 2.6, 90, '#f3ece0'), P('ochr', -4.4, 2.6, 270),  // desk: 西壁背面→東向きで着座
       P('whiteboard', -5.42, 0.0, 90),  // 西壁面に面一で壁掛け (原点=壁内面)
@@ -8757,8 +9041,8 @@ const PRESETS = [
       P('workbench', -1.0, 1.5, 0, '#5a6370'),  // 東へ移動 — ドア前通路を確保
       P('toolrack',  -4.5, -4.6, 0, '#3a3f47'),  // 北壁沿い壁掛け (距離0.4m→閾値内)
       P('toolrack',   1.0, -4.6, 0, '#3a3f47'),  // 南壁の扉(t=0.39/0.72)を避け扉間へ
-      P('toolcab',   -0.5, 1.6, 0, '#c0392b'),
-      P('toolcab',    0.5, 1.6, 0, '#c0392b'),
+      P('toolcab',    0.15, 1.6, 0, '#c0392b'),  // 作業台(x=-1.0±0.75)の東隣に並べる
+      P('toolcab',    0.95, 1.6, 0, '#c0392b'),
       P('palletrack', 2.5, 3.5, 90),
       P('palletrack', 5.0, 3.5, 90),
       // 帯鋸・溶接・工業炉 (追加機械)
@@ -8883,7 +9167,7 @@ const PRESETS = [
       P('teddy', -0.5, -1.75, 0, '#c79a6a'),    // 床のテディベア
       P('bunny',  0.55, -1.6, 200, '#fbf4f6'),  // 床のうさぎ
       // 勉強コーナー (東壁) — キッズデスク＆チェアは正対
-      P('kidsdesk', 2.15, -0.6, 270, '#bfe3f5'),
+      P('kidsdesk', 2.15, -0.6, 270, '#e6cfa3'),
       P('kidschair', 1.55, -0.6, 90, '#ffd382'),
       P('cake',    2.0, -0.5, 0, undefined, 0.56),    // 机上
       P('cupcake', 2.3, -0.78, 0, undefined, 0.56),
@@ -8897,8 +9181,8 @@ const PRESETS = [
       P('blocks', -0.7, 1.3, 0, '#ff9aa2'),
       P('heartcushion', 0.55, 0.25, 0, '#ff8fab'),
       // コーナーの玩具
-      P('toybox', -2.0, 1.95, 0, '#9ad0ec'),
-      P('dollhouse', 1.9, 1.9, 180, '#ffd1e0'),
+      P('toybox', -2.0, 1.95, 0, '#e6cfa3'),
+      P('dollhouse', 1.9, 1.9, 180, '#e6cfa3'),
       // 風船 & 飾り (天井から吊るすペンダント、壁のガーランド)
       P('balloon', 2.25, -2.2, 0, '#ff7d9c'),
       P('balloon', -2.25, -0.1, 0, '#9ad0ec'),
