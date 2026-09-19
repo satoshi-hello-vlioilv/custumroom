@@ -82,6 +82,7 @@
       </div>
       <div class="cat-tabs" id="cat-tabs">
         <button class="cat-tab active" data-cat="all"><i class="fa-solid fa-border-all"></i> すべて</button>
+        <button class="cat-tab" data-cat="product"><i class="fa-solid fa-tag"></i> 実物家具</button>
         <button class="cat-tab" data-cat="seating"><i class="fa-solid fa-couch"></i> ソファ</button>
         <button class="cat-tab" data-cat="table"><i class="fa-solid fa-table"></i> テーブル</button>
         <button class="cat-tab" data-cat="sleep"><i class="fa-solid fa-bed"></i> 寝具</button>
@@ -118,11 +119,19 @@
         <button class="view-btn" id="btn-zoom-out" data-tip="ズームアウト"><i class="fa-solid fa-minus"></i></button>
         <button class="view-btn" id="btn-reset-cam" data-tip="視点をリセット"><i class="fa-solid fa-crosshairs"></i></button>
       </div>
-      <div class="snap-badge"><i class="fa-solid fa-magnet"></i> スナップ: 0.5m</div>
+      <div class="snap-badge"><i class="fa-solid fa-magnet"></i> スナップ:
+        <select id="snap-select" data-tip="家具の移動・配置の刻み幅（矢印キーの移動量）">
+          <option value="0.5">0.5m</option><option value="0.25">0.25m</option><option value="0.1">0.1m</option><option value="0.05">0.05m</option>
+        </select>
+      </div>
     </div>
 
     <!-- RIGHT SIDEBAR -->
     <aside class="sidebar-right">
+      <div class="preset-notes" id="preset-notes" style="display:none" data-has="0">
+        <div class="pn-head"><i class="fa-solid fa-clipboard-list"></i><span id="pn-title">配置メモ</span><button class="pn-toggle" id="pn-toggle" data-tip="折りたたむ"><i class="fa-solid fa-chevron-up"></i></button></div>
+        <ol class="pn-list" id="pn-list"></ol>
+      </div>
       <div class="props-empty" id="props-empty">
         <i class="fa-regular fa-hand-pointer"></i>
         <p>家具を選択するとプロパティが表示されます</p>
@@ -161,6 +170,21 @@
             <div class="pos-field"><label>X (横)</label><span id="pos-x">—</span></div>
             <div class="pos-field"><label>Z (縦)</label><span id="pos-z">—</span></div>
           </div>
+        </div>
+        <div class="props-section" id="props-clear" style="display:none">
+          <div class="props-label"><i class="fa-solid fa-arrows-left-right-to-line"></i> 周囲との間隔 <span class="props-help" data-tip="家具の設置面から見た最寄りの壁（開口があれば種類）・家具までの距離。上＝画面の上（廊下側）">?</span></div>
+          <div class="clr-grid">
+            <div class="clr-cell clr-up"><label>↑ 上</label><div id="clr-up"></div></div>
+            <div class="clr-cell clr-left"><label>← 左</label><div id="clr-left"></div></div>
+            <div class="clr-cell clr-center"><i class="fa-solid fa-arrows-up-down-left-right"></i></div>
+            <div class="clr-cell clr-right"><label>右 →</label><div id="clr-right"></div></div>
+            <div class="clr-cell clr-down"><label>↓ 下</label><div id="clr-down"></div></div>
+          </div>
+          <div class="clr-legend"><span><b class="clr-ok">■</b> 0.6m以上＝人が通れる</span><span><b class="clr-tight">■</b> 0.3〜0.6m</span><span><b class="clr-touch">■</b> 密着</span></div>
+        </div>
+        <div class="props-section" id="props-spec" style="display:none">
+          <div class="props-label"><i class="fa-solid fa-ruler"></i> 実寸・出典</div>
+          <div class="spec-table" id="spec-table"></div>
         </div>
         <div class="props-actions">
           <button class="action-btn" id="btn-duplicate"><i class="fa-solid fa-clone"></i> 複製</button>
@@ -386,7 +410,7 @@ function shade(hex, f) {
 // ===== js/core/version.js =====
 // アプリのバージョン番号。リリースのたびに更新し, CHANGELOG.md に対応するエントリを追記する。
 // セマンティックバージョニング(MAJOR.MINOR.PATCH): 破壊的変更/大規模刷新=MAJOR, 機能追加=MINOR, 修正=PATCH
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 
 // ===== js/core/orient.js =====
@@ -417,9 +441,9 @@ const BACK_TO_WALL = new Set([
   // table (desk は自立配置も一般的なため除外: アクセス面チェック(3)と机椅子チェック(7)で担保)
   'consoletab',
   // sleep
-  'sbed', 'dbed', 'bunkbed',
+  'sbed', 'dbed', 'bunkbed', 'fagelfjallet_bed',
   // storage
-  'wardrobe', 'shelf', 'chest', 'tvboard', 'shoebox', 'closet', 'glasscab', 'dresser', 'hangerrack', 'locker',
+  'wardrobe', 'shelf', 'chest', 'tvboard', 'shoebox', 'closet', 'glasscab', 'dresser', 'hangerrack', 'locker', 'fjallbo_tv',
   // deco
   'piano',
   // kitchen
@@ -435,7 +459,7 @@ const BACK_TO_WALL = new Set([
 // --- 前面(+Z)に必要なアクセスクリアランス[m]。未指定は 0 (前面チェックなし) -----
 const ACCESS = {
   // 着座して何か(机/テーブル)に向くべき椅子・ソファ
-  sofa3: 0.3, sofa1: 0.3, sofa2: 0.3, sofalow: 0.3, sofal: 0.3, loungechair: 0.3,
+  sofa3: 0.3, sofa1: 0.3, sofa2: 0.3, sofalow: 0.3, sofal: 0.3, loungechair: 0.3, valnas_sofa2: 0.3,
   dchr: 0.3, ochr: 0.3, cafechr: 0.3, windsorchair: 0.3, stackchr: 0.3, upholchr: 0.3, barstool: 0.3, bench: 0.25, kidschair: 0.25,
   // 作業面 (前面に着座)
   desk: 0.5, deskrun: 0.5, schooldesk: 0.45,
@@ -471,7 +495,7 @@ const DINING_CHAIRS = new Set([
 // --- 椅子が対面すべき「テーブル/作業面/カウンター」 ----------------------------
 const TABLE_IDS = new Set([
   'desk', 'deskrun', 'benchdesk2', 'schooldesk', 'kidsdesk', 'dtable', 'conftable', 'roundtable', 'roundtablesm',
-  'cafetable', 'kotatsu', 'labbench', 'workbench', 'testbench', 'barcounter', 'roundctab',
+  'cafetable', 'kotatsu', 'labbench', 'workbench', 'testbench', 'barcounter', 'roundctab', 'ugglerum_ct',
 ]);
 // --- 「通り抜ける」開口(扉/襖/障子/自動ドア等)。window は通行しないので対象外 ----
 function isPassage(kind) { return !!kind && !String(kind).includes('window'); }
@@ -482,9 +506,12 @@ const CIRC_IGNORE_ID = new Set([
   'rug', 'roundrug', 'woodpallet', 'steelpallet', 'resinpallet', 'zabuton', 'campfire',
   'balloon', 'kidschair', 'heartcushion',
 ]);
+// 便所扉/浴室扉の先にある設備そのもの(便器・ユニットバス)は、その扉のクリアランス障害物とみなさない
+const WET_DOOR_KINDS = new Set(['toilet_door', 'bath_door']);
+const WET_FIXTURES = new Set(['toilet', 'bathset', 'bathtub', 'handbasin']);
 
 const SURFACE_ONLY = new Set([
-  'monitor', 'espresso', 'microwave', 'ricecook', 'projector', 'desklamp', 'tablelamp',
+  'monitor', 'espresso', 'microwave', 'ricecook', 'projector', 'desklamp', 'tablelamp', 'regza55e770s',
   // lantern は屋外地面置きが正常なため除外
 
   'microscope', 'centrifuge', 'analbalance', 'glassware', 'oscilloscope', 'printer3d',
@@ -517,16 +544,25 @@ function halfDepthAlongFront(def, rotY) {
 }
 
 // プリセットの壁セグメント(外周4枚+間仕切り)を開口情報付きで返す
+// 部屋の実際の外形。app.js の rectToPlan と同じ量子化 (0.5mセル)。セル数が奇数のとき外形は +側へ半セルずれる
+// (例 6.5m → x∈[-3.0,3.5])。検証はこの実際の外形に対して行う。
+const PLAN_CELL = 0.5;
+function roomBounds(preset) {
+  const nx = Math.max(1, Math.round(preset.room.w / PLAN_CELL)), nz = Math.max(1, Math.round(preset.room.d / PLAN_CELL));
+  const x0 = -Math.floor(nx / 2) * PLAN_CELL, z0 = -Math.floor(nz / 2) * PLAN_CELL;
+  return { x0, x1: x0 + nx * PLAN_CELL, z0, z1: z0 + nz * PLAN_CELL };
+}
+
 function presetWalls(preset) {
-  const W = preset.room.w / 2, D = preset.room.d / 2, ws = preset.walls || {};
+  const b = roomBounds(preset), ws = preset.walls || {};
   const seg = (x1, z1, x2, z2, ops) => ({ x1, z1, x2, z2, ops: ops || [] });
-  // 北/南の z 符号は app.js の rectToPlan に一致させる: south=z0(=-D, 負), north=z1(=+D, 正)。
+  // 北/南の z 符号は app.js の rectToPlan に一致させる: south=z0(負側), north=z1(正側)。
   // (以前は north/south が逆マッピングで, 開口判定が描画と食い違っていた)
   const walls = [
-    seg(-W, -D, W, -D, ws.south),   // 南 = z=-D
-    seg(-W, D, W, D, ws.north),     // 北 = z=+D
-    seg(W, -D, W, D, ws.east),      // 東 = x=+W
-    seg(-W, -D, -W, D, ws.west),    // 西 = x=-W
+    seg(b.x0, b.z0, b.x1, b.z0, ws.south),   // 南 = z0
+    seg(b.x0, b.z1, b.x1, b.z1, ws.north),   // 北 = z1
+    seg(b.x1, b.z0, b.x1, b.z1, ws.east),    // 東 = x1
+    seg(b.x0, b.z0, b.x0, b.z1, ws.west),    // 西 = x0
   ];
   // 間仕切りは isPartition を立てる(動線チェックで両側を検査するため。外周壁は室内側のみ)
   (preset.partitions || []).forEach(p => { const s = seg(p.x1, p.z1, p.x2, p.z2, p.openings); s.isPartition = true; walls.push(s); });
@@ -618,7 +654,8 @@ function validateLayout(preset, defsById) {
       const fx = m.cx + front.x * (hdF + Math.min(use.access, 0.4));
       const fz = m.cz + front.z * (hdF + Math.min(use.access, 0.4));
       const nw = nearestWall(walls, fx, fz);
-      const outside = Math.abs(fx) > preset.room.w / 2 + 0.05 || Math.abs(fz) > preset.room.d / 2 + 0.05;
+      const rb0 = roomBounds(preset);
+      const outside = fx < rb0.x0 - 0.05 || fx > rb0.x1 + 0.05 || fz < rb0.z0 - 0.05 || fz > rb0.z1 + 0.05;
       if (nw && nw.dist < 0.15 && !nw.inOpening) {
         add('error', idx, def.id, `アクセス面(前面)が壁を向いている (向き rotY=${it.rotY || 0})`);
       } else if (outside) {
@@ -703,7 +740,7 @@ function validateLayout(preset, defsById) {
   // (8) 動線(導線)チェック — 扉/通路開口の前に通行を塞ぐ床置き什器がないか
   // 壁の各通行開口について、開口幅×CLEAR(室内側)のクリアランス帯に侵入する什器を検出
   const CLEAR = 0.55;   // 確保したい開口前クリアランス[m]
-  const W = preset.room.w / 2, D = preset.room.d / 2;
+  const rb = roomBounds(preset);
   const obstacles = items.filter(m => m.use.mount === 'floor'
     && !CIRC_IGNORE_CAT.has(m.def.cat) && !CIRC_IGNORE_ID.has(m.def.id) && !PERSON_IDS.has(m.def.id)
     && (m.def.h || 0) >= 0.45);
@@ -732,8 +769,9 @@ function validateLayout(preset, defsById) {
         }
         // 外周壁: 室外側(部屋の外)は無視
         const mxb = (bx0 + bx1) / 2, mzb = (bz0 + bz1) / 2;
-        if (!w.isPartition && (Math.abs(mxb) > W + 0.02 || Math.abs(mzb) > D + 0.02)) continue;
+        if (!w.isPartition && (mxb < rb.x0 - 0.02 || mxb > rb.x1 + 0.02 || mzb < rb.z0 - 0.02 || mzb > rb.z1 + 0.02)) continue;
         for (const m of obstacles) {
+          if (WET_DOOR_KINDS.has(o.kind) && WET_FIXTURES.has(m.def.id)) continue;   // 便器/ユニットバスはその扉の先にある設備そのもの
           const ox = Math.min(m.cx + m.hw, bx1) - Math.max(m.cx - m.hw, bx0);
           const oz = Math.min(m.cz + m.hd, bz1) - Math.max(m.cz - m.hd, bz0);
           if (ox > 0.12 && oz > 0.12) {
@@ -774,14 +812,14 @@ function validateLayout(preset, defsById) {
     m.cx >= Math.min(f.x1, f.x2) && m.cx <= Math.max(f.x1, f.x2) &&
     m.cz >= Math.min(f.z1, f.z2) && m.cz <= Math.max(f.z1, f.z2)));
   if (wetRects.length) {
-    const W = preset.room.w / 2, D = preset.room.d / 2, ws = preset.walls || {};
+    const rb = roomBounds(preset), ws = preset.walls || {};
     const DOORK = new Set(['door', 'genkan', 'auto_door', 'glass_door', 'double_door', 'sliding_door']);
     const inRect = (x, z, f) => x >= Math.min(f.x1, f.x2) && x <= Math.max(f.x1, f.x2) && z >= Math.min(f.z1, f.z2) && z <= Math.max(f.z1, f.z2);
     const perim = [
-      { ops: ws.south, along: 'x', line: -D, p0: -W, p1: W, nx: 0, nz: 1 },
-      { ops: ws.north, along: 'x', line:  D, p0: -W, p1: W, nx: 0, nz: -1 },
-      { ops: ws.west,  along: 'z', line: -W, p0: -D, p1: D, nx: 1, nz: 0 },
-      { ops: ws.east,  along: 'z', line:  W, p0: -D, p1: D, nx: -1, nz: 0 },
+      { ops: ws.south, along: 'x', line: rb.z0, p0: rb.x0, p1: rb.x1, nx: 0, nz: 1 },
+      { ops: ws.north, along: 'x', line: rb.z1, p0: rb.x0, p1: rb.x1, nx: 0, nz: -1 },
+      { ops: ws.west,  along: 'z', line: rb.x0, p0: rb.z0, p1: rb.z1, nx: 1, nz: 0 },
+      { ops: ws.east,  along: 'z', line: rb.x1, p0: rb.z0, p1: rb.z1, nx: -1, nz: 0 },
     ];
     for (const wall of perim) {
       for (const o of (wall.ops || [])) {
@@ -800,22 +838,39 @@ function validateLayout(preset, defsById) {
 
   // --- 設計チェック(間取り): 出入りできない閉鎖空間がないか ---
   // 外扉から扉/通路(passage開口)を辿るグリッド・フラッドフィルで, 到達不能な区画(扉のない部屋)を検出する。
-  checkEnclosed(preset, walls, add);
-  checkPointlessDoors(preset, walls, add);
+  checkEnclosed(preset, walls, add, items);
+  checkPointlessDoors(preset, walls, add, items);
 
   return issues;
 }
 
+// 通行を遮る大型什器(キッチンカウンター・バーカウンター等)をグリッド上で壁と同様に扱う。
+// 対面キッチンのようにカウンターで区画された空間は、カウンター越しには通れない。
+// 什器と壁の間の 0.24m 未満の隙間(人が通れない)はグリッド量子化で抜け道にならないよう, 設置面を 0.12m 拡げて判定する。
+const BARRIER_IDS = new Set(['kitchen', 'barcounter', 'reception', 'register']);
+const BARRIER_PAD = 0.12;
+function barrierGrid(items, nx, nz, ccx, ccz, id) {
+  const b = new Uint8Array(nx * nz);
+  (items || []).forEach(m => {
+    if (!BARRIER_IDS.has(m.def.id) || m.use.mount !== 'floor') return;
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      if (Math.abs(ccx(i) - m.cx) <= m.hw + BARRIER_PAD && Math.abs(ccz(j) - m.cz) <= m.hd + BARRIER_PAD) b[id(i, j)] = 1;
+    }
+  });
+  return b;
+}
+
 // 閉鎖空間(到達不能区画)検出: 室内をグリッド化し, 外扉から壁の開口(扉/通路)のみを通って到達できる範囲をBFS。
 // 到達できないまとまった領域(>=1.5m²)を「出入りできない部屋」として報告する。窓は通行不可(passage扱いしない)。
-function checkEnclosed(preset, walls, add) {
+function checkEnclosed(preset, walls, add, items) {
   if (!preset.room) return;
-  const w = preset.room.w, d = preset.room.d, W = w / 2, D = d / 2;
+  const rb = roomBounds(preset), w = rb.x1 - rb.x0, d = rb.z1 - rb.z0, X0 = rb.x0, Z0 = rb.z0;
   const CELL = 0.2;
   const nx = Math.max(1, Math.round(w / CELL)), nz = Math.max(1, Math.round(d / CELL));
   const dx = w / nx, dz = d / nz;
-  const ccx = i => -W + (i + 0.5) * dx, ccz = j => -D + (j + 0.5) * dz;
+  const ccx = i => X0 + (i + 0.5) * dx, ccz = j => Z0 + (j + 0.5) * dz;
   const id = (i, j) => j * nx + i;
+  const blocked = barrierGrid(items, nx, nz, ccx, ccz, id);   // カウンター等の什器で塞がれたセル
   const wlen = ww => Math.hypot(ww.x2 - ww.x1, ww.z2 - ww.z1);
   const passageAt = (ww, s) => {                  // s=0..1 沿い位置が通行開口の中か
     const L = wlen(ww); if (L < 1e-6) return false;
@@ -837,7 +892,7 @@ function checkEnclosed(preset, walls, add) {
   const blockedH = (i, j) => {                      // セル(i,j)↔(i+1,j) を縦壁が塞ぐか
     const zc = ccz(j);
     for (const ww of vW) {
-      if (Math.round((ww.x1 + W) / dx) !== i + 1) continue;
+      if (Math.round((ww.x1 - X0) / dx) !== i + 1) continue;
       if (zc < Math.min(ww.z1, ww.z2) - 1e-9 || zc > Math.max(ww.z1, ww.z2) + 1e-9) continue;
       if (!passageAt(ww, (zc - ww.z1) / (ww.z2 - ww.z1))) return true;
     }
@@ -846,7 +901,7 @@ function checkEnclosed(preset, walls, add) {
   const blockedV = (i, j) => {                      // セル(i,j)↔(i,j+1) を横壁が塞ぐか
     const xc = ccx(i);
     for (const ww of hW) {
-      if (Math.round((ww.z1 + D) / dz) !== j + 1) continue;
+      if (Math.round((ww.z1 - Z0) / dz) !== j + 1) continue;
       if (xc < Math.min(ww.x1, ww.x2) - 1e-9 || xc > Math.max(ww.x1, ww.x2) + 1e-9) continue;
       if (!passageAt(ww, (xc - ww.x1) / (ww.x2 - ww.x1))) return true;
     }
@@ -862,25 +917,25 @@ function checkEnclosed(preset, walls, add) {
       const isVert = Math.abs(ww.x2 - ww.x1) < 1e-6;
       const px = ocx + (isVert ? (ocx < 0 ? 1 : -1) : 0) * CELL * 1.5;
       const pz = ocz + (isVert ? 0 : (ocz < 0 ? 1 : -1)) * CELL * 1.5;
-      const i = Math.floor((px + W) / dx), j = Math.floor((pz + D) / dz);
-      if (i >= 0 && i < nx && j >= 0 && j < nz && !reached[id(i, j)]) { reached[id(i, j)] = 1; q.push(i + j * nx); }
+      const i = Math.floor((px - X0) / dx), j = Math.floor((pz - Z0) / dz);
+      if (i >= 0 && i < nx && j >= 0 && j < nz && !reached[id(i, j)] && !blocked[id(i, j)]) { reached[id(i, j)] = 1; q.push(i + j * nx); }
     }
   }
   if (!q.length) return;                            // 外扉が無い → 判定保留
   while (q.length) {
     const c = q.pop(), i = c % nx, j = (c - i) / nx;
-    if (i + 1 < nx && !reached[id(i + 1, j)] && !blockedH(i, j)) { reached[id(i + 1, j)] = 1; q.push(c + 1); }
-    if (i - 1 >= 0 && !reached[id(i - 1, j)] && !blockedH(i - 1, j)) { reached[id(i - 1, j)] = 1; q.push(c - 1); }
-    if (j + 1 < nz && !reached[id(i, j + 1)] && !blockedV(i, j)) { reached[id(i, j + 1)] = 1; q.push(c + nx); }
-    if (j - 1 >= 0 && !reached[id(i, j - 1)] && !blockedV(i, j - 1)) { reached[id(i, j - 1)] = 1; q.push(c - nx); }
+    if (i + 1 < nx && !reached[id(i + 1, j)] && !blocked[id(i + 1, j)] && !blockedH(i, j)) { reached[id(i + 1, j)] = 1; q.push(c + 1); }
+    if (i - 1 >= 0 && !reached[id(i - 1, j)] && !blocked[id(i - 1, j)] && !blockedH(i - 1, j)) { reached[id(i - 1, j)] = 1; q.push(c - 1); }
+    if (j + 1 < nz && !reached[id(i, j + 1)] && !blocked[id(i, j + 1)] && !blockedV(i, j)) { reached[id(i, j + 1)] = 1; q.push(c + nx); }
+    if (j - 1 >= 0 && !reached[id(i, j - 1)] && !blocked[id(i, j - 1)] && !blockedV(i, j - 1)) { reached[id(i, j - 1)] = 1; q.push(c - nx); }
   }
   const visited = new Uint8Array(nx * nz), cellA = dx * dz;
   for (let j0 = 0; j0 < nz; j0++) for (let i0 = 0; i0 < nx; i0++) {
-    if (reached[id(i0, j0)] || visited[id(i0, j0)]) continue;
+    if (reached[id(i0, j0)] || visited[id(i0, j0)] || blocked[id(i0, j0)]) continue;
     let cnt = 0, sx = 0, sz = 0; const qq = [[i0, j0]]; visited[id(i0, j0)] = 1;
     while (qq.length) {
       const [a, b] = qq.pop(); cnt++; sx += ccx(a); sz += ccz(b);
-      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (reached[id(na, nb)] || visited[id(na, nb)] || bl) return; visited[id(na, nb)] = 1; qq.push([na, nb]); };
+      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (reached[id(na, nb)] || visited[id(na, nb)] || blocked[id(na, nb)] || bl) return; visited[id(na, nb)] = 1; qq.push([na, nb]); };
       tryC(a + 1, b, blockedH(a, b)); tryC(a - 1, b, blockedH(a - 1, b));
       tryC(a, b + 1, blockedV(a, b)); tryC(a, b - 1, blockedV(a, b - 1));
     }
@@ -894,12 +949,13 @@ function checkEnclosed(preset, walls, add) {
 // ある扉の両側が「同じ区画」に属するなら, その壁は空間を分けておらず(壁の端などから回り込める)扉に意味がない。
 // 冗長性(2つ目の出入口)は対象外 — 両側が別区画なら壁は実際に空間を分けており, 扉は有意。
 // 例外: 防火シャッター等の大型開口の脇で通用口の役割を持つ扉 → 同じ壁にシャッター開口があれば除外。
-function checkPointlessDoors(preset, walls, add) {
+function checkPointlessDoors(preset, walls, add, items) {
   if (!preset.room) return;
-  const w = preset.room.w, d = preset.room.d, W = w / 2, D = d / 2, CELL = 0.2;
+  const rb = roomBounds(preset), w = rb.x1 - rb.x0, d = rb.z1 - rb.z0, X0 = rb.x0, Z0 = rb.z0, CELL = 0.2;
   const nx = Math.max(1, Math.round(w / CELL)), nz = Math.max(1, Math.round(d / CELL));
   const dx = w / nx, dz = d / nz;
-  const ccx = i => -W + (i + 0.5) * dx, ccz = j => -D + (j + 0.5) * dz, id = (i, j) => j * nx + i;
+  const ccx = i => X0 + (i + 0.5) * dx, ccz = j => Z0 + (j + 0.5) * dz, id = (i, j) => j * nx + i;
+  const blocked = barrierGrid(items, nx, nz, ccx, ccz, id);   // カウンター等の什器で塞がれたセル
   const vW = [], hW = [];
   for (const ww of walls) {
     if (Math.abs(ww.x2 - ww.x1) < 1e-6 && Math.abs(ww.z2 - ww.z1) > 1e-6) vW.push(ww);
@@ -909,7 +965,7 @@ function checkPointlessDoors(preset, walls, add) {
   const blkH = (i, j) => {
     const zc = ccz(j);
     for (const ww of vW) {
-      if (Math.round((ww.x1 + W) / dx) !== i + 1) continue;
+      if (Math.round((ww.x1 - X0) / dx) !== i + 1) continue;
       if (zc < Math.min(ww.z1, ww.z2) - 1e-9 || zc > Math.max(ww.z1, ww.z2) + 1e-9) continue;
       return true;
     }
@@ -918,7 +974,7 @@ function checkPointlessDoors(preset, walls, add) {
   const blkV = (i, j) => {
     const xc = ccx(i);
     for (const ww of hW) {
-      if (Math.round((ww.z1 + D) / dz) !== j + 1) continue;
+      if (Math.round((ww.z1 - Z0) / dz) !== j + 1) continue;
       if (xc < Math.min(ww.x1, ww.x2) - 1e-9 || xc > Math.max(ww.x1, ww.x2) + 1e-9) continue;
       return true;
     }
@@ -928,16 +984,16 @@ function checkPointlessDoors(preset, walls, add) {
   const lab = new Int32Array(nx * nz).fill(-1);
   let nLab = 0;
   for (let j0 = 0; j0 < nz; j0++) for (let i0 = 0; i0 < nx; i0++) {
-    if (lab[id(i0, j0)] >= 0) continue;
+    if (lab[id(i0, j0)] >= 0 || blocked[id(i0, j0)]) continue;
     const L = nLab++; const q = [[i0, j0]]; lab[id(i0, j0)] = L;
     while (q.length) {
       const [a, b] = q.pop();
-      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (lab[id(na, nb)] >= 0 || bl) return; lab[id(na, nb)] = L; q.push([na, nb]); };
+      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (lab[id(na, nb)] >= 0 || blocked[id(na, nb)] || bl) return; lab[id(na, nb)] = L; q.push([na, nb]); };
       tryC(a + 1, b, blkH(a, b)); tryC(a - 1, b, blkH(a - 1, b));
       tryC(a, b + 1, blkV(a, b)); tryC(a, b - 1, blkV(a, b - 1));
     }
   }
-  const cellAt = (x, z) => { const i = Math.floor((x + W) / dx), j = Math.floor((z + D) / dz); return (i >= 0 && i < nx && j >= 0 && j < nz) ? lab[id(i, j)] : -1; };
+  const cellAt = (x, z) => { const i = Math.floor((x - X0) / dx), j = Math.floor((z - Z0) / dz); return (i >= 0 && i < nx && j >= 0 && j < nz) ? lab[id(i, j)] : -1; };
   const hasShutter = ww => (ww.ops || []).some(o => /shutter|gate|roller/.test(String(o.kind || '')));
   for (const ww of walls) {
     const isVert = Math.abs(ww.x2 - ww.x1) < 1e-6;
@@ -7216,6 +7272,96 @@ function buildStarWall({ color = '#ffe08a', w = 0.6, d = 0.04, h = 0.55 } = {}) 
 }
 
 
+// ===== js/builders/products.js =====
+// 実在製品の3Dモデル (メーカー公式寸法で作成)。寸法・出典は catalog.js の product フィールド参照。
+// 慣例: 使う面(画面/座面/ドア面)は +Z。ベッドはヘッドボードを -Z、足側を +Z。
+
+// --- TVS REGZA 55E770S (55V型 4K Mini LED液晶): 外形 W1226×H761×D287mm (スタンド含む) ------------
+function buildRegza55E770S({ color = '#1c1c1f' } = {}) {
+  const g = new THREE.Group();
+  const W = 1.226, H = 0.761, D = 0.287, PH = 0.705;          // PH: パネル高さ (スタンド部を除いた概算)
+  const frame = mat(color, 0.35, 0.45, { env: 0.7 }), screen = mat('#07080b', 0.08, 0.25);
+  const dark = mat('#26272a', 0.5, 0.4), chrome = mat('#9aa0a4', 0.22, 0.85, { env: 1.0 });
+  const cy = H - PH / 2;                                       // パネル上端 = 0.761
+  const zf = 0.02;                                             // 画面面の z (前面)
+  const body = box(W, PH, 0.028, frame, 0, cy, zf - 0.014); body.userData.colorable = true; g.add(body);
+  g.add(box(W * 0.88, PH * 0.52, 0.045, dark, 0, cy - PH * 0.22, zf - 0.05));        // 背面ハウジング
+  g.add(box(W - 0.012, PH - 0.012, 0.006, screen, 0, cy, zf + 0.001));
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.03, PH - 0.03), new THREE.MeshBasicMaterial({ color: 0x2c4a6a, transparent: true, opacity: 0.55 }));
+  glow.position.set(0, cy, zf + 0.005); g.add(glow);
+  const glow2 = new THREE.Mesh(new THREE.PlaneGeometry((W - 0.03) * 0.5, (PH - 0.03) * 0.6), new THREE.MeshBasicMaterial({ color: 0x6a90c0, transparent: true, opacity: 0.32 }));
+  glow2.position.set(-W * 0.12, cy + 0.03, zf + 0.006); g.add(glow2);
+  g.add(box(0.10, 0.008, 0.004, chrome, 0, cy - PH / 2 + 0.02, zf + 0.002));       // ロゴ
+  // センタースタンド (プレート + ネック)。プレート奥行 = 設置奥行 28.7cm
+  g.add(box(0.52, 0.014, D, mat('#2b2c2f', 0.4, 0.6, { env: 0.8 }), 0, 0.007, 0));
+  g.add(box(0.18, 0.05, 0.06, dark, 0, 0.035, zf - 0.06));
+  return g;
+}
+
+// --- IKEA FJÄLLBO テレビ台 150x36x54cm: 黒スチールフレーム + 無垢材棚板, 背板なし ---------------------
+function buildFjallboTvBench({ color = '#5b3d29' } = {}) {
+  const g = new THREE.Group();
+  const W = 1.50, D = 0.36, H = 0.54, T = 0.025;
+  const steel = mat('#232323', 0.45, 0.6, { env: 0.6 }), wood = mat(color, 0.62, 0.02, { env: 0.3 });
+  const top = box(W, T, D, wood, 0, H - T / 2, 0); top.userData.colorable = true; g.add(top);
+  const mid = box(W - 0.06, 0.02, D - 0.04, wood, 0, 0.26, 0); mid.userData.colorable = true; g.add(mid);   // 中段棚
+  const legH = H - T;
+  [[-W / 2 + 0.015, D / 2 - 0.015], [-W / 2 + 0.015, -(D / 2 - 0.015)], [W / 2 - 0.015, D / 2 - 0.015], [W / 2 - 0.015, -(D / 2 - 0.015)]]
+    .forEach(([x, z]) => g.add(box(0.03, legH, 0.03, steel, x, legH / 2, z)));
+  [-W / 2 + 0.015, W / 2 - 0.015].forEach(x => { g.add(box(0.03, 0.03, D - 0.03, steel, x, 0.25, 0)); g.add(box(0.03, 0.03, D - 0.03, steel, x, 0.06, 0)); });
+  g.add(box(W - 0.03, 0.03, 0.03, steel, 0, 0.25, -(D / 2 - 0.015)));   // 背面横桟 (背板は無い)
+  g.add(box(W - 0.03, 0.03, 0.03, steel, 0, 0.06, -(D / 2 - 0.015)));
+  return g;
+}
+
+// --- IKEA VALNÄS 2人掛けソファ: W206×D94×H90cm (座面高49, 座面幅160, アーム幅約23) ----------------------
+function buildValnasSofa2({ color = '#d8c7a6' } = {}) {
+  return buildSofa3({ color, w: 2.06, d: 0.94, h: 0.90, seats: 2 });
+}
+
+// --- IKEA UGGLERUM コーヒーテーブル: 130×65×H43cm, ウォールナット材突き板, ミッドセンチュリー風テーパー脚 ----
+function buildUgglerumCoffeeTable({ color = '#6b4a30' } = {}) {
+  const g = new THREE.Group();
+  const W = 1.30, D = 0.65, H = 0.43;
+  const walnut = mat(color, 0.5, 0.03, { env: 0.45 }), dark = mat(shade(color, 0.75), 0.55, 0.03);
+  const top = new THREE.Mesh(roundedBoxGeom(W, 0.03, D, 0.008, 3), walnut);
+  top.position.y = H - 0.015; top.castShadow = top.receiveShadow = true; top.userData.colorable = true; g.add(top);
+  g.add(box(W - 0.12, 0.05, D - 0.12, dark, 0, H - 0.055, 0));           // 幕板
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz]) => {            // 外側へ開いたテーパー脚
+    const leg = cyl(0.016, 0.024, H - 0.08, 10, dark);
+    leg.position.set(sx * (W / 2 - 0.16), (H - 0.08) / 2, sz * (D / 2 - 0.12));
+    leg.rotation.z = -sx * 0.12; leg.rotation.x = sz * 0.10; g.add(leg);
+  });
+  return g;
+}
+
+// --- IKEA FÅGELFJÄLLET ベッドフレーム 120×200 (収納ボックス2個付): 外形 L207×W132cm,
+//     ヘッドボード高101 / フットボード高39cm, ベッド下20cm, マットレス120×200 ------------------------------
+function buildFagelfjalletBed({ color = '#5b7f9b' } = {}) {
+  const g = new THREE.Group();
+  const W = 1.32, L = 2.07, HB = 1.01, FB = 0.39, UNDER = 0.20;
+  const oak = mat('#2f2621', 0.55, 0.08, { env: 0.35 }), oakL = mat('#3d3128', 0.5, 0.08, { env: 0.35 });
+  const railH = 0.13, railT = 0.05;
+  [[-W / 2 + 0.05, -L / 2 + 0.12], [W / 2 - 0.05, -L / 2 + 0.12], [-W / 2 + 0.05, L / 2 - 0.12], [W / 2 - 0.05, L / 2 - 0.12]]
+    .forEach(([x, z]) => g.add(box(0.06, UNDER, 0.06, oak, x, UNDER / 2, z)));                 // 脚 (ベッド下 20cm)
+  [-W / 2 + railT / 2, W / 2 - railT / 2].forEach(x => g.add(box(railT, railH, L - 0.10, oak, x, UNDER + railH / 2, 0)));  // サイドレール
+  g.add(box(W - 0.10, 0.03, L - 0.14, oakL, 0, UNDER + 0.05, 0));                              // 床板
+  const hbZ = -L / 2 + 0.025;                                                                   // ヘッドボード (象嵌風パネル)
+  g.add(box(W, HB, 0.05, oak, 0, HB / 2, hbZ));
+  g.add(box(W - 0.14, 0.62, 0.012, oakL, 0, 0.66, hbZ + 0.03));
+  g.add(box(W - 0.22, 0.50, 0.006, oak, 0, 0.66, hbZ + 0.038));
+  const fbZ = L / 2 - 0.025;                                                                    // フットボード (少し幅広・低い)
+  g.add(box(W + 0.02, FB, 0.05, oak, 0, FB / 2, fbZ));
+  g.add(box(W - 0.14, 0.18, 0.012, oakL, 0, 0.21, fbZ - 0.03));
+  [-0.52, 0.52].forEach(z => {                                                                  // 収納ボックス ×2 (キャスター付き・片側)
+    g.add(box(0.60, 0.16, 0.95, mat('#1e1b18', 0.7, 0.05), W / 2 - 0.36, 0.10, z));
+    g.add(box(0.60, 0.02, 0.95, mat('#111111', 0.8), W / 2 - 0.36, 0.01, z));
+  });
+  g.add(bedding(1.20, 2.00, UNDER + 0.065 + 0.20, { duvet: color, double: false, mattH: 0.20, pillowZ: 0.34, throwFoot: true }));
+  return g;
+}
+
+
 // ===== js/catalog.js =====
 
 const FURNITURE_DEFS = [
@@ -7270,6 +7416,38 @@ const FURNITURE_DEFS = [
   { id:'reception',  cat:'office',  name:'受付カウンター',    icon:'fa-concierge-bell',    w:2.4, d:0.7,  h:1.1,  colorIdx:1,  build:buildReceptionCounter },
   { id:'deskrun',    cat:'office',  name:'連続デスク',        icon:'fa-table-columns',     w:1.2, d:0.7,  h:0.73, colorIdx:1,  build:buildBenchDesk },
   { id:'benchdesk2', cat:'office',  name:'フリーアドレス島',  icon:'fa-table-cells',       w:1.6, d:1.5,  h:0.73, colorIdx:1,  build:buildBenchDeskDouble },
+  // ===== 実物家具 (メーカー公式寸法。product: 採用寸法[mm]と出典) =====
+  { id:'fagelfjallet_bed', cat:'product', name:'IKEA FÅGELFJÄLLET ベッド（セミダブル）', icon:'fa-bed',   w:1.32,  d:2.07,  h:1.01,  colorIdx:4,  build:buildFagelfjalletBed,
+    product:{ brand:'IKEA', model:'FÅGELFJÄLLET 296.309.18（120×200cm・収納ボックス2個付き・ブラックオーク調）', name:'FÅGELFJÄLLET ベッドフレーム セミダブル',
+      mm:{ w:1320, d:2070, h:1010 }, checked:'2026-09-19',
+      note:'外形 長さ207×幅132cm、ヘッドボード高101cm／フットボード高39cm、ベッド下の空き20cm、マットレスサイズ120×200cm。奥行(D)はヘッドボード〜フットボードの長さ。',
+      sources:[ { label:'IKEA公式（日本）商品ページ', url:'https://www.ikea.com/jp/ja/p/fagelfjaellet-bed-frame-with-2-storage-boxes-black-oak-effect-s29630918/' },
+                { label:'IKEA公式（スウェーデン）120×200 寸法表', url:'https://www.ikea.com/se/sv/p/fagelfjaellet-saengstomme-off-white-80621053/' } ] } },
+  { id:'valnas_sofa2',     cat:'product', name:'IKEA VALNÄS 2人掛けソファ',            icon:'fa-couch', w:2.06,  d:0.94,  h:0.90,  colorIdx:11, build:buildValnasSofa2,
+    product:{ brand:'IKEA', model:'VALNÄS 2人掛けソファ 696.153.22（Knäbäck ライトベージュ 等）', name:'VALNÄS 2人掛けソファ',
+      mm:{ w:2060, d:940, h:900 }, checked:'2026-09-19',
+      note:'幅206×奥行94×高さ90cm。座面高49／座面幅160／座面奥行72／アームレスト高55cm。日本サイトの型番は要確認（寸法は英国公式ページで確認）。',
+      sources:[ { label:'IKEA公式（UK）VALNÄS 2-seat sofa', url:'https://www.ikea.com/gb/en/p/valnaes-2-seat-sofa-knaebaeck-light-beige-s69615322/' },
+                { label:'IKEA公式（日本）VALNÄSシリーズ', url:'https://www.ikea.com/jp/ja/cat/valnaes-covers-700827/' } ] } },
+  { id:'ugglerum_ct',      cat:'product', name:'IKEA UGGLERUM コーヒーテーブル',        icon:'fa-table', w:1.30,  d:0.65,  h:0.43,  colorIdx:8,  build:buildUgglerumCoffeeTable,
+    product:{ brand:'IKEA', model:'UGGLERUM 606.279.80（ウォールナット材突き板 130×65cm）', name:'UGGLERUM コーヒーテーブル',
+      mm:{ w:1300, d:650, h:430 }, checked:'2026-09-19',
+      note:'長さ130×幅65×高さ43cm、最大荷重20kg。日本での取扱いは要確認（寸法は英国／米国公式ページで確認）。',
+      sources:[ { label:'IKEA公式（UK）UGGLERUM coffee table', url:'https://www.ikea.com/gb/en/p/ugglerum-coffee-table-walnut-veneer-60627980/' },
+                { label:'IKEA公式（US）UGGLERUM coffee table', url:'https://www.ikea.com/us/en/p/ugglerum-coffee-table-walnut-veneer-60627980/' } ] } },
+  { id:'fjallbo_tv',       cat:'product', name:'IKEA FJÄLLBO テレビ台 150',            icon:'fa-tv',    w:1.50,  d:0.36,  h:0.54,  colorIdx:8,  build:buildFjallboTvBench,
+    product:{ brand:'IKEA', model:'FJÄLLBO 303.392.93（ブラック 150×36×54cm）', name:'FJÄLLBO テレビ台',
+      mm:{ w:1500, d:360, h:540 }, checked:'2026-09-19',
+      note:'幅150×奥行36×高さ54cm。100cm幅（705.013.10）もあるが、55V型テレビ（幅122.6cm）を載せるため150cm幅を採用。背板なし。',
+      sources:[ { label:'IKEA公式（日本）FJÄLLBO テレビ台 150x36x54', url:'https://www.ikea.com/jp/ja/p/fjaellbo-tv-bench-black-30339293/' },
+                { label:'IKEA公式（日本）FJÄLLBO テレビ台 100x36x54', url:'https://www.ikea.com/jp/ja/p/fjaellbo-tv-bench-black-70501310/' } ] } },
+  { id:'regza55e770s',     cat:'product', name:'レグザ 55E770S（55V型テレビ）',         icon:'fa-tv',    w:1.226, d:0.287, h:0.761, colorIdx:13, build:buildRegza55E770S, stack:true,
+    product:{ brand:'TVS REGZA', model:'55E770S（E7 series・4K Mini LED液晶）', name:'レグザ 55E770S',
+      mm:{ w:1226, d:287, h:761 }, weightKg:16.0, checked:'2026-09-19',
+      note:'スタンド含む外形寸法 幅122.6×高さ76.1×奥行28.7cm、質量16.0kg。テレビ台に載せて使用（テレビ台の奥行36cm ≧ スタンド奥行28.7cm）。',
+      sources:[ { label:'REGZA公式 仕様表（E770S）', url:'https://www.regza.com/tv/lineup/e770s/spec' },
+                { label:'REGZA公式 商品トップ（E770S）', url:'https://www.regza.com/tv/lineup/e770s' },
+                { label:'参考: ヨドバシ.com 55E770S', url:'https://www.yodobashi.com/product/100000001009940323/' } ] } },
   { id:'gondola',    cat:'shop',    name:'ゴンドラ什器(両面)',icon:'fa-shelves',           w:1.2, d:0.6,  h:1.5,  colorIdx:1,  build:buildGondolaShelf },
   // ---- museum ----
   { id:'displaycase',cat:'museum',  name:'展示ケース',        icon:'fa-box-open',          w:0.88,d:0.52, h:1.3,  colorIdx:10, build:buildDisplayCase },
@@ -7427,6 +7605,94 @@ const FURNITURE_DEFS = [
 
 function P(defId, x, z, rot = 0, color, y) { const def = FURNITURE_DEFS.find(d => d.id === defId); const o = { defId, x, z, rotY: rot, color: color ?? COLORS[def.colorIdx] }; if (y != null) o.y = y; return o; }
 const PRESETS = [
+  // ===== 実物件サンプル 3LDK (図面: 芯々 6,600×11,550mm) =====
+  {
+    id: 'apt_3ldk_sample', name: '実物件サンプル 3LDK', icon: 'fa-building', cat: '住宅',
+    desc: '実在物件の間取り図（芯々6,600×11,550mm・3LDK＋バルコニー）を同縮尺で再現。洋室(1)7.0帖・洋室(2)5.5帖・和室4.5帖・LD12.8帖・キッチン3.6帖。レグザ55E770S／IKEA FJÄLLBO・VALNÄS・UGGLERUM・FÅGELFJÄLLET をメーカー公式寸法で配置。',
+    room: { w: 6.5, d: 11.5 }, floorType: 'wood', wallType: 'white',
+    // 座標: 画面上(-z)=開放廊下側(北)・画面下(+z)=バルコニー側(南)・左(-x)=西・右(+x)=東。
+    //  図面の内法実測 約6.23×11.36m を、0.5mグリッド外形 6.5×11.5m(壁厚0.12→内法6.38×11.38m)に横方向1.024倍で当てはめ。
+    //  ※0.5mセルが奇数個のため外形は x∈[-3.0,3.5], z∈[-5.5,6.0] (中心が+0.25ずれる)。以下の座標はその実際の外形に合わせてある。
+    walls: {
+      south: [   // 上辺 = 開放廊下側の外壁 (玄関ドア・通格子付き窓)
+        { t: 0.271, w: 1.5,  kind: 'window' },      // 洋室(1) 窓
+        { t: 0.514, w: 0.85, kind: 'door' },        // 玄関ドア
+        { t: 0.765, w: 1.25, kind: 'window' },      // 洋室(2) 窓
+      ],
+      north: [   // 下辺 = バルコニー側サッシ (FIX + 引違い + FIX, 幅計約4.8m)
+        { t: 0.203, w: 1.55, kind: 'window', sill: 0 },   // FIX (床まで)
+        { t: 0.489, w: 2.1,  kind: 'glass_door' },        // 引違い掃き出し窓 (バルコニー出入口)
+        { t: 0.746, w: 1.18, kind: 'window', sill: 0 },   // FIX (床まで)
+      ],
+      east: [], west: [],
+    },
+    partitions: [
+      // --- 左列: 洋室(1) / ファミリークローク / 押入・物入 / 和室 ---
+      { x1: -0.12, z1: -5.5, x2: -0.12, z2: -1.75, openings: [{ t: 0.853, w: 0.8, kind: 'door' }] },    // 洋室(1)東壁(玄関・廊下側)。扉は南端寄り, 室内へ開く
+      { x1: -3.0, z1: -1.75, x2: -0.12, z2: -1.75 },                                                     // 洋室(1)南壁 = ファミリークローク北壁
+      { x1: -0.12, z1: -1.75, x2: -0.12, z2: -0.51, openings: [{ t: 0.379, w: 0.8, kind: 'door' }] },    // ファミリークローク東壁 (廊下から入る)
+      { x1: -3.0, z1: -0.51, x2: -0.12, z2: -0.51 },                                                     // FC南壁 = 押入・物入 北壁
+      { x1: -0.77, z1: -0.51, x2: -0.77, z2:  0.38 },                                                     // 押入 | 物入(可動棚)
+      { x1: -0.12, z1: -0.51, x2: -0.12, z2:  0.38, openings: [{ t: 0.494, w: 0.6, kind: 'door' }] },    // 物入 東壁 (廊下側の扉)
+      { x1: -3.0, z1:  0.38, x2: -0.77, z2:  0.38, openings: [{ t: 0.50,  w: 1.9, kind: 'fusuma' }] },  // 押入の襖 (和室側)
+      { x1: -0.77, z1:  0.38, x2: -0.12, z2:  0.38 },                                                     // 物入 南壁
+      { x1: -0.12, z1:  0.38, x2: -0.12, z2:  2.79, openings: [{ t: 0.502, w: 0.7, kind: 'fusuma' }] },  // 和室 東壁 (廊下側の引戸)
+      { x1: -3.0, z1:  2.79, x2: -0.12, z2:  2.79, openings: [{ t: 0.368, w: 1.75, kind: 'fusuma' }] }, // 和室 南壁 (LD側 3枚引戸)
+      // --- 中央列: 玄関・廊下 と 右列との境 (洋室2扉 / トイレ扉 / 洗面室扉 / キッチン扉) ---
+      { x1:  0.79, z1: -4.15, x2:  0.79, z2:  3.41, openings: [
+          { t: 0.205, w: 0.8,  kind: 'door' },          // 洋室(2) 扉 (室内へ開く)
+          { t: 0.481, w: 0.7,  kind: 'toilet_door' },   // トイレ扉 (廊下へ開く)
+          { t: 0.586, w: 0.7,  kind: 'door' },          // 洗面室 扉
+          { t: 0.765, w: 0.75, kind: 'door' },          // キッチン 扉 (廊下→キッチン)
+      ] },
+      { x1:  1.22, z1: -5.5, x2:  1.22, z2: -4.15 },                                                     // シューズボックス収納の東壁
+      { x1:  0.79, z1: -4.15, x2:  1.22, z2: -4.15 },                                                     // 同 南壁 (洋室2との境)
+      // --- 右列: 洋室(2) / システム収納 / トイレ / 浴室(1418) / 洗面室 / キッチン ---
+      { x1:  1.77, z1: -2.14, x2:  3.5, z2: -2.14 },                                                     // 洋室(2) 南壁 (浴室側)。x0.54〜1.52 はシステム収納の凹み(洋室2側に開口)
+      { x1:  0.79, z1: -1.47, x2:  1.77, z2: -1.47 },                                                     // システム収納 南壁 = トイレ 北壁
+      { x1:  1.77, z1: -2.14, x2:  1.77, z2: -0.12 },                                                     // 収納・トイレ | 浴室
+      { x1:  0.79, z1: -0.12, x2:  3.5, z2: -0.12, openings: [{ t: 0.535, w: 0.7, kind: 'bath_door' }] }, // トイレ・浴室 南壁 = 洗面室 北壁 (浴室扉)
+      { x1:  0.79, z1:  1.18, x2:  3.5, z2:  1.18 },                                                     // 洗面室 南壁 = キッチン 北壁
+      { x1:  3.25, z1:  2.76, x2:  3.25, z2:  3.91 },                                                     // キッチンカウンター東端の袖壁 (PS)
+      { x1:  3.25, z1:  3.91, x2:  3.5, z2:  3.91 },                                                     // PS 南面
+      // --- 柱型 (廊下側の両角, 約0.45×0.5m) ---
+      { x1: -2.48, z1: -5.5, x2: -2.48, z2: -4.93 }, { x1: -3.0, z1: -4.93, x2: -2.48, z2: -4.93 },
+      { x1:  2.92, z1: -5.5, x2:  2.92, z2: -4.93 }, { x1:  2.92, z1: -4.93, x2:  3.5, z2: -4.93 },
+    ],
+    floors: [
+      { x1: -0.12, z1: -5.5, x2:  1.22, z2: -4.15, type: 'genkan' },   // 玄関土間
+      { x1: -3.0, z1:  0.38, x2: -0.12, z2:  2.79, type: 'tatami' },   // 和室 4.5帖
+      { x1:  0.79, z1: -1.47, x2:  1.77, z2: -0.12, type: 'tile' },     // トイレ
+      { x1:  1.77, z1: -2.14, x2:  3.5, z2: -0.12, type: 'tile' },     // 浴室(1418)
+      { x1:  0.79, z1: -0.12, x2:  3.5, z2:  1.18, type: 'tile' },     // 洗面室
+      { x1:  0.79, z1:  1.18, x2:  3.5, z2:  3.41, type: 'tile' },     // キッチン
+    ],
+    items: [
+      // ===== 洋室(1) 主寝室 — IKEA FÅGELFJÄLLET 132×207 =====
+      // ヘッドボードをFC側の壁(z=-2.00)に付け, 足元を廊下側の窓へ (窓前 約1.5m)。西壁沿いに置き, 東側に約1.5mの通路+乗り降りスペース。
+      P('fagelfjallet_bed', -2.28, -2.84, 180, '#5b7f9b'),
+      // ===== リビング (西壁 = テレビ壁面) =====
+      P('fjallbo_tv',   -2.76,  4.3, 90,  '#5b3d29'),          // テレビ台: 西壁に密着, 東向き
+      P('regza55e770s', -2.76,  4.3, 90,  '#1c1c1f', 0.54),    // テレビ: テレビ台の上 (天板高0.54m)
+      P('ugglerum_ct',  -1.705, 4.3, 90,  '#6b4a30'),          // コーヒーテーブル: テレビ台前面から0.55m
+      P('valnas_sofa2', -0.56,  4.3, 270, '#d8c7a6'),          // ソファ: 西向き(テレビ正対), テーブルとの間0.35m, サッシまで0.6m
+      // ===== 建物付帯設備 (図面記載のもの) =====
+      P('kitchen',    2.05,   3.085, 180, '#e8e2d6'),   // 対面キッチン L=2.4m (作業側=北, LD側にカウンター)
+      P('barcounter', 2.05,   3.66,  0,   '#8a6a4a'),   // LD側カウンター
+      P('bathset',    2.61,  -1.28,  0,   '#e8e2d6'),   // ユニットバス 1418 (扉側=洗面室)
+      P('toilet',     1.28,  -1.06,  0,   '#e8e2d6'),   // トイレ (背面=北壁, 扉は西壁)
+      P('vanity',     3.19,   0.53,  270, '#e8e2d6'),   // 洗面化粧台 L=1.2 (東壁, 西向き)
+      P('shoebox',    0.985, -4.8,  270, '#5b5048'),   // シューズボックス (玄関脇の収納内, 玄関向き)
+    ],
+    notes: [
+      '【縮尺】図面の芯々 6,600×11,550mm を 0.5mグリッドの外形 6.5×11.5m（壁厚0.12m→内法 約6.38×11.38m）に収め、内部の壁・開口は図面の内法実測（約6.23×11.36m）を横方向1.024倍で当てはめています（誤差は数cm）。',
+      '【寝室（洋室1）】FÅGELFJÄLLET（幅132×長さ207cm）はヘッドボードをファミリークローク側の壁に付け、足元を廊下側の窓に向けて窓前に約1.5mを確保。西壁沿いに寄せ、東側に約1.5mの通路＝乗り降りスペース。扉（幅0.8m・室内側に開く）の開閉範囲は南東角で、ベッドとは0.7m離れています。',
+      '【リビング】テレビ台 FJÄLLBO（150cm）を西壁に付け、レグザ 55E770S（幅122.6cm）を載せています（台の奥行36cm ≧ スタンド奥行28.7cm）。テレビ台〜UGGLERUM（130×65cm）の間は0.55m（人が通れる幅）、テーブル〜VALNÄS（206cm）の膝前は0.35m。視聴距離は画面〜座面前端 約1.7m（目の位置で約2.2m）。',
+      '【窓・動線】バルコニーの引違い窓（幅2.1m）の前は幅1.3mで常時空け、ソファの端から窓まで0.6m。和室の3枚引戸（1.75m）と押入の襖の前にも家具を置いていません。廊下→LD→キッチンカウンター前へは、ソファ背面とカウンター端の間 約0.85m を通ります。',
+      '【未配置】対面キッチン（L=2.4m）前のダイニングゾーン（約2.6×2.0m）、洋室(2)、和室は空けてあります。家具はドラッグで移動、R キーまたは右パネルの回転ボタンで回転、矢印キーでスナップ幅ずつ微調整できます（右下のスナップ幅で 0.05m まで）。',
+      '【寸法の出典】各家具を選択すると右パネル「実寸・出典」に採用寸法（mm）とメーカー公式ページへのリンクを表示します。「周囲との間隔」には上下左右の最寄りの壁・家具までの距離が出ます。',
+    ],
+  },
   // ===== アルミ製造工場 (デフォルト) =====
   {
     id: 'aluminum_factory', name: 'アルミ製造工場', icon: 'fa-industry', cat: '工場',
@@ -8645,6 +8911,7 @@ function applyWallType() {
 
 // ============================================================ PLAN MODEL
 const CELL = GRID_SNAP; // 0.5m cell — cells & walls share world-meter coords centered at origin
+let furnSnap = GRID_SNAP;   // 家具の移動・配置スナップ幅 (UIで 0.5/0.25/0.1/0.05m に変更可。プランのセルは常に0.5m)
 const DOOR_H = 2.05;    // door opening height
 function cellKey(ix, iz) { return ix + ',' + iz; }
 // Corner-indexed: cell (ix,iz) occupies [ix*CELL,(ix+1)*CELL] × [iz*CELL,(iz+1)*CELL].
@@ -8971,10 +9238,10 @@ function buildWallSegment(wall) {
     return;
   }
 
-  // Openings sorted; each has s0,s1,kind
+  // Openings sorted; each has s0,s1,kind (+ window の sill/top 指定があれば保持)
   const openings = rawOpenings.map(dr => {
     const dw = dr.w || 0.9, s = clamp(dr.t, 0, 1) * len;
-    return { s0: clamp(s - dw / 2, 0, len), s1: clamp(s + dw / 2, 0, len), kind: dr.kind || 'door' };
+    return { s0: clamp(s - dw / 2, 0, len), s1: clamp(s + dw / 2, 0, len), kind: dr.kind || 'door', sill: dr.sill, top: dr.top };
   }).filter(o => o.s1 - o.s0 > 0.05).sort((a, b) => a.s0 - b.s0);
 
   // Solid pieces between openings (full height, gaps where openings are)
@@ -8993,9 +9260,9 @@ function buildWallSegment(wall) {
     const ft = WALL_T + 0.02, fw = 0.06;
 
     if (o.kind === 'window') {
-      // Window: sill at 0.85m, top at 2.1m — wall pieces fill below/above, glass in gap
-      const SILL = 0.85, WIN_TOP = Math.min(2.1, WALL_H - 0.1);
-      addPartial(o.s0, o.s1, 0, SILL);
+      // Window: sill at 0.85m (opening.sill で変更可・0で床まで), top at 2.1m — wall pieces fill below/above, glass in gap
+      const SILL = (o.sill != null ? o.sill : 0.85), WIN_TOP = Math.min(o.top != null ? o.top : 2.1, WALL_H - 0.1);
+      if (SILL > 0.01) addPartial(o.s0, o.s1, 0, SILL);
       addPartial(o.s0, o.s1, WIN_TOP, WALL_H);
       // Glass pane
       const panH = WIN_TOP - SILL;
@@ -9299,7 +9566,7 @@ function applyShadowSetting() {
 }
 
 
-function snapToGrid(p) { return new THREE.Vector3(Math.round(p.x/GRID_SNAP)*GRID_SNAP, 0, Math.round(p.z/GRID_SNAP)*GRID_SNAP); }
+function snapToGrid(p) { return new THREE.Vector3(Math.round(p.x/furnSnap)*furnSnap, 0, Math.round(p.z/furnSnap)*furnSnap); }
 function getFloorPoint(e) {
   const rect = canvas.getBoundingClientRect();
   mouse.x = ((e.clientX-rect.left)/rect.width)*2-1; mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
@@ -9316,9 +9583,15 @@ function getHitFurniture(e) {
   let grp = hits[0].object; while (grp.parent && !grp.userData.isPlacedItem) grp = grp.parent;
   return grp.userData.isPlacedItem ? grp : null;
 }
+// 部屋の実際の外形 (rectToPlan と同じ量子化: 0.5mセルが奇数個のときは +側に半セル分ずれる)
+function roomRectBounds() {
+  const nx = Math.max(1, Math.round(roomW / CELL)), nz = Math.max(1, Math.round(roomD / CELL));
+  const x0 = -Math.floor(nx / 2) * CELL, z0 = -Math.floor(nz / 2) * CELL;
+  return { x0, x1: x0 + nx * CELL, z0, z1: z0 + nz * CELL };
+}
 function clampToRoom(pos, def) {
-  const hw = roomW/2, hd = roomD/2, hw2 = (def.w||1)/2, hd2 = (def.d||1)/2;
-  return new THREE.Vector3(clamp(pos.x, -hw+hw2, hw-hw2), 0, clamp(pos.z, -hd+hd2, hd-hd2));
+  const b = roomRectBounds(), hw2 = (def.w||1)/2, hd2 = (def.d||1)/2;
+  return new THREE.Vector3(clamp(pos.x, b.x0+hw2, b.x1-hw2), 0, clamp(pos.z, b.z0+hd2, b.z1-hd2));
 }
 
 // Snap a wall-mount item (TV, whiteboard, panel...) flat against the nearest
@@ -9428,8 +9701,15 @@ function deselect() {
   document.getElementById('props-empty').style.display = 'flex';
   document.getElementById('props-panel').classList.remove('visible');
   const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = '';
+  const pn = document.getElementById('preset-notes'); if (pn && pn.dataset.has === '1') pn.style.display = '';
 }
-function refreshSelection() { if (selectedGroup) updateSelectionRing(selectedGroup); }
+function refreshSelection() {
+  if (!selectedGroup) return;
+  updateSelectionRing(selectedGroup);
+  const it = placedItems.find(i => i.group === selectedGroup);   // 元に戻す/やり直し後も位置表示と間隔を同期
+  if (it) { document.getElementById('pos-x').textContent = it.position.x.toFixed(2) + 'm'; document.getElementById('pos-z').textContent = it.position.z.toFixed(2) + 'm'; }
+  updateClearancePanel();
+}
 function updateSelectionRing(group) {
   const b = new THREE.Box3().setFromObject(group); const sz = new THREE.Vector3(); b.getSize(sz);
   const r = Math.max(sz.x, sz.z)*0.62;
@@ -9442,10 +9722,14 @@ function showProperties(group, item) {
   document.getElementById('props-panel').classList.add('visible');
   const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = 'none';
   document.getElementById('props-name').textContent = def.name;
-  document.getElementById('props-dims').textContent = `${def.w}m × ${def.d}m`;
+  document.getElementById('props-dims').textContent = def.product
+    ? `W ${Math.round(def.w * 1000)} × D ${Math.round(def.d * 1000)} × H ${Math.round(def.h * 1000)} mm（実寸）`
+    : `${def.w}m × ${def.d}m`;
   document.getElementById('props-icon').innerHTML = `<i class="fa-solid ${def.icon}"></i>`;
-  document.getElementById('pos-x').textContent = item.position.x.toFixed(1) + 'm';
-  document.getElementById('pos-z').textContent = item.position.z.toFixed(1) + 'm';
+  document.getElementById('pos-x').textContent = item.position.x.toFixed(2) + 'm';
+  document.getElementById('pos-z').textContent = item.position.z.toFixed(2) + 'm';
+  renderSpecPanel(def); updateClearancePanel();
+  const _pn = document.getElementById('preset-notes'); if (_pn) _pn.style.display = 'none';
   const sw = document.getElementById('color-swatches'); sw.innerHTML = '';
   COLORS.forEach(c => {
     const b = document.createElement('button'); b.className = 'color-swatch' + (c === item.color ? ' active' : '');
@@ -9461,6 +9745,105 @@ function showProperties(group, item) {
 function applyColor(group, color) {
   if (!group) return;
   group.traverse(c => { if (c.isMesh && c.userData.colorable && c.material) { c.material = c.material.clone(); c.material.color.set(color); if (c.material.emissive) { c.material.emissive = new THREE.Color(0x1c3a22); c.material.emissiveIntensity = 0.5; } } });
+}
+
+// ============================================================ 実寸・出典 / 周囲との間隔 / 配置メモ / 微調整
+function _halfExt(def, rotY) { const r = (rotY || 0) * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r)); return { hw: (def.w * c + def.d * s) / 2, hd: (def.w * s + def.d * c) / 2 }; }
+function _itemBox(it) { const def = FURNITURE_DEFS.find(d => d.id === it.defId); const he = _halfExt(def, it.rotY); return { x0: it.position.x - he.hw, x1: it.position.x + he.hw, z0: it.position.z - he.hd, z1: it.position.z + he.hd, def }; }
+// 選択家具の設置面(AABB)から 上(-z)/下(+z)/左(-x)/右(+x) へ見て最初に当たる 壁(開口の種類付き)/家具 までの距離
+function computeClearances(item) {
+  const b = _itemBox(item), out = {};
+  const dirs = { right: { ax: 'x', sgn: 1 }, left: { ax: 'x', sgn: -1 }, down: { ax: 'z', sgn: 1 }, up: { ax: 'z', sgn: -1 } };
+  for (const [k, d] of Object.entries(dirs)) {
+    let best = null;
+    const face = d.ax === 'x' ? (d.sgn > 0 ? b.x1 : b.x0) : (d.sgn > 0 ? b.z1 : b.z0);
+    const lo = d.ax === 'x' ? b.z0 : b.x0, hi = d.ax === 'x' ? b.z1 : b.x1;      // 進行方向に直交する幅
+    (roomPlan?.walls || []).forEach(w => {
+      const vert = Math.abs(w.x1 - w.x2) < 1e-6, horiz = Math.abs(w.z1 - w.z2) < 1e-6;
+      if ((d.ax === 'x' && !vert) || (d.ax === 'z' && !horiz)) return;
+      const wc = d.ax === 'x' ? w.x1 : w.z1;
+      const s0 = d.ax === 'x' ? Math.min(w.z1, w.z2) : Math.min(w.x1, w.x2), s1 = d.ax === 'x' ? Math.max(w.z1, w.z2) : Math.max(w.x1, w.x2);
+      if (s1 <= lo + 0.01 || s0 >= hi - 0.01) return;
+      const dist = d.sgn > 0 ? (wc - WALL_T / 2 - face) : (face - (wc + WALL_T / 2));
+      if (dist < -WALL_T) return;                                                   // 背後の壁
+      let op = null; const len = s1 - s0;
+      (w.openings || []).forEach(o => { const oc = s0 + (o.t != null ? o.t : 0.5) * len, o0 = oc - (o.w || 0.9) / 2, o1 = oc + (o.w || 0.9) / 2; if (o1 > lo && o0 < hi) op = o.kind || 'door'; });
+      const label = (w.isPartition ? '間仕切り壁' : '外壁') + (op ? `・${OPENING_KIND_LABELS[op] || op}` : '');
+      if (!best || dist < best.dist) best = { dist: Math.max(0, dist), label, opening: !!op };
+    });
+    placedItems.forEach(o => {
+      if (o === item) return;
+      const ob = _itemBox(o); if (ob.def.wallMount || (ob.def.h || 0) < 0.06) return;
+      const olo = d.ax === 'x' ? ob.z0 : ob.x0, ohi = d.ax === 'x' ? ob.z1 : ob.x1;
+      if (ohi <= lo + 0.01 || olo >= hi - 0.01) return;
+      const near = d.ax === 'x' ? (d.sgn > 0 ? ob.x0 : ob.x1) : (d.sgn > 0 ? ob.z0 : ob.z1);
+      const dist = d.sgn > 0 ? near - face : face - near;
+      if (dist < -0.02) return;                                                     // 重なり(載せ物など)/背後
+      if (!best || dist < best.dist) best = { dist: Math.max(0, dist), label: ob.def.name, opening: false };
+    });
+    out[k] = best;
+  }
+  return out;
+}
+function updateClearancePanel() {
+  const sec = document.getElementById('props-clear'); if (!sec) return;
+  const item = selectedGroup ? placedItems.find(i => i.group === selectedGroup) : null;
+  if (!item) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const c = computeClearances(item);
+  const fmt = r => {
+    if (!r) return `<span class="clr-val clr-none">—</span><span class="clr-who">なし</span>`;
+    const cls = r.dist < 0.05 ? 'clr-touch' : r.dist < 0.6 ? 'clr-tight' : 'clr-ok';
+    return `<span class="clr-val ${cls}">${r.dist.toFixed(2)}<small>m</small></span><span class="clr-who${r.opening ? ' clr-open' : ''}">${r.label}</span>`;
+  };
+  document.getElementById('clr-up').innerHTML = fmt(c.up);
+  document.getElementById('clr-down').innerHTML = fmt(c.down);
+  document.getElementById('clr-left').innerHTML = fmt(c.left);
+  document.getElementById('clr-right').innerHTML = fmt(c.right);
+}
+// 実物家具: 採用寸法(mm)と出典リンク
+function renderSpecPanel(def) {
+  const sec = document.getElementById('props-spec'), tbl = document.getElementById('spec-table'); if (!sec || !tbl) return;
+  const p = def.product; if (!p) { sec.style.display = 'none'; tbl.innerHTML = ''; return; }
+  sec.style.display = '';
+  const mm = p.mm || { w: Math.round(def.w * 1000), d: Math.round(def.d * 1000), h: Math.round(def.h * 1000) };
+  const rows = [
+    ['製品', `${p.brand} ${p.name || def.name}`],
+    ['型番', p.model || '—'],
+    ['採用寸法', `W ${mm.w} × D ${mm.d} × H ${mm.h} mm`],
+    p.weightKg ? ['質量', `${p.weightKg} kg`] : null,
+    p.note ? ['備考', p.note] : null,
+    ['出典', (p.sources || []).map(s => `<a href="${s.url}" target="_blank" rel="noopener">${s.label} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>`).join('<br>') || '—'],
+    p.checked ? ['確認日', p.checked] : null,
+  ].filter(Boolean);
+  tbl.innerHTML = rows.map(([k, v]) => `<div class="spec-row"><div class="spec-k">${k}</div><div class="spec-v">${v}</div></div>`).join('');
+}
+// プリセットの配置メモ (notes) を右パネルに表示
+function renderPresetNotes(layout) {
+  const pn = document.getElementById('preset-notes'); if (!pn) return;
+  const list = document.getElementById('pn-list'), title = document.getElementById('pn-title');
+  const notes = layout && layout.notes;
+  if (!notes || !notes.length) { pn.style.display = 'none'; pn.dataset.has = '0'; return; }
+  title.textContent = `${layout.name || 'プリセット'} — 配置メモ`;
+  list.innerHTML = notes.map(n => `<li>${n}</li>`).join('');
+  pn.dataset.has = '1'; pn.classList.remove('collapsed');
+  const t = document.getElementById('pn-toggle'); if (t) t.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+  pn.style.display = selectedGroup ? 'none' : '';
+}
+// 矢印キーで選択家具をスナップ幅ずつ移動 (履歴に記録)
+function nudgeSelected(key, step) {
+  const item = placedItems.find(i => i.group === selectedGroup); if (!item) return;
+  const def = FURNITURE_DEFS.find(d => d.id === item.defId);
+  const from = item.position.clone(), np = item.position.clone();
+  if (key === 'ArrowLeft') np.x -= step; if (key === 'ArrowRight') np.x += step;
+  if (key === 'ArrowUp') np.z -= step; if (key === 'ArrowDown') np.z += step;
+  const cl = clampToRoom(np, def); np.x = cl.x; np.z = cl.z;
+  if (def.stack) np.y = computeRestY(np.x, np.z, selectedGroup);
+  item.position.copy(np); selectedGroup.position.copy(np);
+  pushHistory({ type: 'move', item, from, to: np.clone() });
+  refreshSelection();
+  document.getElementById('pos-x').textContent = np.x.toFixed(2) + 'm';
+  document.getElementById('pos-z').textContent = np.z.toFixed(2) + 'm';
 }
 
 // ============================================================ GHOST
@@ -9522,7 +9905,7 @@ function saveLayout() {
     type: w.type || 'wall',
     openings: (w.openings || (w.doors || []).map(d => ({ t: d.t, w: d.w, kind: 'door' })))
   }));
-  const data = { version: 5, room: { w: roomW, d: roomD }, partitions, floorType, wallType,
+  const data = { version: 5, presetId: _lastUsedPresetId, room: { w: roomW, d: roomD }, partitions, floorType, wallType,
     plan: { cells, walls },
     items: placedItems.map(i => ({ defId: i.defId, x: i.position.x, y: i.position.y, z: i.position.z, rotY: i.rotY, color: i.color })) };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -9578,6 +9961,10 @@ function applyLayout(layout) {
       for (let cz = z1 + CELL/2; cz < z2; cz += CELL)
         paintFloorAt(cx, cz, f.type);
   });
+  // 配置メモ: プリセット本体の notes、または保存データの presetId から復元
+  if (layout.presetId) _lastUsedPresetId = layout.presetId;
+  const notesSrc = (layout.notes && layout.notes.length) ? layout : (PRESETS.find(p => p.id === (layout.id || layout.presetId)) || null);
+  renderPresetNotes(notesSrc);
   scheduleAutoSave();
 }
 function loadLayout(json) { try { applyLayout(JSON.parse(json)); toast('レイアウトを読み込みました'); } catch (e) { toast('読み込みに失敗しました'); } }
@@ -9596,10 +9983,14 @@ function presetPlanSVG(p) {
   const rw = p.room.w, rd = p.room.d;
   const pad = 10;
   const scale = Math.min((svgW - pad*2) / rw, (svgH - pad*2) / rd);
-  const ox = svgW/2, oy = svgH/2;
+  // 実際の外形 (rectToPlan と同じ量子化) の中心を SVG 中央に置く
+  const pnx = Math.max(1, Math.round(rw / CELL)), pnz = Math.max(1, Math.round(rd / CELL));
+  const bx0 = -Math.floor(pnx / 2) * CELL, bz0 = -Math.floor(pnz / 2) * CELL;
+  const bcx = bx0 + pnx * CELL / 2, bcz = bz0 + pnz * CELL / 2;
+  const ox = svgW/2 - bcx * scale, oy = svgH/2 - bcz * scale;
   const wx = v => ox + v * scale, wz = v => oy + v * scale;
-  const x0 = ox - rw/2*scale, y0 = oy - rd/2*scale;
-  const rW = rw*scale, rH = rd*scale;
+  const x0 = wx(bx0), y0 = wz(bz0);
+  const rW = pnx*CELL*scale, rH = pnz*CELL*scale;
   let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`;
   // Room fill
   const mainFloor = PLAN_FLOOR_COLOR[p.floorType] || '#d4c8b4';
@@ -9651,7 +10042,7 @@ const FLOOR_NAME_JA = {
   rubber:'ゴムマット', checker_plate:'縞鋼板', epoxy:'エポキシ', terracotta:'テラコッタ',
   stone:'石畳', dirt:'土間', grass:'芝', lawn:'芝生'
 };
-const FEATURED_PRESETS = new Set(['aluminum_factory', 'family', 'factory_lg', 'office', 'laboratory']);
+const FEATURED_PRESETS = new Set(['apt_3ldk_sample', 'aluminum_factory', 'family', 'factory_lg', 'office', 'laboratory']);
 
 function renderPresetGrid() {
   // Update category count badges on filter buttons
@@ -9815,8 +10206,12 @@ function buildCatalog(filter = '', cat = 'all') {
   }
   filtered.forEach(def => {
     const item = document.createElement('div'); item.className = 'furniture-item'; item.dataset.id = def.id;
+    const sizeTxt = def.product
+      ? `実寸 W${Math.round(def.w * 100)}×D${Math.round(def.d * 100)}×H${Math.round(def.h * 100)}cm`
+      : `${def.w}m × ${def.d}m`;
+    const modelTxt = def.product ? `<div class="fitem-model"><i class="fa-solid fa-tag"></i> ${def.product.brand} ${def.product.model.split('（')[0]}</div>` : '';
     item.innerHTML = `<div class="fitem-icon"><i class="fa-solid ${def.icon}"></i></div>
-      <div class="fitem-info"><div class="fitem-name">${def.name}</div><div class="fitem-size">${def.w}m × ${def.d}m</div></div>`;
+      <div class="fitem-info"><div class="fitem-name">${def.name}</div>${modelTxt}<div class="fitem-size">${sizeTxt}</div></div>`;
     item.addEventListener('mouseenter', () => ghostPreview.show(def, item));
     item.addEventListener('mouseleave', () => ghostPreview.hide());
     item.addEventListener('click', () => { ghostPreview.hide(); if (state==='PLACING' && currentDef===def) { cancelPlacement(); return; } deselect(); startPlacement(def); });
@@ -9838,6 +10233,12 @@ function rotateSelected(delta) {
 
 // ============================================================ UI INIT
 function initUI() {
+  // スナップ幅セレクタ (家具の移動/配置/矢印キーの刻み)
+  const snapSel = document.getElementById('snap-select');
+  if (snapSel) snapSel.addEventListener('change', () => { furnSnap = parseFloat(snapSel.value) || GRID_SNAP; toast(`スナップ幅: ${furnSnap}m`); snapSel.blur(); });
+  // 配置メモの折りたたみ
+  const pnT = document.getElementById('pn-toggle');
+  if (pnT) pnT.addEventListener('click', () => { const pn = document.getElementById('preset-notes'); pn.classList.toggle('collapsed'); pnT.innerHTML = pn.classList.contains('collapsed') ? '<i class="fa-solid fa-chevron-down"></i>' : '<i class="fa-solid fa-chevron-up"></i>'; });
   buildCatalog(); buildPresetCards();
   document.getElementById('cat-tabs').addEventListener('click', e => {
     const tab = e.target.closest('.cat-tab'); if (!tab) return;
@@ -9993,12 +10394,15 @@ function initUI() {
   document.getElementById('btn-delete').addEventListener('click', () => { if (!selectedGroup) return; removeFurniture(selectedGroup); deselect(); toast('削除しました'); });
 
   document.addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
     if (e.key === 'Escape') { if (state==='PLACING') cancelPlacement(); else if (paintMode) exitPaintMode(); else { deselect(); closePresetModal(); closeEditor(); } }
     if ((e.key==='Delete'||e.key==='Backspace') && selectedGroup && state!=='PLACING') { removeFurniture(selectedGroup); deselect(); }
     if (e.key==='r'||e.key==='R') {
       if (state==='PLACING') { ghostRotOffset = (ghostRotOffset+90)%360; if (ghostGroup) ghostGroup.rotation.y = (ghostRotOffset*Math.PI)/180; }
       else if (selectedGroup) { rotateSelected(90); }
+    }
+    if (selectedGroup && state !== 'PLACING' && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault(); nudgeSelected(e.key, e.shiftKey ? 0.5 : furnSnap);   // 矢印 = スナップ幅, Shift+矢印 = 0.5m
     }
     if ((e.ctrlKey||e.metaKey) && e.key==='z') { e.preventDefault(); undo(); }
     if ((e.ctrlKey||e.metaKey) && (e.key==='y' || (e.shiftKey && e.key==='z'))) { e.preventDefault(); redo(); }
@@ -10073,8 +10477,9 @@ canvas.addEventListener('pointermove', e => {
         }
         selectedGroup.position.copy(np); if (item) item.position.copy(np);
         selectionRing.position.set(np.x, 0.03, np.z);
-        document.getElementById('pos-x').textContent = np.x.toFixed(1) + 'm';
-        document.getElementById('pos-z').textContent = np.z.toFixed(1) + 'm';
+        document.getElementById('pos-x').textContent = np.x.toFixed(2) + 'm';
+        document.getElementById('pos-z').textContent = np.z.toFixed(2) + 'm';
+        updateClearancePanel();
       }
     }
   }

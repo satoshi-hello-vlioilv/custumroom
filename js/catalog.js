@@ -4,6 +4,7 @@ import { buildAlumCoilSide, buildAluminumCoil, buildBandedAlumCoil, buildCNCMach
 import { buildHPLC, buildIncubator, buildLabOven, buildSpectrophotometer, buildUltrasonicCleaner, buildVacuumPump } from './builders/instruments.js';
 import { build3DPrinter, buildAnalyticalBalance, buildBandSaw, buildBenchGrinder, buildCentrifuge, buildChemShelf, buildDrillPress, buildFumeHood, buildGlassware, buildHydraulicPress, buildLabBench, buildLaserCutter, buildLathe, buildMicroscope, buildMillingMachine, buildOscilloscope, buildScrollSaw, buildTestBench, buildToolRack, buildWelderStation } from './builders/lab.js';
 import { buildATM, buildBarCounter, buildBarStool, buildBenchDesk, buildBenchDeskDouble, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildGondolaShelf, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard } from './builders/office.js';
+import { buildRegza55E770S, buildFjallboTvBench, buildValnasSofa2, buildUgglerumCoffeeTable, buildFagelfjalletBed } from './builders/products.js';
 import { buildBamboo, buildBenjamin, buildCactus, buildDracaena, buildFicusUmbellata, buildMonstera, buildOlive, buildPlant, buildPothos, buildRhapis, buildSansevieria, buildStrelitzia, buildSucculent, buildZZPlant } from './builders/plants.js';
 import { buildCampChair, buildCampfire, buildCoolerBox, buildLantern, buildTent } from './builders/outdoor.js';
 import { buildPerson, buildTeddyBear, buildBunnyPlush, buildUnicornToy, buildBalloon, buildHeartCushion, buildBuildingBlocks, buildToyBox, buildDollhouse, buildCake, buildCupcake, buildKidsBed, buildKidsDesk, buildKidsChair, buildGarland, buildStarWall } from './builders/kawaii.js';
@@ -60,6 +61,38 @@ const FURNITURE_DEFS = [
   { id:'reception',  cat:'office',  name:'受付カウンター',    icon:'fa-concierge-bell',    w:2.4, d:0.7,  h:1.1,  colorIdx:1,  build:buildReceptionCounter },
   { id:'deskrun',    cat:'office',  name:'連続デスク',        icon:'fa-table-columns',     w:1.2, d:0.7,  h:0.73, colorIdx:1,  build:buildBenchDesk },
   { id:'benchdesk2', cat:'office',  name:'フリーアドレス島',  icon:'fa-table-cells',       w:1.6, d:1.5,  h:0.73, colorIdx:1,  build:buildBenchDeskDouble },
+  // ===== 実物家具 (メーカー公式寸法。product: 採用寸法[mm]と出典) =====
+  { id:'fagelfjallet_bed', cat:'product', name:'IKEA FÅGELFJÄLLET ベッド（セミダブル）', icon:'fa-bed',   w:1.32,  d:2.07,  h:1.01,  colorIdx:4,  build:buildFagelfjalletBed,
+    product:{ brand:'IKEA', model:'FÅGELFJÄLLET 296.309.18（120×200cm・収納ボックス2個付き・ブラックオーク調）', name:'FÅGELFJÄLLET ベッドフレーム セミダブル',
+      mm:{ w:1320, d:2070, h:1010 }, checked:'2026-09-19',
+      note:'外形 長さ207×幅132cm、ヘッドボード高101cm／フットボード高39cm、ベッド下の空き20cm、マットレスサイズ120×200cm。奥行(D)はヘッドボード〜フットボードの長さ。',
+      sources:[ { label:'IKEA公式（日本）商品ページ', url:'https://www.ikea.com/jp/ja/p/fagelfjaellet-bed-frame-with-2-storage-boxes-black-oak-effect-s29630918/' },
+                { label:'IKEA公式（スウェーデン）120×200 寸法表', url:'https://www.ikea.com/se/sv/p/fagelfjaellet-saengstomme-off-white-80621053/' } ] } },
+  { id:'valnas_sofa2',     cat:'product', name:'IKEA VALNÄS 2人掛けソファ',            icon:'fa-couch', w:2.06,  d:0.94,  h:0.90,  colorIdx:11, build:buildValnasSofa2,
+    product:{ brand:'IKEA', model:'VALNÄS 2人掛けソファ 696.153.22（Knäbäck ライトベージュ 等）', name:'VALNÄS 2人掛けソファ',
+      mm:{ w:2060, d:940, h:900 }, checked:'2026-09-19',
+      note:'幅206×奥行94×高さ90cm。座面高49／座面幅160／座面奥行72／アームレスト高55cm。日本サイトの型番は要確認（寸法は英国公式ページで確認）。',
+      sources:[ { label:'IKEA公式（UK）VALNÄS 2-seat sofa', url:'https://www.ikea.com/gb/en/p/valnaes-2-seat-sofa-knaebaeck-light-beige-s69615322/' },
+                { label:'IKEA公式（日本）VALNÄSシリーズ', url:'https://www.ikea.com/jp/ja/cat/valnaes-covers-700827/' } ] } },
+  { id:'ugglerum_ct',      cat:'product', name:'IKEA UGGLERUM コーヒーテーブル',        icon:'fa-table', w:1.30,  d:0.65,  h:0.43,  colorIdx:8,  build:buildUgglerumCoffeeTable,
+    product:{ brand:'IKEA', model:'UGGLERUM 606.279.80（ウォールナット材突き板 130×65cm）', name:'UGGLERUM コーヒーテーブル',
+      mm:{ w:1300, d:650, h:430 }, checked:'2026-09-19',
+      note:'長さ130×幅65×高さ43cm、最大荷重20kg。日本での取扱いは要確認（寸法は英国／米国公式ページで確認）。',
+      sources:[ { label:'IKEA公式（UK）UGGLERUM coffee table', url:'https://www.ikea.com/gb/en/p/ugglerum-coffee-table-walnut-veneer-60627980/' },
+                { label:'IKEA公式（US）UGGLERUM coffee table', url:'https://www.ikea.com/us/en/p/ugglerum-coffee-table-walnut-veneer-60627980/' } ] } },
+  { id:'fjallbo_tv',       cat:'product', name:'IKEA FJÄLLBO テレビ台 150',            icon:'fa-tv',    w:1.50,  d:0.36,  h:0.54,  colorIdx:8,  build:buildFjallboTvBench,
+    product:{ brand:'IKEA', model:'FJÄLLBO 303.392.93（ブラック 150×36×54cm）', name:'FJÄLLBO テレビ台',
+      mm:{ w:1500, d:360, h:540 }, checked:'2026-09-19',
+      note:'幅150×奥行36×高さ54cm。100cm幅（705.013.10）もあるが、55V型テレビ（幅122.6cm）を載せるため150cm幅を採用。背板なし。',
+      sources:[ { label:'IKEA公式（日本）FJÄLLBO テレビ台 150x36x54', url:'https://www.ikea.com/jp/ja/p/fjaellbo-tv-bench-black-30339293/' },
+                { label:'IKEA公式（日本）FJÄLLBO テレビ台 100x36x54', url:'https://www.ikea.com/jp/ja/p/fjaellbo-tv-bench-black-70501310/' } ] } },
+  { id:'regza55e770s',     cat:'product', name:'レグザ 55E770S（55V型テレビ）',         icon:'fa-tv',    w:1.226, d:0.287, h:0.761, colorIdx:13, build:buildRegza55E770S, stack:true,
+    product:{ brand:'TVS REGZA', model:'55E770S（E7 series・4K Mini LED液晶）', name:'レグザ 55E770S',
+      mm:{ w:1226, d:287, h:761 }, weightKg:16.0, checked:'2026-09-19',
+      note:'スタンド含む外形寸法 幅122.6×高さ76.1×奥行28.7cm、質量16.0kg。テレビ台に載せて使用（テレビ台の奥行36cm ≧ スタンド奥行28.7cm）。',
+      sources:[ { label:'REGZA公式 仕様表（E770S）', url:'https://www.regza.com/tv/lineup/e770s/spec' },
+                { label:'REGZA公式 商品トップ（E770S）', url:'https://www.regza.com/tv/lineup/e770s' },
+                { label:'参考: ヨドバシ.com 55E770S', url:'https://www.yodobashi.com/product/100000001009940323/' } ] } },
   { id:'gondola',    cat:'shop',    name:'ゴンドラ什器(両面)',icon:'fa-shelves',           w:1.2, d:0.6,  h:1.5,  colorIdx:1,  build:buildGondolaShelf },
   // ---- museum ----
   { id:'displaycase',cat:'museum',  name:'展示ケース',        icon:'fa-box-open',          w:0.88,d:0.52, h:1.3,  colorIdx:10, build:buildDisplayCase },

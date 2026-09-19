@@ -29,6 +29,7 @@ JS_FILES = [
     'js/builders/instruments.js',
     'js/builders/outdoor.js',
     'js/builders/kawaii.js',
+    'js/builders/products.js',
     'js/catalog.js',
     'js/presets.js',
     'js/app.js',

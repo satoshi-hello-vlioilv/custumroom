@@ -25,9 +25,9 @@ const BACK_TO_WALL = new Set([
   // table (desk は自立配置も一般的なため除外: アクセス面チェック(3)と机椅子チェック(7)で担保)
   'consoletab',
   // sleep
-  'sbed', 'dbed', 'bunkbed',
+  'sbed', 'dbed', 'bunkbed', 'fagelfjallet_bed',
   // storage
-  'wardrobe', 'shelf', 'chest', 'tvboard', 'shoebox', 'closet', 'glasscab', 'dresser', 'hangerrack', 'locker',
+  'wardrobe', 'shelf', 'chest', 'tvboard', 'shoebox', 'closet', 'glasscab', 'dresser', 'hangerrack', 'locker', 'fjallbo_tv',
   // deco
   'piano',
   // kitchen
@@ -43,7 +43,7 @@ const BACK_TO_WALL = new Set([
 // --- 前面(+Z)に必要なアクセスクリアランス[m]。未指定は 0 (前面チェックなし) -----
 const ACCESS = {
   // 着座して何か(机/テーブル)に向くべき椅子・ソファ
-  sofa3: 0.3, sofa1: 0.3, sofa2: 0.3, sofalow: 0.3, sofal: 0.3, loungechair: 0.3,
+  sofa3: 0.3, sofa1: 0.3, sofa2: 0.3, sofalow: 0.3, sofal: 0.3, loungechair: 0.3, valnas_sofa2: 0.3,
   dchr: 0.3, ochr: 0.3, cafechr: 0.3, windsorchair: 0.3, stackchr: 0.3, upholchr: 0.3, barstool: 0.3, bench: 0.25, kidschair: 0.25,
   // 作業面 (前面に着座)
   desk: 0.5, deskrun: 0.5, schooldesk: 0.45,
@@ -79,7 +79,7 @@ const DINING_CHAIRS = new Set([
 // --- 椅子が対面すべき「テーブル/作業面/カウンター」 ----------------------------
 const TABLE_IDS = new Set([
   'desk', 'deskrun', 'benchdesk2', 'schooldesk', 'kidsdesk', 'dtable', 'conftable', 'roundtable', 'roundtablesm',
-  'cafetable', 'kotatsu', 'labbench', 'workbench', 'testbench', 'barcounter', 'roundctab',
+  'cafetable', 'kotatsu', 'labbench', 'workbench', 'testbench', 'barcounter', 'roundctab', 'ugglerum_ct',
 ]);
 // --- 「通り抜ける」開口(扉/襖/障子/自動ドア等)。window は通行しないので対象外 ----
 function isPassage(kind) { return !!kind && !String(kind).includes('window'); }
@@ -90,9 +90,12 @@ const CIRC_IGNORE_ID = new Set([
   'rug', 'roundrug', 'woodpallet', 'steelpallet', 'resinpallet', 'zabuton', 'campfire',
   'balloon', 'kidschair', 'heartcushion',
 ]);
+// 便所扉/浴室扉の先にある設備そのもの(便器・ユニットバス)は、その扉のクリアランス障害物とみなさない
+const WET_DOOR_KINDS = new Set(['toilet_door', 'bath_door']);
+const WET_FIXTURES = new Set(['toilet', 'bathset', 'bathtub', 'handbasin']);
 
 const SURFACE_ONLY = new Set([
-  'monitor', 'espresso', 'microwave', 'ricecook', 'projector', 'desklamp', 'tablelamp',
+  'monitor', 'espresso', 'microwave', 'ricecook', 'projector', 'desklamp', 'tablelamp', 'regza55e770s',
   // lantern は屋外地面置きが正常なため除外
 
   'microscope', 'centrifuge', 'analbalance', 'glassware', 'oscilloscope', 'printer3d',
@@ -125,16 +128,25 @@ function halfDepthAlongFront(def, rotY) {
 }
 
 // プリセットの壁セグメント(外周4枚+間仕切り)を開口情報付きで返す
+// 部屋の実際の外形。app.js の rectToPlan と同じ量子化 (0.5mセル)。セル数が奇数のとき外形は +側へ半セルずれる
+// (例 6.5m → x∈[-3.0,3.5])。検証はこの実際の外形に対して行う。
+const PLAN_CELL = 0.5;
+function roomBounds(preset) {
+  const nx = Math.max(1, Math.round(preset.room.w / PLAN_CELL)), nz = Math.max(1, Math.round(preset.room.d / PLAN_CELL));
+  const x0 = -Math.floor(nx / 2) * PLAN_CELL, z0 = -Math.floor(nz / 2) * PLAN_CELL;
+  return { x0, x1: x0 + nx * PLAN_CELL, z0, z1: z0 + nz * PLAN_CELL };
+}
+
 function presetWalls(preset) {
-  const W = preset.room.w / 2, D = preset.room.d / 2, ws = preset.walls || {};
+  const b = roomBounds(preset), ws = preset.walls || {};
   const seg = (x1, z1, x2, z2, ops) => ({ x1, z1, x2, z2, ops: ops || [] });
-  // 北/南の z 符号は app.js の rectToPlan に一致させる: south=z0(=-D, 負), north=z1(=+D, 正)。
+  // 北/南の z 符号は app.js の rectToPlan に一致させる: south=z0(負側), north=z1(正側)。
   // (以前は north/south が逆マッピングで, 開口判定が描画と食い違っていた)
   const walls = [
-    seg(-W, -D, W, -D, ws.south),   // 南 = z=-D
-    seg(-W, D, W, D, ws.north),     // 北 = z=+D
-    seg(W, -D, W, D, ws.east),      // 東 = x=+W
-    seg(-W, -D, -W, D, ws.west),    // 西 = x=-W
+    seg(b.x0, b.z0, b.x1, b.z0, ws.south),   // 南 = z0
+    seg(b.x0, b.z1, b.x1, b.z1, ws.north),   // 北 = z1
+    seg(b.x1, b.z0, b.x1, b.z1, ws.east),    // 東 = x1
+    seg(b.x0, b.z0, b.x0, b.z1, ws.west),    // 西 = x0
   ];
   // 間仕切りは isPartition を立てる(動線チェックで両側を検査するため。外周壁は室内側のみ)
   (preset.partitions || []).forEach(p => { const s = seg(p.x1, p.z1, p.x2, p.z2, p.openings); s.isPartition = true; walls.push(s); });
@@ -226,7 +238,8 @@ function validateLayout(preset, defsById) {
       const fx = m.cx + front.x * (hdF + Math.min(use.access, 0.4));
       const fz = m.cz + front.z * (hdF + Math.min(use.access, 0.4));
       const nw = nearestWall(walls, fx, fz);
-      const outside = Math.abs(fx) > preset.room.w / 2 + 0.05 || Math.abs(fz) > preset.room.d / 2 + 0.05;
+      const rb0 = roomBounds(preset);
+      const outside = fx < rb0.x0 - 0.05 || fx > rb0.x1 + 0.05 || fz < rb0.z0 - 0.05 || fz > rb0.z1 + 0.05;
       if (nw && nw.dist < 0.15 && !nw.inOpening) {
         add('error', idx, def.id, `アクセス面(前面)が壁を向いている (向き rotY=${it.rotY || 0})`);
       } else if (outside) {
@@ -311,7 +324,7 @@ function validateLayout(preset, defsById) {
   // (8) 動線(導線)チェック — 扉/通路開口の前に通行を塞ぐ床置き什器がないか
   // 壁の各通行開口について、開口幅×CLEAR(室内側)のクリアランス帯に侵入する什器を検出
   const CLEAR = 0.55;   // 確保したい開口前クリアランス[m]
-  const W = preset.room.w / 2, D = preset.room.d / 2;
+  const rb = roomBounds(preset);
   const obstacles = items.filter(m => m.use.mount === 'floor'
     && !CIRC_IGNORE_CAT.has(m.def.cat) && !CIRC_IGNORE_ID.has(m.def.id) && !PERSON_IDS.has(m.def.id)
     && (m.def.h || 0) >= 0.45);
@@ -340,8 +353,9 @@ function validateLayout(preset, defsById) {
         }
         // 外周壁: 室外側(部屋の外)は無視
         const mxb = (bx0 + bx1) / 2, mzb = (bz0 + bz1) / 2;
-        if (!w.isPartition && (Math.abs(mxb) > W + 0.02 || Math.abs(mzb) > D + 0.02)) continue;
+        if (!w.isPartition && (mxb < rb.x0 - 0.02 || mxb > rb.x1 + 0.02 || mzb < rb.z0 - 0.02 || mzb > rb.z1 + 0.02)) continue;
         for (const m of obstacles) {
+          if (WET_DOOR_KINDS.has(o.kind) && WET_FIXTURES.has(m.def.id)) continue;   // 便器/ユニットバスはその扉の先にある設備そのもの
           const ox = Math.min(m.cx + m.hw, bx1) - Math.max(m.cx - m.hw, bx0);
           const oz = Math.min(m.cz + m.hd, bz1) - Math.max(m.cz - m.hd, bz0);
           if (ox > 0.12 && oz > 0.12) {
@@ -382,14 +396,14 @@ function validateLayout(preset, defsById) {
     m.cx >= Math.min(f.x1, f.x2) && m.cx <= Math.max(f.x1, f.x2) &&
     m.cz >= Math.min(f.z1, f.z2) && m.cz <= Math.max(f.z1, f.z2)));
   if (wetRects.length) {
-    const W = preset.room.w / 2, D = preset.room.d / 2, ws = preset.walls || {};
+    const rb = roomBounds(preset), ws = preset.walls || {};
     const DOORK = new Set(['door', 'genkan', 'auto_door', 'glass_door', 'double_door', 'sliding_door']);
     const inRect = (x, z, f) => x >= Math.min(f.x1, f.x2) && x <= Math.max(f.x1, f.x2) && z >= Math.min(f.z1, f.z2) && z <= Math.max(f.z1, f.z2);
     const perim = [
-      { ops: ws.south, along: 'x', line: -D, p0: -W, p1: W, nx: 0, nz: 1 },
-      { ops: ws.north, along: 'x', line:  D, p0: -W, p1: W, nx: 0, nz: -1 },
-      { ops: ws.west,  along: 'z', line: -W, p0: -D, p1: D, nx: 1, nz: 0 },
-      { ops: ws.east,  along: 'z', line:  W, p0: -D, p1: D, nx: -1, nz: 0 },
+      { ops: ws.south, along: 'x', line: rb.z0, p0: rb.x0, p1: rb.x1, nx: 0, nz: 1 },
+      { ops: ws.north, along: 'x', line: rb.z1, p0: rb.x0, p1: rb.x1, nx: 0, nz: -1 },
+      { ops: ws.west,  along: 'z', line: rb.x0, p0: rb.z0, p1: rb.z1, nx: 1, nz: 0 },
+      { ops: ws.east,  along: 'z', line: rb.x1, p0: rb.z0, p1: rb.z1, nx: -1, nz: 0 },
     ];
     for (const wall of perim) {
       for (const o of (wall.ops || [])) {
@@ -408,22 +422,39 @@ function validateLayout(preset, defsById) {
 
   // --- 設計チェック(間取り): 出入りできない閉鎖空間がないか ---
   // 外扉から扉/通路(passage開口)を辿るグリッド・フラッドフィルで, 到達不能な区画(扉のない部屋)を検出する。
-  checkEnclosed(preset, walls, add);
-  checkPointlessDoors(preset, walls, add);
+  checkEnclosed(preset, walls, add, items);
+  checkPointlessDoors(preset, walls, add, items);
 
   return issues;
 }
 
+// 通行を遮る大型什器(キッチンカウンター・バーカウンター等)をグリッド上で壁と同様に扱う。
+// 対面キッチンのようにカウンターで区画された空間は、カウンター越しには通れない。
+// 什器と壁の間の 0.24m 未満の隙間(人が通れない)はグリッド量子化で抜け道にならないよう, 設置面を 0.12m 拡げて判定する。
+const BARRIER_IDS = new Set(['kitchen', 'barcounter', 'reception', 'register']);
+const BARRIER_PAD = 0.12;
+function barrierGrid(items, nx, nz, ccx, ccz, id) {
+  const b = new Uint8Array(nx * nz);
+  (items || []).forEach(m => {
+    if (!BARRIER_IDS.has(m.def.id) || m.use.mount !== 'floor') return;
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      if (Math.abs(ccx(i) - m.cx) <= m.hw + BARRIER_PAD && Math.abs(ccz(j) - m.cz) <= m.hd + BARRIER_PAD) b[id(i, j)] = 1;
+    }
+  });
+  return b;
+}
+
 // 閉鎖空間(到達不能区画)検出: 室内をグリッド化し, 外扉から壁の開口(扉/通路)のみを通って到達できる範囲をBFS。
 // 到達できないまとまった領域(>=1.5m²)を「出入りできない部屋」として報告する。窓は通行不可(passage扱いしない)。
-function checkEnclosed(preset, walls, add) {
+function checkEnclosed(preset, walls, add, items) {
   if (!preset.room) return;
-  const w = preset.room.w, d = preset.room.d, W = w / 2, D = d / 2;
+  const rb = roomBounds(preset), w = rb.x1 - rb.x0, d = rb.z1 - rb.z0, X0 = rb.x0, Z0 = rb.z0;
   const CELL = 0.2;
   const nx = Math.max(1, Math.round(w / CELL)), nz = Math.max(1, Math.round(d / CELL));
   const dx = w / nx, dz = d / nz;
-  const ccx = i => -W + (i + 0.5) * dx, ccz = j => -D + (j + 0.5) * dz;
+  const ccx = i => X0 + (i + 0.5) * dx, ccz = j => Z0 + (j + 0.5) * dz;
   const id = (i, j) => j * nx + i;
+  const blocked = barrierGrid(items, nx, nz, ccx, ccz, id);   // カウンター等の什器で塞がれたセル
   const wlen = ww => Math.hypot(ww.x2 - ww.x1, ww.z2 - ww.z1);
   const passageAt = (ww, s) => {                  // s=0..1 沿い位置が通行開口の中か
     const L = wlen(ww); if (L < 1e-6) return false;
@@ -445,7 +476,7 @@ function checkEnclosed(preset, walls, add) {
   const blockedH = (i, j) => {                      // セル(i,j)↔(i+1,j) を縦壁が塞ぐか
     const zc = ccz(j);
     for (const ww of vW) {
-      if (Math.round((ww.x1 + W) / dx) !== i + 1) continue;
+      if (Math.round((ww.x1 - X0) / dx) !== i + 1) continue;
       if (zc < Math.min(ww.z1, ww.z2) - 1e-9 || zc > Math.max(ww.z1, ww.z2) + 1e-9) continue;
       if (!passageAt(ww, (zc - ww.z1) / (ww.z2 - ww.z1))) return true;
     }
@@ -454,7 +485,7 @@ function checkEnclosed(preset, walls, add) {
   const blockedV = (i, j) => {                      // セル(i,j)↔(i,j+1) を横壁が塞ぐか
     const xc = ccx(i);
     for (const ww of hW) {
-      if (Math.round((ww.z1 + D) / dz) !== j + 1) continue;
+      if (Math.round((ww.z1 - Z0) / dz) !== j + 1) continue;
       if (xc < Math.min(ww.x1, ww.x2) - 1e-9 || xc > Math.max(ww.x1, ww.x2) + 1e-9) continue;
       if (!passageAt(ww, (xc - ww.x1) / (ww.x2 - ww.x1))) return true;
     }
@@ -470,25 +501,25 @@ function checkEnclosed(preset, walls, add) {
       const isVert = Math.abs(ww.x2 - ww.x1) < 1e-6;
       const px = ocx + (isVert ? (ocx < 0 ? 1 : -1) : 0) * CELL * 1.5;
       const pz = ocz + (isVert ? 0 : (ocz < 0 ? 1 : -1)) * CELL * 1.5;
-      const i = Math.floor((px + W) / dx), j = Math.floor((pz + D) / dz);
-      if (i >= 0 && i < nx && j >= 0 && j < nz && !reached[id(i, j)]) { reached[id(i, j)] = 1; q.push(i + j * nx); }
+      const i = Math.floor((px - X0) / dx), j = Math.floor((pz - Z0) / dz);
+      if (i >= 0 && i < nx && j >= 0 && j < nz && !reached[id(i, j)] && !blocked[id(i, j)]) { reached[id(i, j)] = 1; q.push(i + j * nx); }
     }
   }
   if (!q.length) return;                            // 外扉が無い → 判定保留
   while (q.length) {
     const c = q.pop(), i = c % nx, j = (c - i) / nx;
-    if (i + 1 < nx && !reached[id(i + 1, j)] && !blockedH(i, j)) { reached[id(i + 1, j)] = 1; q.push(c + 1); }
-    if (i - 1 >= 0 && !reached[id(i - 1, j)] && !blockedH(i - 1, j)) { reached[id(i - 1, j)] = 1; q.push(c - 1); }
-    if (j + 1 < nz && !reached[id(i, j + 1)] && !blockedV(i, j)) { reached[id(i, j + 1)] = 1; q.push(c + nx); }
-    if (j - 1 >= 0 && !reached[id(i, j - 1)] && !blockedV(i, j - 1)) { reached[id(i, j - 1)] = 1; q.push(c - nx); }
+    if (i + 1 < nx && !reached[id(i + 1, j)] && !blocked[id(i + 1, j)] && !blockedH(i, j)) { reached[id(i + 1, j)] = 1; q.push(c + 1); }
+    if (i - 1 >= 0 && !reached[id(i - 1, j)] && !blocked[id(i - 1, j)] && !blockedH(i - 1, j)) { reached[id(i - 1, j)] = 1; q.push(c - 1); }
+    if (j + 1 < nz && !reached[id(i, j + 1)] && !blocked[id(i, j + 1)] && !blockedV(i, j)) { reached[id(i, j + 1)] = 1; q.push(c + nx); }
+    if (j - 1 >= 0 && !reached[id(i, j - 1)] && !blocked[id(i, j - 1)] && !blockedV(i, j - 1)) { reached[id(i, j - 1)] = 1; q.push(c - nx); }
   }
   const visited = new Uint8Array(nx * nz), cellA = dx * dz;
   for (let j0 = 0; j0 < nz; j0++) for (let i0 = 0; i0 < nx; i0++) {
-    if (reached[id(i0, j0)] || visited[id(i0, j0)]) continue;
+    if (reached[id(i0, j0)] || visited[id(i0, j0)] || blocked[id(i0, j0)]) continue;
     let cnt = 0, sx = 0, sz = 0; const qq = [[i0, j0]]; visited[id(i0, j0)] = 1;
     while (qq.length) {
       const [a, b] = qq.pop(); cnt++; sx += ccx(a); sz += ccz(b);
-      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (reached[id(na, nb)] || visited[id(na, nb)] || bl) return; visited[id(na, nb)] = 1; qq.push([na, nb]); };
+      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (reached[id(na, nb)] || visited[id(na, nb)] || blocked[id(na, nb)] || bl) return; visited[id(na, nb)] = 1; qq.push([na, nb]); };
       tryC(a + 1, b, blockedH(a, b)); tryC(a - 1, b, blockedH(a - 1, b));
       tryC(a, b + 1, blockedV(a, b)); tryC(a, b - 1, blockedV(a, b - 1));
     }
@@ -502,12 +533,13 @@ function checkEnclosed(preset, walls, add) {
 // ある扉の両側が「同じ区画」に属するなら, その壁は空間を分けておらず(壁の端などから回り込める)扉に意味がない。
 // 冗長性(2つ目の出入口)は対象外 — 両側が別区画なら壁は実際に空間を分けており, 扉は有意。
 // 例外: 防火シャッター等の大型開口の脇で通用口の役割を持つ扉 → 同じ壁にシャッター開口があれば除外。
-function checkPointlessDoors(preset, walls, add) {
+function checkPointlessDoors(preset, walls, add, items) {
   if (!preset.room) return;
-  const w = preset.room.w, d = preset.room.d, W = w / 2, D = d / 2, CELL = 0.2;
+  const rb = roomBounds(preset), w = rb.x1 - rb.x0, d = rb.z1 - rb.z0, X0 = rb.x0, Z0 = rb.z0, CELL = 0.2;
   const nx = Math.max(1, Math.round(w / CELL)), nz = Math.max(1, Math.round(d / CELL));
   const dx = w / nx, dz = d / nz;
-  const ccx = i => -W + (i + 0.5) * dx, ccz = j => -D + (j + 0.5) * dz, id = (i, j) => j * nx + i;
+  const ccx = i => X0 + (i + 0.5) * dx, ccz = j => Z0 + (j + 0.5) * dz, id = (i, j) => j * nx + i;
+  const blocked = barrierGrid(items, nx, nz, ccx, ccz, id);   // カウンター等の什器で塞がれたセル
   const vW = [], hW = [];
   for (const ww of walls) {
     if (Math.abs(ww.x2 - ww.x1) < 1e-6 && Math.abs(ww.z2 - ww.z1) > 1e-6) vW.push(ww);
@@ -517,7 +549,7 @@ function checkPointlessDoors(preset, walls, add) {
   const blkH = (i, j) => {
     const zc = ccz(j);
     for (const ww of vW) {
-      if (Math.round((ww.x1 + W) / dx) !== i + 1) continue;
+      if (Math.round((ww.x1 - X0) / dx) !== i + 1) continue;
       if (zc < Math.min(ww.z1, ww.z2) - 1e-9 || zc > Math.max(ww.z1, ww.z2) + 1e-9) continue;
       return true;
     }
@@ -526,7 +558,7 @@ function checkPointlessDoors(preset, walls, add) {
   const blkV = (i, j) => {
     const xc = ccx(i);
     for (const ww of hW) {
-      if (Math.round((ww.z1 + D) / dz) !== j + 1) continue;
+      if (Math.round((ww.z1 - Z0) / dz) !== j + 1) continue;
       if (xc < Math.min(ww.x1, ww.x2) - 1e-9 || xc > Math.max(ww.x1, ww.x2) + 1e-9) continue;
       return true;
     }
@@ -536,16 +568,16 @@ function checkPointlessDoors(preset, walls, add) {
   const lab = new Int32Array(nx * nz).fill(-1);
   let nLab = 0;
   for (let j0 = 0; j0 < nz; j0++) for (let i0 = 0; i0 < nx; i0++) {
-    if (lab[id(i0, j0)] >= 0) continue;
+    if (lab[id(i0, j0)] >= 0 || blocked[id(i0, j0)]) continue;
     const L = nLab++; const q = [[i0, j0]]; lab[id(i0, j0)] = L;
     while (q.length) {
       const [a, b] = q.pop();
-      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (lab[id(na, nb)] >= 0 || bl) return; lab[id(na, nb)] = L; q.push([na, nb]); };
+      const tryC = (na, nb, bl) => { if (na < 0 || na >= nx || nb < 0 || nb >= nz) return; if (lab[id(na, nb)] >= 0 || blocked[id(na, nb)] || bl) return; lab[id(na, nb)] = L; q.push([na, nb]); };
       tryC(a + 1, b, blkH(a, b)); tryC(a - 1, b, blkH(a - 1, b));
       tryC(a, b + 1, blkV(a, b)); tryC(a, b - 1, blkV(a, b - 1));
     }
   }
-  const cellAt = (x, z) => { const i = Math.floor((x + W) / dx), j = Math.floor((z + D) / dz); return (i >= 0 && i < nx && j >= 0 && j < nz) ? lab[id(i, j)] : -1; };
+  const cellAt = (x, z) => { const i = Math.floor((x - X0) / dx), j = Math.floor((z - Z0) / dz); return (i >= 0 && i < nx && j >= 0 && j < nz) ? lab[id(i, j)] : -1; };
   const hasShutter = ww => (ww.ops || []).some(o => /shutter|gate|roller/.test(String(o.kind || '')));
   for (const ww of walls) {
     const isVert = Math.abs(ww.x2 - ww.x1) < 1e-6;

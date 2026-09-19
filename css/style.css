@@ -721,3 +721,36 @@ body {
 .toast { position: fixed; top: calc(var(--toolbar-h) + 12px); left: 50%; transform: translateX(-50%) translateY(-12px); background: rgba(47,42,34,0.92); color: white; padding: 10px 18px; border-radius: 100px; font-size: 12px; font-weight: 500; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 8px; opacity: 0; pointer-events: none; transition: all 0.25s ease; z-index: 1100; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast i { color: var(--accent); }
+
+/* ===== 実寸・出典 / 周囲との間隔 / 配置メモ / スナップ選択 ===== */
+.snap-badge { pointer-events: auto; }
+.snap-badge select { font: inherit; font-size: 11px; font-weight: 600; color: var(--text-primary); background: transparent; border: none; border-bottom: 1px dashed var(--border-strong); padding: 0 2px; cursor: pointer; outline: none; }
+.spec-table { display: flex; flex-direction: column; gap: 6px; }
+.spec-row { display: grid; grid-template-columns: 58px 1fr; gap: 6px; font-size: 11px; line-height: 1.45; }
+.spec-k { color: var(--text-muted); font-weight: 600; }
+.spec-v { color: var(--text-secondary); word-break: break-word; }
+.spec-v a { color: var(--accent-dark); text-decoration: none; font-weight: 500; }
+.spec-v a:hover { text-decoration: underline; }
+.spec-v a i { font-size: 9px; opacity: 0.7; }
+.clr-grid { display: grid; grid-template-columns: 1fr 44px 1fr; grid-template-areas: ". up ." "left c right" ". down ."; gap: 4px; }
+.clr-cell { background: var(--bg-panel-alt); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 5px 6px; min-height: 46px; display: flex; flex-direction: column; justify-content: center; }
+.clr-cell label { font-size: 9px; color: var(--text-muted); font-weight: 600; letter-spacing: .04em; display: block; }
+.clr-up { grid-area: up; } .clr-down { grid-area: down; } .clr-left { grid-area: left; } .clr-right { grid-area: right; }
+.clr-center { grid-area: c; align-items: center; color: var(--accent-dark); font-size: 15px; background: var(--accent-light); border-color: transparent; }
+.clr-val { font-size: 13px; font-weight: 700; line-height: 1.1; }
+.clr-val small { font-size: 9px; font-weight: 500; margin-left: 1px; }
+.clr-who { font-size: 9.5px; color: var(--text-muted); line-height: 1.2; margin-top: 2px; }
+.clr-who.clr-open { color: #b9711a; }
+.clr-ok { color: var(--accent-dark); } .clr-tight { color: var(--warning); } .clr-touch { color: var(--text-muted); } .clr-none { color: var(--text-muted); }
+.clr-legend { margin-top: 6px; font-size: 9.5px; color: var(--text-muted); display: flex; gap: 8px; flex-wrap: wrap; }
+.props-help { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border-strong); font-size: 9px; color: var(--text-muted); margin-left: auto; cursor: help; text-transform: none; letter-spacing: 0; }
+.preset-notes { margin: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-panel-alt); overflow: hidden; flex-shrink: 0; }
+.pn-head { display: flex; align-items: center; gap: 6px; padding: 8px 10px; font-size: 11px; font-weight: 700; color: var(--text-primary); border-bottom: 1px solid var(--border); }
+.pn-head i { color: var(--accent-dark); }
+.pn-toggle { margin-left: auto; width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-panel); color: var(--text-muted); cursor: pointer; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.pn-list { margin: 0; padding: 8px 10px 8px 24px; font-size: 11px; line-height: 1.55; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; }
+.pn-list li::marker { color: var(--accent-dark); font-weight: 700; }
+.preset-notes.collapsed .pn-list { display: none; }
+.preset-notes.collapsed .pn-head { border-bottom: none; }
+.fitem-model { font-size: 9.5px; color: #b7e3bd; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fitem-model i { font-size: 8px; opacity: 0.8; margin-right: 2px; }
