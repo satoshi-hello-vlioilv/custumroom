@@ -410,7 +410,7 @@ function shade(hex, f) {
 // ===== js/core/version.js =====
 // アプリのバージョン番号。リリースのたびに更新し, CHANGELOG.md に対応するエントリを追記する。
 // セマンティックバージョニング(MAJOR.MINOR.PATCH): 破壊的変更/大規模刷新=MAJOR, 機能追加=MINOR, 修正=PATCH
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 
 // ===== js/core/orient.js =====
@@ -2250,22 +2250,31 @@ function buildSideTable({ color='#f3ece0', w=0.55, d=0.55, h=0.45 } = {}) {
   [[-w/2+L/2,d/2-L/2],[-w/2+L/2,-(d/2-L/2)],[w/2-L/2,d/2-L/2],[w/2-L/2,-(d/2-L/2)]].forEach(([lx,lz]) => { const leg = box(L,h-0.05,L,wood,lx,(h-0.05)/2,lz); leg.userData.colorable = true; g.add(leg); });
   return g;
 }
-function buildCafeChair({ color='#6a4830', w=0.46, d=0.48, h=0.87 } = {}) {
+// ---- カフェチェア (TON No.14 曲木チェア 風): 直径40.5cmの丸い籐座面, 曲木のフープ背もたれ(外枠+内枠), 少し開いた4本脚, 脚をつなぐ曲木リング。
+//      W410×D515×H840, 座面高46。使う面 +Z ----
+function buildCafeChair({ color='#6a4830', w=0.41, d=0.515, h=0.84 } = {}) {
   const g = new THREE.Group();
-  const wood = mat(color, 0.65, 0.02);
-  const metal = mat('#383838', 0.45, 0.65);
-  const seat = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.05, d-0.04, 0.03, 2), wood);
-  seat.position.set(0, 0.46, 0.01); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
-  const legH = 0.44, ins = 0.03;
-  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.016, 0.016, legH, 8, metal, lx, legH/2, lz)));
-  const bpH = h - 0.46;
-  [-w/2+ins, w/2-ins].forEach(x => g.add(cylAt(0.016, 0.016, bpH, 8, metal, x, 0.46+bpH/2, -(d/2-ins))));
-  g.add(box(w-0.04, 0.05, 0.04, wood, 0, h-0.03, -(d/2-ins)));
-  g.add(box(w-0.08, 0.03, 0.03, metal, 0, 0.68, -(d/2-ins)));
+  const wood = mat(color, 0.6, 0.03), cane = mat('#d9b877', 0.85, 0);
+  const seatH = 0.46, R = 0.2025, sz = d/2 - R, up = new THREE.Vector3(0, 1, 0);
+  const seat = new THREE.Mesh(new THREE.CylinderGeometry(R, R - 0.01, 0.03, 28), wood); seat.position.set(0, seatH - 0.015, sz); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  g.add(cylAt(R - 0.03, R - 0.03, 0.006, 28, cane, 0, seatH + 0.002, sz));                          // 籐張り
+  const legH = seatH - 0.03;
+  [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sZ]) => {                                        // 4本脚(少し外へ開く)
+    const x0 = sx*(R - 0.05), z0 = sz + sZ*(R - 0.05), x1 = sx*(w/2 - 0.015), z1 = sz + sZ*(R + 0.02);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.017, Math.hypot(legH, x1 - x0, z1 - z0), 10), wood);
+    leg.position.set((x0 + x1)/2, legH/2, (z0 + z1)/2); leg.quaternion.setFromUnitVectors(up, new THREE.Vector3(x1 - x0, -legH, z1 - z0).normalize()); leg.castShadow = true; g.add(leg);
+  });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.01, 0.008, 8, 32), wood); ring.rotation.x = Math.PI/2; ring.position.set(0, 0.22, sz); g.add(ring);   // 曲木リング
+  const bz = -d/2 + 0.03, postH = h - seatH - (w/2 - 0.03), lean = -0.14;                            // 背もたれ: 支柱 + 半円のフープ
+  [-1, 1].forEach(s => { const p = cyl(0.013, 0.015, postH, 10, wood); p.position.set(s*(w/2 - 0.03), seatH + postH/2, bz - Math.sin(lean)*postH/2); p.rotation.x = lean; p.castShadow = true; g.add(p); });
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(w/2 - 0.03, 0.013, 8, 24, Math.PI), wood); arch.position.set(0, seatH + postH, bz - Math.sin(lean)*postH); arch.rotation.x = lean; arch.castShadow = true; g.add(arch);
+  const inner = new THREE.Mesh(new THREE.TorusGeometry(w/2 - 0.10, 0.010, 8, 20, Math.PI), wood); inner.position.set(0, seatH + postH*0.55, bz - Math.sin(lean)*postH*0.55 + 0.01); inner.rotation.x = lean; g.add(inner);   // 内側のフープ
+  [-1, 1].forEach(s => { const p = cyl(0.010, 0.010, postH*0.55, 8, wood); p.position.set(s*(w/2 - 0.10), seatH + postH*0.275, bz - Math.sin(lean)*postH*0.275 + 0.01); p.rotation.x = lean; g.add(p); });
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildWindsorChair({ color='#5a3820', w=0.48, d=0.48, h=0.95 } = {}) {
+// ---- ウィンザーチェア (IKEA NORRARYD 風): 丸みのある座面, 5本のスピンドルと湾曲した笠木。W470×D510×H830, 座面高45 ----
+function buildWindsorChair({ color='#5a3820', w=0.47, d=0.51, h=0.83 } = {}) {
   const g = new THREE.Group();
   const wood = mat(color, 0.68, 0.02);
   const seat = new THREE.Mesh(roundedBoxGeom(w, 0.07, d, 0.05, 2), wood);
@@ -2280,7 +2289,8 @@ function buildWindsorChair({ color='#5a3820', w=0.48, d=0.48, h=0.95 } = {}) {
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildStackingChair({ color='#222222', w=0.46, d=0.5, h=0.82 } = {}) {
+// ---- スタッキングチェア (IKEA ADDE 風): 樹脂の座面・背もたれ, スチールパイプ脚。W390×D470×H770, 座面高45 ----
+function buildStackingChair({ color='#222222', w=0.39, d=0.47, h=0.77 } = {}) {
   const g = new THREE.Group();
   const metal = mat(color, 0.55, 0.65);
   const plastic = mat(shade(color, 1.5), 0.85, 0.0);
@@ -2296,7 +2306,8 @@ function buildStackingChair({ color='#222222', w=0.46, d=0.5, h=0.82 } = {}) {
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildUpholsteredChair({ color='#3a3a3a', w=0.52, d=0.54, h=0.92 } = {}) {
+// ---- レストランチェア (IKEA BERGMUND 風): 張り座面と高い張り背もたれ, 木製フレーム。W450×D580×H980 ----
+function buildUpholsteredChair({ color='#3a3a3a', w=0.45, d=0.58, h=0.98 } = {}) {
   const g = new THREE.Group();
   const wood = mat('#6a4a2a', 0.65, 0.02);
   const fabric = fabricMat(color);
@@ -2312,29 +2323,36 @@ function buildUpholsteredChair({ color='#3a3a3a', w=0.52, d=0.54, h=0.92 } = {})
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildCafeTable({ color='#8a6a3a', w=0.65, d=0.65, h=0.74 } = {}) {
+// ---- カフェテーブル (IKEA MELLTORP 75×75×74 風): メラミンの白い天板, 天板下の側桟, スチール丸脚4本 ----
+function buildCafeTable({ color='#f3ece0', w=0.75, d=0.75, h=0.74 } = {}) {
   const g = new THREE.Group();
-  const wood = mat(color, 0.55, 0.02, { env: 0.4 });
-  const metal = mat('#4a4a50', 0.4, 0.7);
-  const top = new THREE.Mesh(roundedBoxGeom(w, 0.05, d, 0.03, 2), wood);
-  top.position.set(0, h-0.025, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
-  const legH = h - 0.06, ins = 0.05;
-  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.022, 0.022, legH, 8, metal, lx, legH/2, lz)));
-  g.add(box(w-0.14, 0.03, 0.03, metal, 0, 0.36,  d/2-ins));
-  g.add(box(w-0.14, 0.03, 0.03, metal, 0, 0.36, -(d/2-ins)));
+  const topM = mat(color, 0.45, 0.02, { env: 0.4 });
+  const metal = mat('#e9e9e6', 0.4, 0.55, { env: 0.6 });
+  const top = new THREE.Mesh(roundedBoxGeom(w, 0.035, d, 0.008, 2), topM);
+  top.position.set(0, h-0.0175, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  const legH = h - 0.035, ins = 0.045;
+  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.02, 0.02, legH, 10, metal, lx, legH/2, lz)));
+  g.add(box(w-0.11, 0.04, 0.02, metal, 0, h - 0.06,  d/2-ins));                                       // 側桟(天板直下)
+  g.add(box(w-0.11, 0.04, 0.02, metal, 0, h - 0.06, -(d/2-ins)));
+  [-1, 1].forEach(s => g.add(box(0.02, 0.04, d-0.11, metal, s*(w/2-ins), h - 0.06, 0)));
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildRoundTableSm({ color='#8a6a3a', w=0.7, d=0.7, h=0.74 } = {}) {
+// ---- 丸テーブル小 (IKEA STENSELE 直径70 高さ75 風): チャコールのアルミ天板, 少し開いた4本の丸脚 ----
+function buildRoundTableSm({ color='#4a4f54', w=0.7, d=0.7, h=0.75 } = {}) {
   const g = new THREE.Group();
   const r = Math.min(w, d) / 2;
-  const wood = mat(color, 0.55, 0.02, { env: 0.4 });
-  const metal = mat('#4a4a50', 0.4, 0.7);
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.05, 32), wood);
-  top.position.set(0, h-0.025, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
-  g.add(cylAt(0.04, 0.04, h-0.1, 12, metal, 0, (h-0.1)/2, 0));
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(r*0.55, r*0.6, 0.04, 20), metal);
-  base.position.set(0, 0.02, 0); base.castShadow = true; g.add(base);
+  const topM = mat(color, 0.45, 0.35, { env: 0.6 }), metal = mat(shade(color, 0.9), 0.4, 0.6, { env: 0.6 });
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(r, r - 0.005, 0.03, 36), topM);
+  top.position.set(0, h-0.015, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  const up = new THREE.Vector3(0, 1, 0), legH = h - 0.03;
+  for (let i = 0; i < 4; i++) {
+    const a = i/4*Math.PI*2 + Math.PI/4, r0 = r - 0.12, r1 = r - 0.04;
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, Math.hypot(legH, r1 - r0), 10), metal);
+    leg.position.set(Math.cos(a)*(r0 + r1)/2, legH/2, Math.sin(a)*(r0 + r1)/2);
+    leg.quaternion.setFromUnitVectors(up, new THREE.Vector3(Math.cos(a)*(r1 - r0), -legH, Math.sin(a)*(r1 - r0)).normalize()); g.add(leg);
+  }
+  g.add(cylAt(r - 0.12, r - 0.12, 0.03, 24, metal, 0, h - 0.045, 0));                               // 天板下の脚受け
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
@@ -5674,22 +5692,28 @@ function buildBarCounter({ color='#5b3a22', w=2.4, d=0.5, h=1.1 } = {}) {
   [0.35, 0.72].forEach(y => g.add(box(w - 0.1, 0.03, d - 0.08, mat(shade(color, 0.92), 0.6), 0, y, 0)));
   return g;
 }
-function buildBarStool({ color='#5b5048' } = {}) {
+// ---- バースツール (IKEA DALFRED 風): 直径30cmの丸座面, ガス圧で63〜74cmに昇降する支柱, リング状の足置き, 直径50cmのドーム状ベース。ブラック ----
+function buildBarStool({ color='#2b2b2b', w=0.5, d=0.5, h=0.74 } = {}) {
   const g = new THREE.Group();
-  const chrome = mat('#c0c8d0', 0.2, 0.85, { env: 1.0 });
-  const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.07, 16), fabricMat(color));
-  seat.position.y = 0.8; seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.012, 8, 20), chrome); ring.rotation.x = Math.PI / 2; ring.position.y = 0.28; g.add(ring);
-  const post = cyl(0.025, 0.025, 0.72, 10, chrome); post.position.y = 0.42; g.add(post);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.04, 20), chrome); base.position.y = 0.02; base.castShadow = true; g.add(base);
+  const metal = mat(color, 0.4, 0.55, { env: 0.7 }), chrome = mat('#c0c8d0', 0.2, 0.85, { env: 1.0 });
+  const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.14, 0.03, 24), metal); seat.position.y = h - 0.015; seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  g.add(cylAt(0.05, 0.05, 0.03, 16, metal, 0, h - 0.045, 0));                                          // 座面下のハブ
+  g.add(cylAt(0.02, 0.02, h - 0.35, 12, chrome, 0, 0.3 + (h - 0.35)/2, 0));                            // ガス圧シリンダー
+  g.add(cylAt(0.028, 0.028, 0.28, 12, metal, 0, 0.16, 0));                                             // 外筒
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.008, 8, 28), metal); ring.rotation.x = Math.PI / 2; ring.position.y = 0.30; g.add(ring);   // 足置きリング
+  for (let i = 0; i < 4; i++) { const a = i/4*Math.PI*2; const spoke = box(0.15, 0.008, 0.008, metal, Math.cos(a)*0.095, 0.30, Math.sin(a)*0.095); spoke.rotation.y = -a; g.add(spoke); }
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.03, w/2, 0.03, 28), metal); base.position.y = 0.015; base.castShadow = true; g.add(base);   // ドーム状ベース
   return g;
 }
-function buildRoundTable({ color='#8a5a2b', w=0.9, d=0.9, h=0.74 } = {}) {
+// ---- 丸テーブル (IKEA GAMLARED 直径85 高さ75 風): パイン無垢材の丸天板(縁が丸い), ブラックステインの丸脚4本 ----
+function buildRoundTable({ color='#c8a06a', w=0.85, d=0.85, h=0.75 } = {}) {
   const g = new THREE.Group();
-  const topMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.05, 32), mat(color, 0.5, 0.04, { env: 0.4 }));
-  topMesh.position.y = h - 0.025; topMesh.castShadow = true; topMesh.receiveShadow = true; topMesh.userData.colorable = true; g.add(topMesh);
-  const post = cyl(0.04, 0.04, h - 0.12, 10, mat('#2a2018', 0.5, 0.2)); post.position.y = (h - 0.12) / 2; g.add(post);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.05, 20), mat('#2a2018', 0.6, 0.2)); base.position.y = 0.025; base.castShadow = true; g.add(base);
+  const r = Math.min(w, d) / 2;
+  const topMesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r - 0.012, 0.035, 36), mat(color, 0.55, 0.03, { env: 0.4 }));
+  topMesh.position.y = h - 0.0175; topMesh.castShadow = true; topMesh.receiveShadow = true; topMesh.userData.colorable = true; g.add(topMesh);
+  const legM = mat('#2a2018', 0.55, 0.05), legH = h - 0.035;
+  for (let i = 0; i < 4; i++) { const a = i/4*Math.PI*2 + Math.PI/4, lr = r - 0.09; g.add(cylAt(0.022, 0.028, legH, 10, legM, Math.cos(a)*lr, legH/2, Math.sin(a)*lr)); }
+  g.add(box(r*1.1, 0.06, 0.03, legM, 0, h - 0.065, 0)); g.add(box(0.03, 0.06, r*1.1, legM, 0, h - 0.065, 0));   // 幕板(十字)
   return g;
 }
 
@@ -7578,6 +7602,55 @@ const PRODUCT = {
   dishwasher: { brand:'BOSCH', model:'食器洗い機 60cm ビルトイン ゼオライトシリーズ SMV4ZDX016', name:'ボッシュ 60cm食洗機 SMV4ZDX016', mm:{ w:598, d:573, h:815 }, checked:'2026-09-19',
     note:'幅60cm・12人分。必要スペース 幅60×高さ81.5×奥行57.3cm以上（ビルトイン用、扉面材は別途）。',
     sources:[ { label:'ボッシュ Club Bs 取り付けサイズ', url:'https://www.club-bs.jp/e_zine/dw-size/' }, { label:'参考: 交換できるくん ボッシュ食洗機', url:'https://www.sunrefre.jp/kitchen/built_in/bosch/' } ] },
+  // ---- ステップ3: 店舗・飲食・学校 ----
+  cafechr: { brand:'TON', model:'No.14 チェア（曲木・籐座面, TO-14）', name:'TON No.14 チェア', mm:{ w:410, d:515, h:840 }, checked:'2026-09-19',
+    note:'幅410×奥行515×高さ840mm、座面高460mm、座面直径405mm。1859年のトーネット No.14 をチェコ TON社が現行生産。',
+    sources:[ { label:'RoyalDesign TON No.14 チェア', url:'https://royaldesign.jp/no-14-' }, { label:'参考: イデア TO-14', url:'https://idea1.jp/view/item/000000000400' } ] },
+  barstool: { brand:'IKEA', model:'DALFRED バースツール ブラック 63-74cm 401.615.95', name:'DALFRED バースツール', mm:{ w:500, d:500, h:740 }, checked:'2026-09-19',
+    note:'座面直径30cm、幅50×奥行50cm、座面高63〜74cm（最高位を採用）、耐荷重100kg。',
+    sources:[ { label:'IKEA公式（日本）DALFRED バースツール', url:IKEA('dalfred-bar-stool-black-40161595/') } ] },
+  windsorchair: { brand:'IKEA', model:'NORRARYD チェア ブラック 103.626.80', name:'NORRARYD チェア', mm:{ w:470, d:510, h:830 }, checked:'2026-09-19',
+    note:'幅47×奥行51×高さ83cm、座面高45cm。北欧のスピンドルバックチェア。',
+    sources:[ { label:'IKEA公式（日本）NORRARYD チェア', url:IKEA('norraryd-chair-black-10362680/') } ] },
+  upholchr: { brand:'IKEA', model:'BERGMUND チェア ブラック/ハーラルプ ベージュ 094.880.68', name:'BERGMUND チェア', mm:{ w:450, d:580, h:980 }, checked:'2026-09-19',
+    note:'幅45×奥行58×高さ98cm、座面高46cm（公式ページ記載値・要再確認）。張り座面と高い背もたれ。',
+    sources:[ { label:'IKEA公式（日本）BERGMUND チェア', url:IKEA('bergmund-chair-black-hallarp-beige-s09388068/') } ] },
+  stackchr: { brand:'IKEA', model:'ADDE チェア ブラック 702.142.86', name:'ADDE チェア', mm:{ w:390, d:470, h:770 }, checked:'2026-09-19',
+    note:'幅39×奥行47×高さ77cm、座面高45cm、耐荷重110kg。スタッキング可。',
+    sources:[ { label:'IKEA公式（日本）ADDE チェア', url:IKEA('adde-chair-black-70214286/') } ] },
+  roundtable: { brand:'IKEA', model:'GAMLARED テーブル ライトアンティークステイン/ブラックステイン 85cm', name:'GAMLARED テーブル 85', mm:{ w:850, d:850, h:750 }, checked:'2026-09-19',
+    note:'直径85×高さ75cm、パイン無垢材、2〜4人用。',
+    sources:[ { label:'参考: RoomClipショッピング IKEA GAMLARED', url:'https://roomclip.jp/shopping/products/472608' }, { label:'参考: Dimensions.com IKEA Gamlared', url:'https://www.dimensions.com/element/ikea-gamlared-table' } ] },
+  roundtablesm: { brand:'IKEA', model:'STENSELE テーブル チャコール 70cm 592.882.31', name:'STENSELE テーブル 70', mm:{ w:700, d:700, h:750 }, checked:'2026-09-19',
+    note:'直径70×高さ75cm、アルミ製。',
+    sources:[ { label:'IKEA公式（日本）STENSELE テーブル 70cm', url:IKEA('stensele-table-anthracite-anthracite-s59288231/') } ] },
+  cafetable: { brand:'IKEA', model:'MELLTORP テーブル ホワイト 75×75cm 792.463.77', name:'MELLTORP テーブル 75×75', mm:{ w:750, d:750, h:740 }, checked:'2026-09-19',
+    note:'長さ75×幅75×高さ74cm、メラミン天板、スチール脚。',
+    sources:[ { label:'IKEA公式（日本）MELLTORP テーブル 75x75', url:IKEA('melltorp-table-white-s79246377/') } ] },
+  gondola: { brand:'タテヤマアドバンス', model:'タテヤマゴンドラ 両面タイプ（KZ型ほか）W1200×D600×H1500', name:'タテヤマゴンドラ 両面 1200', mm:{ w:1200, d:600, h:1500 }, checked:'2026-09-19',
+    note:'シリーズのサイズ展開から両面 W1200×D600×H1500 を採用。品番は柱・棚板など構成部材ごとに異なる。',
+    sources:[ { label:'タテヤマアドバンス タテヤマゴンドラ', url:'https://advance.st-grp.co.jp/products/store/gondola/' } ] },
+  shelfrack: { brand:'カグクロ', model:'5段軽量スチールラック NCシリーズ NC1200185（W1200×D450×H1800）', name:'軽量スチールラック 5段 1200×450×1800', mm:{ w:1200, d:450, h:1800 }, checked:'2026-09-19',
+    note:'幅1200×奥行450×高さ1800mm、棚板5枚。店舗の陳列棚・バックヤード棚に。',
+    sources:[ { label:'カグクロ 5段軽量スチールラック NCシリーズ', url:'https://www.kagukuro.com/factory/rack/nc/nc1200185/' } ] },
+  showcasefridge: { brand:'ホシザキ', model:'リーチイン冷蔵ショーケース RSC-120EM（スライド扉・ユニット下置き）', name:'ホシザキ RSC-120EM', mm:{ w:1200, d:600, h:1880 }, weightKg:129, checked:'2026-09-19',
+    note:'外形 幅1200×奥行600×高さ1880mm、定格内容積669L、質量129kg、庫内0〜10℃。',
+    sources:[ { label:'ホシザキ公式 RSC-120EM', url:'https://www.hoshizaki.co.jp/p/rs/rsc-120em.html' } ] },
+  vendingmachine: { brand:'サンデン・リテールシステム', model:'缶・ボトル飲料自動販売機 30セレクション', name:'飲料自販機 30セレクション', mm:{ w:1186, d:642, h:1830 }, checked:'2026-09-19',
+    note:'外形 幅1186×奥行642×高さ1830mm（30セレクション機の標準寸法）。',
+    sources:[ { label:'SDRS 飲料自販機（缶・PET）', url:'https://www.sdrs.inc/product/vending-machine/beverage.html' }, { label:'参考: Jbag 飲料自動販売機30セレ', url:'https://jbag.co.jp/vending/742/' } ] },
+  register: { brand:'ストア・エキスプレス', model:'木製カウンター 幅120×高さ90cm（奥行55cm）61-654-81-1', name:'木製レジカウンター 120', mm:{ w:1200, d:550, h:900 }, checked:'2026-09-19',
+    note:'幅120×奥行55×高さ90cm。レジ・POS端末はモデル上の表現。',
+    sources:[ { label:'ストア・エキスプレス 木製カウンター 幅120×高さ90cm', url:'https://www.store-express.com/shop/g/g61-654-81-1/' } ] },
+  schooldesk: { brand:'コクヨ', model:'児童生徒用スクールセット（新JIS 5号: 机 天板650×450 高さ700）', name:'コクヨ 新JIS 学校机 5号', mm:{ w:650, d:450, h:700 }, checked:'2026-09-19',
+    note:'新JIS規格 5号（参考身長165cm）: 机高700mm・椅子座面高420mm。天板650×450mm。号数により高さが変わる。',
+    sources:[ { label:'コクヨファニチャー 児童生徒用スクールセット（新JIS）', url:'https://www.kokuyo-furniture.co.jp/manabi/products/detail/30.html' }, { label:'参考: 学校備品.com JIS規格について', url:'https://www.gakkoubihin.com/pages/jis%E8%A6%8F%E6%A0%BC%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6' } ] },
+  blackboard: { brand:'馬印', model:'大型曲面黒板 スチールグリーン 3600×1200', name:'馬印 曲面黒板 3600×1200', mm:{ w:3600, d:60, h:1200 }, checked:'2026-09-19',
+    note:'幅3600×高さ1200mm。緩やかな曲面で光の反射を抑える教室用大型黒板（鋼板下地でマグネット可）。',
+    sources:[ { label:'参考: モノタロウ 曲面スライダー黒板 スチールグリーン', url:'https://www.monotaro.com/g/04552089/' }, { label:'馬印公式 黒板 壁掛', url:'https://www.uma-jirushi.co.jp/item/kokuban-white-kabe/kokuban-kabe' } ] },
+  zabuton: { brand:'洛中高岡屋', model:'京座布団 銘仙判 55×59cm', name:'座布団 銘仙判', mm:{ w:550, d:590, h:80 }, checked:'2026-09-19',
+    note:'銘仙判 55×59cm（JIS Mサイズ）。八端判は59×63cm。',
+    sources:[ { label:'洛中高岡屋 京座布団 銘仙判', url:'https://www.takaokaya-shop.com/?pid=67250297' }, { label:'参考: シーツ.jp 座布団のサイズ', url:'https://sheets.jp/125' } ] },
 };
 
 const FURNITURE_DEFS = [
@@ -7664,18 +7737,18 @@ const FURNITURE_DEFS = [
       sources:[ { label:'REGZA公式 仕様表（E770S）', url:'https://www.regza.com/tv/lineup/e770s/spec' },
                 { label:'REGZA公式 商品トップ（E770S）', url:'https://www.regza.com/tv/lineup/e770s' },
                 { label:'参考: ヨドバシ.com 55E770S', url:'https://www.yodobashi.com/product/100000001009940323/' } ] } },
-  { id:'gondola',    cat:'shop',    name:'ゴンドラ什器(両面)',icon:'fa-shelves',           w:1.2, d:0.6,  h:1.5,  colorIdx:1,  build:buildGondolaShelf },
+  { id:'gondola',    cat:'shop',    name:'ゴンドラ什器(両面)',icon:'fa-shelves',           w:1.2, d:0.6,  h:1.5,  colorIdx:1,  build:buildGondolaShelf, product:PRODUCT.gondola },
   // ---- museum ----
   { id:'displaycase',cat:'museum',  name:'展示ケース',        icon:'fa-box-open',          w:0.88,d:0.52, h:1.3,  colorIdx:10, build:buildDisplayCase },
   { id:'pedestal',   cat:'museum',  name:'展示台',            icon:'fa-chess-rook',        w:0.5, d:0.5,  h:1.05, colorIdx:1,  build:buildPedestal },
   { id:'infopanel',  cat:'museum',  name:'解説パネル',        icon:'fa-sign-hanging',      w:0.76,d:0.03, h:1.5,  colorIdx:1,  build:buildInfoPanel },
   // ---- shop ----
-  { id:'shelfrack',  cat:'shop',    name:'商品棚',            icon:'fa-shelves',           w:1.2, d:0.5,  h:1.9,  colorIdx:1,  build:buildShelfRack },
-  { id:'register',   cat:'shop',    name:'レジカウンター',    icon:'fa-cash-register',     w:1.2, d:0.65, h:0.9,  colorIdx:1,  build:buildRegisterCounter },
-  { id:'showcasefridge', cat:'shop',name:'ショーケース冷蔵庫',icon:'fa-temperature-low',   w:1.2, d:0.72, h:2.0,  colorIdx:10, build:buildShowcaseFridge },
+  { id:'shelfrack',  cat:'shop',    name:'商品棚',            icon:'fa-shelves',           w:1.2, d:0.45, h:1.8,  colorIdx:1,  build:buildShelfRack,       product:PRODUCT.shelfrack },
+  { id:'register',   cat:'shop',    name:'レジカウンター',    icon:'fa-cash-register',     w:1.2, d:0.55, h:0.9,  colorIdx:1,  build:buildRegisterCounter, product:PRODUCT.register },
+  { id:'showcasefridge', cat:'shop',name:'ショーケース冷蔵庫',icon:'fa-temperature-low',   w:1.2, d:0.6,  h:1.88, colorIdx:10, build:buildShowcaseFridge,  product:PRODUCT.showcasefridge },
   { id:'barcounter', cat:'shop',    name:'バーカウンター',    icon:'fa-martini-glass',     w:2.4, d:0.5,  h:1.1,  colorIdx:8,  build:buildBarCounter },
-  { id:'barstool',   cat:'shop',    name:'バースツール',      icon:'fa-chair',             w:0.4, d:0.4,  h:0.85, colorIdx:2,  build:buildBarStool },
-  { id:'roundtable', cat:'shop',    name:'丸テーブル',        icon:'fa-circle',            w:0.9, d:0.9,  h:0.74, colorIdx:8,  build:buildRoundTable },
+  { id:'barstool',   cat:'shop',    name:'バースツール',      icon:'fa-chair',             w:0.5, d:0.5,  h:0.74, colorIdx:13, build:buildBarStool,        product:PRODUCT.barstool },
+  { id:'roundtable', cat:'shop',    name:'丸テーブル',        icon:'fa-circle',            w:0.85,d:0.85, h:0.75, colorIdx:0,  build:buildRoundTable,      product:PRODUCT.roundtable },
   // ---- seating variants ----
   { id:'sofa2',      cat:'seating', name:'2人掛けソファ',     icon:'fa-couch',             w:1.9, d:0.95, h:0.83, colorIdx:11, build:(o)=>buildSofa3({...o,seats:2}), product:PRODUCT.sofa2 },
   { id:'sofalow',    cat:'seating', name:'ローソファ',         icon:'fa-couch',             w:2.2, d:1.0,  h:0.72, colorIdx:0,  build:(o)=>buildSofa3({...o,low:true}) },
@@ -7687,12 +7760,12 @@ const FURNITURE_DEFS = [
   // ---- table variants ----
   { id:'consoletab', cat:'table',   name:'コンソールテーブル',icon:'fa-table',             w:1.33,d:0.37, h:0.75, colorIdx:1,  build:buildConsoleTable,     product:PRODUCT.consoletab },
   { id:'roundctab',  cat:'table',   name:'丸コーヒーテーブル',icon:'fa-circle',            w:0.7, d:0.7,  h:0.5,  colorIdx:0,  build:buildRoundCoffeeTable, product:PRODUCT.roundctab },
-  { id:'cafechr',       cat:'seating', name:'カフェチェア',          icon:'fa-chair',    w:0.46, d:0.48, h:0.87, colorIdx:8,  build:buildCafeChair },
-  { id:'windsorchair',  cat:'seating', name:'ウィンザーチェア',      icon:'fa-chair',    w:0.48, d:0.48, h:0.95, colorIdx:8,  build:buildWindsorChair },
-  { id:'stackchr',      cat:'seating', name:'スタッキングチェア',    icon:'fa-chair',    w:0.46, d:0.5,  h:0.82, colorIdx:10, build:buildStackingChair },
-  { id:'upholchr',      cat:'seating', name:'レストランチェア',      icon:'fa-chair',    w:0.52, d:0.54, h:0.92, colorIdx:0,  build:buildUpholsteredChair },
-  { id:'cafetable',     cat:'table',   name:'カフェテーブル',        icon:'fa-table',    w:0.65, d:0.65, h:0.74, colorIdx:8,  build:buildCafeTable },
-  { id:'roundtablesm',  cat:'table',   name:'丸テーブル小',          icon:'fa-circle',   w:0.7,  d:0.7,  h:0.74, colorIdx:8,  build:buildRoundTableSm },
+  { id:'cafechr',       cat:'seating', name:'カフェチェア',          icon:'fa-chair',    w:0.41, d:0.515,h:0.84, colorIdx:8,  build:buildCafeChair,        product:PRODUCT.cafechr },
+  { id:'windsorchair',  cat:'seating', name:'ウィンザーチェア',      icon:'fa-chair',    w:0.47, d:0.51, h:0.83, colorIdx:2,  build:buildWindsorChair,     product:PRODUCT.windsorchair },
+  { id:'stackchr',      cat:'seating', name:'スタッキングチェア',    icon:'fa-chair',    w:0.39, d:0.47, h:0.77, colorIdx:10, build:buildStackingChair,    product:PRODUCT.stackchr },
+  { id:'upholchr',      cat:'seating', name:'レストランチェア',      icon:'fa-chair',    w:0.45, d:0.58, h:0.98, colorIdx:11, build:buildUpholsteredChair, product:PRODUCT.upholchr },
+  { id:'cafetable',     cat:'table',   name:'カフェテーブル',        icon:'fa-table',    w:0.75, d:0.75, h:0.74, colorIdx:1,  build:buildCafeTable,        product:PRODUCT.cafetable },
+  { id:'roundtablesm',  cat:'table',   name:'丸テーブル小',          icon:'fa-circle',   w:0.7,  d:0.7,  h:0.75, colorIdx:13, build:buildRoundTableSm,     product:PRODUCT.roundtablesm },
   // ---- sleep variants ----
   { id:'bunkbed',    cat:'sleep',   name:'二段ベッド',         icon:'fa-bed',               w:0.97,d:2.06, h:1.57, colorIdx:0,  build:buildBunkBed,     product:PRODUCT.bunkbed },
   // ---- deco variants ----
@@ -7779,13 +7852,13 @@ const FURNITURE_DEFS = [
   { id:'espresso',      cat:'kitchen',  name:'エスプレッソマシン',  icon:'fa-mug-hot',        w:0.238,d:0.43, h:0.35, colorIdx:13, build:buildEspressoMachine, stack:true, product:PRODUCT.espresso },
   { id:'dishwasher',    cat:'kitchen',  name:'食洗機',              icon:'fa-soap',           w:0.598,d:0.573,h:0.815,colorIdx:10, build:buildDishwasher,      product:PRODUCT.dishwasher },
   { id:'locker',        cat:'storage',  name:'ロッカー',            icon:'fa-lock',           w:0.9,  d:0.515,h:1.79, colorIdx:10, build:buildLockerUnit,      product:PRODUCT.locker },
-  { id:'vendingmachine',cat:'shop',     name:'自動販売機',          icon:'fa-coins',          w:0.75, d:0.35, h:1.85, colorIdx:3,  build:buildVendingMachine },
+  { id:'vendingmachine',cat:'shop',     name:'自動販売機',          icon:'fa-coins',          w:1.186,d:0.642,h:1.83, colorIdx:3,  build:buildVendingMachine, product:PRODUCT.vendingmachine },
   { id:'atm',           cat:'shop',     name:'ATM',                 icon:'fa-landmark',       w:0.65, d:0.55, h:1.7,  colorIdx:2,  build:buildATM },
   // ---- 学校 ----
-  { id:'schooldesk',  cat:'school',   name:'学習机',              icon:'fa-pen-ruler',      w:0.65, d:0.45, h:0.72, colorIdx:0,  build:buildSchoolDesk },
-  { id:'blackboard',  cat:'school',   name:'黒板',                icon:'fa-chalkboard',     w:3.0,  d:0.06, h:1.2,  colorIdx:14, build:buildBlackboard, wallMount:true },
+  { id:'schooldesk',  cat:'school',   name:'学習机',              icon:'fa-pen-ruler',      w:0.65, d:0.45, h:0.70, colorIdx:0,  build:buildSchoolDesk, product:PRODUCT.schooldesk },
+  { id:'blackboard',  cat:'school',   name:'黒板',                icon:'fa-chalkboard',     w:3.6,  d:0.06, h:1.2,  colorIdx:14, build:buildBlackboard, wallMount:true, product:PRODUCT.blackboard },
   // ---- 和室 ----
-  { id:'zabuton',     cat:'seating',  name:'座布団',              icon:'fa-square',         w:0.55, d:0.55, h:0.08, colorIdx:6,  build:buildZabuton },
+  { id:'zabuton',     cat:'seating',  name:'座布団',              icon:'fa-square',         w:0.55, d:0.59, h:0.08, colorIdx:6,  build:buildZabuton,    product:PRODUCT.zabuton },
   // ---- アウトドア ----
   { id:'tent',        cat:'outdoor',  name:'テント',              icon:'fa-tent',           w:2.2,  d:2.4,  h:1.35, colorIdx:5,  build:buildTent },
   { id:'campchair',   cat:'outdoor',  name:'キャンプチェア',      icon:'fa-chair',          w:0.6,  d:0.62, h:0.85, colorIdx:4,  build:buildCampChair },

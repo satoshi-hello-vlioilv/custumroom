@@ -137,22 +137,31 @@ function buildSideTable({ color='#f3ece0', w=0.55, d=0.55, h=0.45 } = {}) {
   [[-w/2+L/2,d/2-L/2],[-w/2+L/2,-(d/2-L/2)],[w/2-L/2,d/2-L/2],[w/2-L/2,-(d/2-L/2)]].forEach(([lx,lz]) => { const leg = box(L,h-0.05,L,wood,lx,(h-0.05)/2,lz); leg.userData.colorable = true; g.add(leg); });
   return g;
 }
-function buildCafeChair({ color='#6a4830', w=0.46, d=0.48, h=0.87 } = {}) {
+// ---- カフェチェア (TON No.14 曲木チェア 風): 直径40.5cmの丸い籐座面, 曲木のフープ背もたれ(外枠+内枠), 少し開いた4本脚, 脚をつなぐ曲木リング。
+//      W410×D515×H840, 座面高46。使う面 +Z ----
+function buildCafeChair({ color='#6a4830', w=0.41, d=0.515, h=0.84 } = {}) {
   const g = new THREE.Group();
-  const wood = mat(color, 0.65, 0.02);
-  const metal = mat('#383838', 0.45, 0.65);
-  const seat = new THREE.Mesh(roundedBoxGeom(w-0.02, 0.05, d-0.04, 0.03, 2), wood);
-  seat.position.set(0, 0.46, 0.01); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
-  const legH = 0.44, ins = 0.03;
-  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.016, 0.016, legH, 8, metal, lx, legH/2, lz)));
-  const bpH = h - 0.46;
-  [-w/2+ins, w/2-ins].forEach(x => g.add(cylAt(0.016, 0.016, bpH, 8, metal, x, 0.46+bpH/2, -(d/2-ins))));
-  g.add(box(w-0.04, 0.05, 0.04, wood, 0, h-0.03, -(d/2-ins)));
-  g.add(box(w-0.08, 0.03, 0.03, metal, 0, 0.68, -(d/2-ins)));
+  const wood = mat(color, 0.6, 0.03), cane = mat('#d9b877', 0.85, 0);
+  const seatH = 0.46, R = 0.2025, sz = d/2 - R, up = new THREE.Vector3(0, 1, 0);
+  const seat = new THREE.Mesh(new THREE.CylinderGeometry(R, R - 0.01, 0.03, 28), wood); seat.position.set(0, seatH - 0.015, sz); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  g.add(cylAt(R - 0.03, R - 0.03, 0.006, 28, cane, 0, seatH + 0.002, sz));                          // 籐張り
+  const legH = seatH - 0.03;
+  [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sZ]) => {                                        // 4本脚(少し外へ開く)
+    const x0 = sx*(R - 0.05), z0 = sz + sZ*(R - 0.05), x1 = sx*(w/2 - 0.015), z1 = sz + sZ*(R + 0.02);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.017, Math.hypot(legH, x1 - x0, z1 - z0), 10), wood);
+    leg.position.set((x0 + x1)/2, legH/2, (z0 + z1)/2); leg.quaternion.setFromUnitVectors(up, new THREE.Vector3(x1 - x0, -legH, z1 - z0).normalize()); leg.castShadow = true; g.add(leg);
+  });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.01, 0.008, 8, 32), wood); ring.rotation.x = Math.PI/2; ring.position.set(0, 0.22, sz); g.add(ring);   // 曲木リング
+  const bz = -d/2 + 0.03, postH = h - seatH - (w/2 - 0.03), lean = -0.14;                            // 背もたれ: 支柱 + 半円のフープ
+  [-1, 1].forEach(s => { const p = cyl(0.013, 0.015, postH, 10, wood); p.position.set(s*(w/2 - 0.03), seatH + postH/2, bz - Math.sin(lean)*postH/2); p.rotation.x = lean; p.castShadow = true; g.add(p); });
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(w/2 - 0.03, 0.013, 8, 24, Math.PI), wood); arch.position.set(0, seatH + postH, bz - Math.sin(lean)*postH); arch.rotation.x = lean; arch.castShadow = true; g.add(arch);
+  const inner = new THREE.Mesh(new THREE.TorusGeometry(w/2 - 0.10, 0.010, 8, 20, Math.PI), wood); inner.position.set(0, seatH + postH*0.55, bz - Math.sin(lean)*postH*0.55 + 0.01); inner.rotation.x = lean; g.add(inner);   // 内側のフープ
+  [-1, 1].forEach(s => { const p = cyl(0.010, 0.010, postH*0.55, 8, wood); p.position.set(s*(w/2 - 0.10), seatH + postH*0.275, bz - Math.sin(lean)*postH*0.275 + 0.01); p.rotation.x = lean; g.add(p); });
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildWindsorChair({ color='#5a3820', w=0.48, d=0.48, h=0.95 } = {}) {
+// ---- ウィンザーチェア (IKEA NORRARYD 風): 丸みのある座面, 5本のスピンドルと湾曲した笠木。W470×D510×H830, 座面高45 ----
+function buildWindsorChair({ color='#5a3820', w=0.47, d=0.51, h=0.83 } = {}) {
   const g = new THREE.Group();
   const wood = mat(color, 0.68, 0.02);
   const seat = new THREE.Mesh(roundedBoxGeom(w, 0.07, d, 0.05, 2), wood);
@@ -167,7 +176,8 @@ function buildWindsorChair({ color='#5a3820', w=0.48, d=0.48, h=0.95 } = {}) {
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildStackingChair({ color='#222222', w=0.46, d=0.5, h=0.82 } = {}) {
+// ---- スタッキングチェア (IKEA ADDE 風): 樹脂の座面・背もたれ, スチールパイプ脚。W390×D470×H770, 座面高45 ----
+function buildStackingChair({ color='#222222', w=0.39, d=0.47, h=0.77 } = {}) {
   const g = new THREE.Group();
   const metal = mat(color, 0.55, 0.65);
   const plastic = mat(shade(color, 1.5), 0.85, 0.0);
@@ -183,7 +193,8 @@ function buildStackingChair({ color='#222222', w=0.46, d=0.5, h=0.82 } = {}) {
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildUpholsteredChair({ color='#3a3a3a', w=0.52, d=0.54, h=0.92 } = {}) {
+// ---- レストランチェア (IKEA BERGMUND 風): 張り座面と高い張り背もたれ, 木製フレーム。W450×D580×H980 ----
+function buildUpholsteredChair({ color='#3a3a3a', w=0.45, d=0.58, h=0.98 } = {}) {
   const g = new THREE.Group();
   const wood = mat('#6a4a2a', 0.65, 0.02);
   const fabric = fabricMat(color);
@@ -199,29 +210,36 @@ function buildUpholsteredChair({ color='#3a3a3a', w=0.52, d=0.54, h=0.92 } = {})
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildCafeTable({ color='#8a6a3a', w=0.65, d=0.65, h=0.74 } = {}) {
+// ---- カフェテーブル (IKEA MELLTORP 75×75×74 風): メラミンの白い天板, 天板下の側桟, スチール丸脚4本 ----
+function buildCafeTable({ color='#f3ece0', w=0.75, d=0.75, h=0.74 } = {}) {
   const g = new THREE.Group();
-  const wood = mat(color, 0.55, 0.02, { env: 0.4 });
-  const metal = mat('#4a4a50', 0.4, 0.7);
-  const top = new THREE.Mesh(roundedBoxGeom(w, 0.05, d, 0.03, 2), wood);
-  top.position.set(0, h-0.025, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
-  const legH = h - 0.06, ins = 0.05;
-  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.022, 0.022, legH, 8, metal, lx, legH/2, lz)));
-  g.add(box(w-0.14, 0.03, 0.03, metal, 0, 0.36,  d/2-ins));
-  g.add(box(w-0.14, 0.03, 0.03, metal, 0, 0.36, -(d/2-ins)));
+  const topM = mat(color, 0.45, 0.02, { env: 0.4 });
+  const metal = mat('#e9e9e6', 0.4, 0.55, { env: 0.6 });
+  const top = new THREE.Mesh(roundedBoxGeom(w, 0.035, d, 0.008, 2), topM);
+  top.position.set(0, h-0.0175, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  const legH = h - 0.035, ins = 0.045;
+  [[-w/2+ins, d/2-ins],[w/2-ins, d/2-ins],[-w/2+ins, -(d/2-ins)],[w/2-ins, -(d/2-ins)]].forEach(([lx,lz]) => g.add(cylAt(0.02, 0.02, legH, 10, metal, lx, legH/2, lz)));
+  g.add(box(w-0.11, 0.04, 0.02, metal, 0, h - 0.06,  d/2-ins));                                       // 側桟(天板直下)
+  g.add(box(w-0.11, 0.04, 0.02, metal, 0, h - 0.06, -(d/2-ins)));
+  [-1, 1].forEach(s => g.add(box(0.02, 0.04, d-0.11, metal, s*(w/2-ins), h - 0.06, 0)));
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildRoundTableSm({ color='#8a6a3a', w=0.7, d=0.7, h=0.74 } = {}) {
+// ---- 丸テーブル小 (IKEA STENSELE 直径70 高さ75 風): チャコールのアルミ天板, 少し開いた4本の丸脚 ----
+function buildRoundTableSm({ color='#4a4f54', w=0.7, d=0.7, h=0.75 } = {}) {
   const g = new THREE.Group();
   const r = Math.min(w, d) / 2;
-  const wood = mat(color, 0.55, 0.02, { env: 0.4 });
-  const metal = mat('#4a4a50', 0.4, 0.7);
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.05, 32), wood);
-  top.position.set(0, h-0.025, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
-  g.add(cylAt(0.04, 0.04, h-0.1, 12, metal, 0, (h-0.1)/2, 0));
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(r*0.55, r*0.6, 0.04, 20), metal);
-  base.position.set(0, 0.02, 0); base.castShadow = true; g.add(base);
+  const topM = mat(color, 0.45, 0.35, { env: 0.6 }), metal = mat(shade(color, 0.9), 0.4, 0.6, { env: 0.6 });
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(r, r - 0.005, 0.03, 36), topM);
+  top.position.set(0, h-0.015, 0); top.castShadow = true; top.userData.colorable = true; g.add(top);
+  const up = new THREE.Vector3(0, 1, 0), legH = h - 0.03;
+  for (let i = 0; i < 4; i++) {
+    const a = i/4*Math.PI*2 + Math.PI/4, r0 = r - 0.12, r1 = r - 0.04;
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, Math.hypot(legH, r1 - r0), 10), metal);
+    leg.position.set(Math.cos(a)*(r0 + r1)/2, legH/2, Math.sin(a)*(r0 + r1)/2);
+    leg.quaternion.setFromUnitVectors(up, new THREE.Vector3(Math.cos(a)*(r1 - r0), -legH, Math.sin(a)*(r1 - r0)).normalize()); g.add(leg);
+  }
+  g.add(cylAt(r - 0.12, r - 0.12, 0.03, 24, metal, 0, h - 0.045, 0));                               // 天板下の脚受け
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }

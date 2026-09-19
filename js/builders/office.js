@@ -156,22 +156,28 @@ function buildBarCounter({ color='#5b3a22', w=2.4, d=0.5, h=1.1 } = {}) {
   [0.35, 0.72].forEach(y => g.add(box(w - 0.1, 0.03, d - 0.08, mat(shade(color, 0.92), 0.6), 0, y, 0)));
   return g;
 }
-function buildBarStool({ color='#5b5048' } = {}) {
+// ---- バースツール (IKEA DALFRED 風): 直径30cmの丸座面, ガス圧で63〜74cmに昇降する支柱, リング状の足置き, 直径50cmのドーム状ベース。ブラック ----
+function buildBarStool({ color='#2b2b2b', w=0.5, d=0.5, h=0.74 } = {}) {
   const g = new THREE.Group();
-  const chrome = mat('#c0c8d0', 0.2, 0.85, { env: 1.0 });
-  const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.07, 16), fabricMat(color));
-  seat.position.y = 0.8; seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.012, 8, 20), chrome); ring.rotation.x = Math.PI / 2; ring.position.y = 0.28; g.add(ring);
-  const post = cyl(0.025, 0.025, 0.72, 10, chrome); post.position.y = 0.42; g.add(post);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.04, 20), chrome); base.position.y = 0.02; base.castShadow = true; g.add(base);
+  const metal = mat(color, 0.4, 0.55, { env: 0.7 }), chrome = mat('#c0c8d0', 0.2, 0.85, { env: 1.0 });
+  const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.14, 0.03, 24), metal); seat.position.y = h - 0.015; seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  g.add(cylAt(0.05, 0.05, 0.03, 16, metal, 0, h - 0.045, 0));                                          // 座面下のハブ
+  g.add(cylAt(0.02, 0.02, h - 0.35, 12, chrome, 0, 0.3 + (h - 0.35)/2, 0));                            // ガス圧シリンダー
+  g.add(cylAt(0.028, 0.028, 0.28, 12, metal, 0, 0.16, 0));                                             // 外筒
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.008, 8, 28), metal); ring.rotation.x = Math.PI / 2; ring.position.y = 0.30; g.add(ring);   // 足置きリング
+  for (let i = 0; i < 4; i++) { const a = i/4*Math.PI*2; const spoke = box(0.15, 0.008, 0.008, metal, Math.cos(a)*0.095, 0.30, Math.sin(a)*0.095); spoke.rotation.y = -a; g.add(spoke); }
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.03, w/2, 0.03, 28), metal); base.position.y = 0.015; base.castShadow = true; g.add(base);   // ドーム状ベース
   return g;
 }
-function buildRoundTable({ color='#8a5a2b', w=0.9, d=0.9, h=0.74 } = {}) {
+// ---- 丸テーブル (IKEA GAMLARED 直径85 高さ75 風): パイン無垢材の丸天板(縁が丸い), ブラックステインの丸脚4本 ----
+function buildRoundTable({ color='#c8a06a', w=0.85, d=0.85, h=0.75 } = {}) {
   const g = new THREE.Group();
-  const topMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.05, 32), mat(color, 0.5, 0.04, { env: 0.4 }));
-  topMesh.position.y = h - 0.025; topMesh.castShadow = true; topMesh.receiveShadow = true; topMesh.userData.colorable = true; g.add(topMesh);
-  const post = cyl(0.04, 0.04, h - 0.12, 10, mat('#2a2018', 0.5, 0.2)); post.position.y = (h - 0.12) / 2; g.add(post);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.05, 20), mat('#2a2018', 0.6, 0.2)); base.position.y = 0.025; base.castShadow = true; g.add(base);
+  const r = Math.min(w, d) / 2;
+  const topMesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r - 0.012, 0.035, 36), mat(color, 0.55, 0.03, { env: 0.4 }));
+  topMesh.position.y = h - 0.0175; topMesh.castShadow = true; topMesh.receiveShadow = true; topMesh.userData.colorable = true; g.add(topMesh);
+  const legM = mat('#2a2018', 0.55, 0.05), legH = h - 0.035;
+  for (let i = 0; i < 4; i++) { const a = i/4*Math.PI*2 + Math.PI/4, lr = r - 0.09; g.add(cylAt(0.022, 0.028, legH, 10, legM, Math.cos(a)*lr, legH/2, Math.sin(a)*lr)); }
+  g.add(box(r*1.1, 0.06, 0.03, legM, 0, h - 0.065, 0)); g.add(box(0.03, 0.06, r*1.1, legM, 0, h - 0.065, 0));   // 幕板(十字)
   return g;
 }
 
