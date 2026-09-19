@@ -410,7 +410,7 @@ function shade(hex, f) {
 // ===== js/core/version.js =====
 // アプリのバージョン番号。リリースのたびに更新し, CHANGELOG.md に対応するエントリを追記する。
 // セマンティックバージョニング(MAJOR.MINOR.PATCH): 破壊的変更/大規模刷新=MAJOR, 機能追加=MINOR, 修正=PATCH
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 
 // ===== js/core/orient.js =====
@@ -2116,92 +2116,138 @@ function bedding(bw, bd, topY, { duvet = '#5b86b8', double = false, mattH = 0.16
 
 // ===== js/builders/furniture.js =====
 
-function buildSofa3({ color='#c8a06a', w=2.2, d=0.95, h=0.85, seats=3, low=false } = {}) {
+// ---- ソファ (IKEA KIVIK 系の箱型): 低めで幅広のアーム(armW×armH), 厚い座クッション(座面高 seatH), 背クッション。使う面 +Z ----
+function buildSofa3({ color='#c8a06a', w=2.28, d=0.95, h=0.83, seats=3, low=false, armH=null, armW=0.22, seatH=0.45, pillows=null } = {}) {
   const g = new THREE.Group();
-  if (low) h = h - 0.1;
+  if (low) { h = h - 0.1; seatH = Math.min(seatH, 0.38); }
+  if (armH == null) armH = Math.min(h - 0.12, seatH + 0.19);          // KIVIK: 座面から約20cmの低いアーム
+  if (pillows == null) pillows = seats >= 2;
   const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.7), accent = fabricMat(shade(color, 0.82));
-  const base = new THREE.Mesh(roundedBoxGeom(w, 0.26, d, 0.08, 4), fabric); base.position.set(0, 0.16, 0); base.castShadow = base.receiveShadow = true; base.userData.colorable = true; g.add(base);
-  const cushW = (w - 0.12) / seats;
+  const baseTop = seatH - 0.16;
+  const base = new THREE.Mesh(roundedBoxGeom(w, 0.26, d, 0.08, 4), fabric); base.position.set(0, baseTop - 0.13, 0); base.castShadow = base.receiveShadow = true; base.userData.colorable = true; g.add(base);
+  const inner = w - 2 * armW, cushW = inner / seats;
   for (let i = 0; i < seats; i++) {
-    const cx = -w/2 + cushW/2 + 0.06 + i*cushW;
-    const c = new THREE.Mesh(roundedBoxGeom(cushW - 0.04, 0.22, d - 0.18, 0.07, 4), fabric); c.position.set(cx, 0.36, 0.05); c.castShadow = true; c.userData.colorable = true; g.add(c);
+    const cx = -inner/2 + cushW/2 + i*cushW;
+    const c = new THREE.Mesh(roundedBoxGeom(cushW - 0.03, 0.22, d - 0.18, 0.07, 4), fabric); c.position.set(cx, seatH - 0.09, 0.05); c.castShadow = true; c.userData.colorable = true; g.add(c);
+    const bcH = h - seatH + 0.08;
+    const bc = new THREE.Mesh(roundedBoxGeom(cushW - 0.03, bcH, 0.2, 0.07, 4), fabric); bc.position.set(cx, seatH - 0.14 + bcH/2, -d/2 + 0.16); bc.castShadow = true; bc.userData.colorable = true; g.add(bc);
   }
-  for (let i = 0; i < seats; i++) {
-    const cx = -w/2 + cushW/2 + 0.06 + i*cushW;
-    const bc = new THREE.Mesh(roundedBoxGeom(cushW - 0.04, h - 0.34, 0.2, 0.07, 4), fabric); bc.position.set(cx, 0.28 + (h-0.34)/2, -d/2 + 0.16); bc.castShadow = true; bc.userData.colorable = true; g.add(bc);
-  }
-  const back = box(w, h - 0.26, 0.16, accent, 0, 0.26 + (h-0.26)/2, -d/2 + 0.08); back.userData.colorable = true; g.add(back);
-  [-w/2 + 0.12, w/2 - 0.12].forEach(x => {
-    const a = new THREE.Mesh(roundedBoxGeom(0.22, h - 0.12, d, 0.1, 4), fabric); a.position.set(x, (h-0.12)/2 + 0.08, 0); a.castShadow = true; a.userData.colorable = true; g.add(a);
+  const back = box(inner + 0.02, h - baseTop, 0.16, accent, 0, baseTop + (h - baseTop)/2, -d/2 + 0.08); back.userData.colorable = true; g.add(back);
+  [-w/2 + armW/2, w/2 - armW/2].forEach(x => {
+    const a = new THREE.Mesh(roundedBoxGeom(armW, armH - 0.08, d, 0.06, 4), fabric); a.position.set(x, (armH - 0.08)/2 + 0.08, 0); a.castShadow = true; a.userData.colorable = true; g.add(a);
   });
-  [[-w/2 + 0.42, 0.5, '#d96a5b'], [w/2 - 0.42, 0.52, '#5b86b8']].forEach(([px, py, pc]) => {
-    const pil = new THREE.Mesh(roundedBoxGeom(0.34, 0.34, 0.12, 0.06, 4), fabricMat(pc)); pil.position.set(px, py, -d/2 + 0.3); pil.rotation.z = px < 0 ? 0.12 : -0.12; pil.castShadow = true; g.add(pil);
+  if (pillows) [[-inner/2 + 0.2, '#d96a5b'], [inner/2 - 0.2, '#5b86b8']].forEach(([px, pc]) => {
+    const pil = new THREE.Mesh(roundedBoxGeom(0.34, 0.34, 0.12, 0.06, 4), fabricMat(pc)); pil.position.set(px, seatH + 0.08, -d/2 + 0.3); pil.rotation.z = px < 0 ? 0.12 : -0.12; pil.castShadow = true; g.add(pil);
   });
-  const legH = low ? 0.07 : 0.1;
-  [[-w/2+0.13,d/2-0.13],[-w/2+0.13,-(d/2-0.13)],[w/2-0.13,d/2-0.13],[w/2-0.13,-(d/2-0.13)]].forEach(([lx,lz]) => { const leg = cyl(0.04, 0.05, legH, 8, wood); leg.position.set(lx, legH/2, lz); g.add(leg); });
+  const legH = Math.max(0.04, baseTop - 0.26);
+  [[-w/2+0.13,d/2-0.13],[-w/2+0.13,-(d/2-0.13)],[w/2-0.13,d/2-0.13],[w/2-0.13,-(d/2-0.13)]].forEach(([lx,lz]) => { const leg = cyl(0.03, 0.035, legH, 8, wood); leg.position.set(lx, legH/2, lz); g.add(leg); });
   return g;
 }
-function buildArmchair({ color='#c8a06a', w=0.9, d=0.85, h=0.9 } = {}) {
-  const g = new THREE.Group(); const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.7);
-  const base = new THREE.Mesh(roundedBoxGeom(w, 0.24, d, 0.08, 4), fabric); base.position.set(0, 0.15, 0); base.castShadow = base.receiveShadow = true; base.userData.colorable = true; g.add(base);
-  const seat = new THREE.Mesh(roundedBoxGeom(w - 0.16, 0.2, d - 0.18, 0.07, 4), fabric); seat.position.set(0, 0.34, 0.05); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
-  const backC = new THREE.Mesh(roundedBoxGeom(w - 0.16, h - 0.34, 0.18, 0.07, 4), fabric); backC.position.set(0, 0.28 + (h-0.34)/2, -d/2 + 0.16); backC.castShadow = true; backC.userData.colorable = true; g.add(backC);
-  const back = box(w, h - 0.26, 0.14, fabric, 0, 0.26 + (h-0.26)/2, -d/2 + 0.08); back.userData.colorable = true; g.add(back);
-  [-w/2+0.11, w/2-0.11].forEach(x => { const a = new THREE.Mesh(roundedBoxGeom(0.2, h-0.16, d, 0.09, 4), fabric); a.position.set(x, (h-0.16)/2+0.08, 0); a.castShadow = true; a.userData.colorable = true; g.add(a); });
-  [[-w/2+0.11,d/2-0.11],[-w/2+0.11,-(d/2-0.11)],[w/2-0.11,d/2-0.11],[w/2-0.11,-(d/2-0.11)]].forEach(([lx,lz]) => { const leg = cyl(0.035, 0.045, 0.1, 8, wood); leg.position.set(lx, 0.05, lz); g.add(leg); });
+// ---- 1人掛け (IKEA STRANDMON ウィングチェア風): 高い背 + 両側のウィング, 木の脚。使う面 +Z ----
+function buildArmchair({ color='#c8a06a', w=0.82, d=0.96, h=1.01 } = {}) {
+  const g = new THREE.Group(); const fabric = fabricMat(color), fabricD = fabricMat(shade(color, 0.9)), wood = mat('#5c3d1e', 0.6, 0.02);
+  const LEG = 0.14, seatH = 0.45, armW = 0.13;
+  [[-w/2+0.07, d/2-0.10],[w/2-0.07, d/2-0.10],[-w/2+0.07, -d/2+0.12],[w/2-0.07, -d/2+0.12]].forEach(([lx,lz]) => { const leg = cyl(0.02, 0.028, LEG, 10, wood); leg.position.set(lx, LEG/2, lz); g.add(leg); });
+  const base = new THREE.Mesh(roundedBoxGeom(w, seatH - 0.10 - LEG, d - 0.04, 0.05, 4), fabricD); base.position.set(0, LEG + (seatH - 0.10 - LEG)/2, 0.0); base.castShadow = true; base.userData.colorable = true; g.add(base);
+  const seat = new THREE.Mesh(roundedBoxGeom(w - 2*armW, 0.14, d - 0.24, 0.05, 4), fabric); seat.position.set(0, seatH - 0.05, 0.06); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  [-1, 1].forEach(s => {                                                                            // アーム(前で丸く巻く) + ウィング
+    const a = new THREE.Mesh(roundedBoxGeom(armW, 0.22, d - 0.10, 0.05, 4), fabric); a.position.set(s*(w/2 - armW/2), seatH + 0.06, -0.01); a.castShadow = true; a.userData.colorable = true; g.add(a);
+    const roll = cyl(0.065, 0.065, armW, 12, fabric); roll.rotation.z = Math.PI/2; roll.position.set(s*(w/2 - armW/2), seatH + 0.14, d/2 - 0.14); g.add(roll);
+    const wing = new THREE.Mesh(roundedBoxGeom(0.06, h - seatH - 0.20, 0.24, 0.03, 4), fabric); wing.position.set(s*(w/2 - 0.04), seatH + 0.17 + (h - seatH - 0.20)/2, -d/2 + 0.20); wing.rotation.y = -s*0.18; wing.castShadow = true; wing.userData.colorable = true; g.add(wing);
+  });
+  const backH = h - seatH + 0.10;                                                                   // 背(やや後傾, 上部で少し丸み)
+  const back = new THREE.Mesh(roundedBoxGeom(w - 0.02, backH, 0.12, 0.05, 4), fabric); back.position.set(0, seatH - 0.10 + backH/2, -d/2 + 0.09); back.rotation.x = -0.08; back.castShadow = true; back.userData.colorable = true; g.add(back);
+  const cush = new THREE.Mesh(roundedBoxGeom(w - 2*armW - 0.02, backH - 0.30, 0.07, 0.03, 4), fabricD); cush.position.set(0, seatH + 0.05 + (backH - 0.30)/2, -d/2 + 0.19); cush.rotation.x = -0.08; cush.userData.colorable = true; g.add(cush);
   return g;
 }
-function buildDiningChair({ color='#5b5048', w=0.48, d=0.48, h=0.9 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.7), pad = fabricMat('#efe7d8');
-  const seat = box(w, 0.06, d, wood, 0, 0.45, 0); seat.userData.colorable = true; g.add(seat);
-  const cushion = box(w-0.05, 0.06, d-0.05, pad, 0, 0.5, 0); g.add(cushion);
-  g.add(box(w, 0.06, 0.05, wood, 0, h - 0.06, -d/2 + 0.04));
-  for (let i = 0; i < 3; i++) { const x = -w/2 + 0.07 + (w-0.14)/2*i; g.add(box(0.04, h-0.5, 0.04, wood, x, 0.5+(h-0.5)/2, -d/2+0.04)); }
-  [[-w/2+0.05,d/2-0.05],[-w/2+0.05,-(d/2-0.05)],[w/2-0.05,d/2-0.05],[w/2-0.05,-(d/2-0.05)]].forEach(([lx,lz]) => g.add(box(0.045,0.45,0.045,wood,lx,0.225,lz)));
+// ---- ダイニングチェア (IKEA STEFAN 風): 無垢材, 座面高45, 後脚がそのまま背柱になるラダーバック(横桟2 + 縦桟4)。使う面 +Z ----
+function buildDiningChair({ color='#4a3b32', w=0.42, d=0.49, h=0.90 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.7, 0.02), pad = fabricMat('#d9d3c5');
+  const seatH = 0.45, T = 0.035, lean = 0.06;
+  const seat = box(w, 0.03, d - 0.02, wood, 0, seatH - 0.015, 0.01); seat.userData.colorable = true; g.add(seat);
+  const cushion = new THREE.Mesh(roundedBoxGeom(w - 0.06, 0.03, d - 0.09, 0.012, 3), pad); cushion.position.set(0, seatH + 0.015, 0.02); cushion.castShadow = true; g.add(cushion);
+  const bz = (y) => (-d/2 + T/2 + 0.02) - lean * (y - h/2);                                       // 後脚(背柱)の中心 z(y): 上ほど後ろ
+  [-1, 1].forEach(s => {
+    g.add(box(T, seatH, T, wood, s*(w/2 - T/2), seatH/2, d/2 - T/2));                           // 前脚
+    const rl = box(T, h, T, wood, s*(w/2 - T/2), h/2, bz(h/2)); rl.rotation.x = -lean; g.add(rl); // 後脚 = 背柱
+  });
+  g.add(box(w - 2*T, 0.06, 0.02, wood, 0, seatH - 0.06, d/2 - 0.02));                              // 幕板(座枠)
+  g.add(box(w - 2*T, 0.06, 0.02, wood, 0, seatH - 0.06, bz(seatH - 0.06) + 0.02));
+  [-1, 1].forEach(s => g.add(box(0.02, 0.06, d - 0.08, wood, s*(w/2 - 0.03), seatH - 0.06, 0)));
+  g.add(box(w - 2*T + 0.01, 0.06, 0.025, wood, 0, h - 0.05, bz(h - 0.05)));                        // 上桟
+  g.add(box(w - 2*T + 0.01, 0.035, 0.025, wood, 0, seatH + 0.12, bz(seatH + 0.12)));               // 下桟
+  const y0 = seatH + 0.14, y1 = h - 0.08, ym = (y0 + y1)/2;
+  for (let i = 0; i < 4; i++) { const x = -w/2 + T + (w - 2*T) * (i + 1)/5; const sl = box(0.018, y1 - y0, 0.02, wood, x, ym, bz(ym)); sl.rotation.x = -lean; g.add(sl); }  // 縦桟
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildOfficeChair({ color='#5b5048' } = {}) {
-  const g = new THREE.Group(); const fabric = fabricMat(color), chrome = mat('#aab0b5', 0.25, 0.85, { env: 1.0 });
-  const seat = box(0.55, 0.09, 0.55, fabric, 0, 0.5, 0); seat.userData.colorable = true; g.add(seat);
-  const back = box(0.5, 0.52, 0.09, fabric, 0, 0.83, -0.24); back.userData.colorable = true; g.add(back);
-  [-0.29, 0.29].forEach(x => g.add(box(0.05, 0.2, 0.2, chrome, x, 0.66, 0.06)));
-  g.add(cylAt(0.045, 0.045, 0.46, 12, chrome, 0, 0.26, 0));
-  for (let i = 0; i < 5; i++) {
-    const a = (i/5)*Math.PI*2;
-    const spoke = box(0.3, 0.05, 0.05, chrome, Math.cos(a)*0.15, 0.05, Math.sin(a)*0.15); spoke.rotation.y = a; g.add(spoke);
-    const wheel = cyl(0.045, 0.045, 0.06, 10, chrome); wheel.rotation.z = Math.PI/2; wheel.position.set(Math.cos(a)*0.29, 0.045, Math.sin(a)*0.29); g.add(wheel);
+// ---- オフィスチェア (IKEA MARKUS 風): 高いメッシュバック(ヘッドレスト一体, 全高129cm), 座面53×47・座面高46, 固定アーム, 5本脚キャスター。使う面 +Z ----
+function buildOfficeChair({ color='#5b5048', w=0.62, d=0.60, h=1.29 } = {}) {
+  const g = new THREE.Group();
+  const fabric = fabricMat(color), black = mat('#1f2124', 0.5, 0.3), chrome = mat('#aab0b5', 0.25, 0.85, { env: 1.0 });
+  const meshM = mat(shade(color, 0.85), 0.9, 0); meshM.transparent = true; meshM.opacity = 0.82;
+  const seatH = 0.46, sw = 0.53, sd = 0.47;
+  const seat = new THREE.Mesh(roundedBoxGeom(sw, 0.08, sd, 0.03, 3), fabric); seat.position.set(0, seatH - 0.04, 0.02); seat.castShadow = true; seat.userData.colorable = true; g.add(seat);
+  g.add(box(sw - 0.06, 0.03, sd - 0.06, black, 0, seatH - 0.095, 0.02));                            // 座下シェル
+  const bH = h - seatH + 0.02;                                                                         // 背(メッシュ): 座面後端から h まで, 少し後傾
+  const bk = new THREE.Group(); bk.position.set(0, seatH - 0.02, -sd/2 + 0.03); bk.rotation.x = -0.1;
+  const frame = new THREE.Mesh(roundedBoxGeom(0.50, bH, 0.03, 0.02, 3), black); frame.position.set(0, bH/2, 0); frame.castShadow = true; bk.add(frame);
+  const meshB = new THREE.Mesh(roundedBoxGeom(0.44, bH - 0.06, 0.012, 0.02, 3), meshM); meshB.position.set(0, bH/2, 0.012); meshB.userData.colorable = true; bk.add(meshB);
+  bk.add(box(0.36, 0.05, 0.03, black, 0, 0.30, 0.02));                                                // ランバーサポート
+  g.add(bk);
+  [-1, 1].forEach(s => { g.add(box(0.05, 0.02, 0.26, black, s*(sw/2 + 0.02), seatH + 0.20, 0.0)); g.add(box(0.03, 0.22, 0.05, black, s*(sw/2 + 0.02), seatH + 0.09, -0.06)); }); // アームレスト
+  g.add(cylAt(0.03, 0.03, 0.10, 12, black, 0, seatH - 0.16, 0.02));                                  // 昇降機構
+  g.add(cylAt(0.022, 0.022, seatH - 0.20, 12, chrome, 0, (seatH - 0.20)/2 + 0.05, 0.02));            // ガス圧支柱
+  for (let i = 0; i < 5; i++) {                                                                       // 5本脚 + キャスター
+    const a = (i/5)*Math.PI*2 + Math.PI/2;
+    const spoke = box(0.30, 0.03, 0.04, black, Math.cos(a)*0.15, 0.05, 0.02 + Math.sin(a)*0.15); spoke.rotation.y = -a; g.add(spoke);
+    const wheel = cyl(0.03, 0.03, 0.04, 10, black); wheel.rotation.z = Math.PI/2; wheel.position.set(Math.cos(a)*0.29, 0.03, 0.02 + Math.sin(a)*0.29); g.add(wheel);
   }
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
+// ---- ダイニングテーブル (IKEA EKEDALEN 伸長式 180/240×90 風): 天板3cm, 角脚5.5cm + 幕板, 中央に伸長ジョイントの目地 ----
 function buildDiningTable({ color='#8a5a2b', w=1.8, d=0.9, h=0.75 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.6, 0.02, { env: 0.4 });
-  const top = box(w, 0.06, d, wood, 0, h-0.03, 0); top.userData.colorable = true; g.add(top);
-  [[-w/2+0.08,d/2-0.08],[-w/2+0.08,-(d/2-0.08)],[w/2-0.08,d/2-0.08],[w/2-0.08,-(d/2-0.08)]].forEach(([lx,lz]) => g.add(box(0.08,h-0.06,0.08,wood,lx,(h-0.06)/2,lz)));
-  g.add(box(w-0.3, 0.05, 0.06, wood, 0, h-0.16, d/2-0.1));
-  g.add(box(w-0.3, 0.05, 0.06, wood, 0, h-0.16, -(d/2-0.1)));
+  const g = new THREE.Group(); const wood = mat(color, 0.6, 0.02, { env: 0.4 }), dark = mat(shade(color, 0.7), 0.6);
+  const top = box(w, 0.03, d, wood, 0, h-0.015, 0); top.userData.colorable = true; g.add(top);
+  g.add(box(0.006, 0.004, d - 0.02, dark, 0, h + 0.001, 0));                                          // 伸長ジョイントの目地
+  const lt = 0.055, apH = 0.08;
+  [[-w/2+0.06,d/2-0.06],[-w/2+0.06,-(d/2-0.06)],[w/2-0.06,d/2-0.06],[w/2-0.06,-(d/2-0.06)]].forEach(([lx,lz]) => { const leg = box(lt,h-0.03,lt,wood,lx,(h-0.03)/2,lz); leg.userData.colorable = true; g.add(leg); });
+  g.add(box(w-0.18, apH, 0.03, wood, 0, h-0.03-apH/2, d/2-0.05));
+  g.add(box(w-0.18, apH, 0.03, wood, 0, h-0.03-apH/2, -(d/2-0.05)));
+  [-1, 1].forEach(s => g.add(box(0.03, apH, d-0.18, wood, s*(w/2-0.05), h-0.03-apH/2, 0)));
   return g;
 }
-function buildCoffeeTable({ color='#c8a06a', w=1.2, d=0.6, h=0.42 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.6, 0.02, { env: 0.4 });
+// ---- コーヒーテーブル (IKEA LACK 118×78×45 風): 天板厚5cm, 角脚5×5cmが四隅に面一, 下段棚板 ----
+function buildCoffeeTable({ color='#c8a06a', w=1.18, d=0.78, h=0.45 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.55, 0.02, { env: 0.4 });
   const top = box(w, 0.05, d, wood, 0, h-0.025, 0); top.userData.colorable = true; g.add(top);
-  [[-w/2+0.06,d/2-0.06],[-w/2+0.06,-(d/2-0.06)],[w/2-0.06,d/2-0.06],[w/2-0.06,-(d/2-0.06)]].forEach(([lx,lz]) => g.add(box(0.06,h-0.05,0.06,wood,lx,(h-0.05)/2,lz)));
-  g.add(box(w-0.16, 0.04, d-0.16, wood, 0, 0.13, 0));
+  const L = 0.05;
+  [[-w/2+L/2,d/2-L/2],[-w/2+L/2,-(d/2-L/2)],[w/2-L/2,d/2-L/2],[w/2-L/2,-(d/2-L/2)]].forEach(([lx,lz]) => { const leg = box(L,h-0.05,L,wood,lx,(h-0.05)/2,lz); leg.userData.colorable = true; g.add(leg); });
+  const sh = box(w-2*L, 0.04, d-2*L, wood, 0, 0.12, 0); sh.userData.colorable = true; g.add(sh);
   return g;
 }
-function buildDesk({ color='#f3ece0', w=1.4, d=0.7, h=0.75 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.6), metal = mat('#9aa0a4', 0.3, 0.7, { env: 0.9 });
-  const top = box(w, 0.05, d, wood, 0, h-0.025, 0); top.userData.colorable = true; g.add(top);
-  g.add(box(0.05, h-0.05, d-0.06, wood, -w/2+0.05, (h-0.05)/2, 0));
-  g.add(box(0.05, h-0.05, d-0.06, wood,  w/2-0.05, (h-0.05)/2, 0));
-  g.add(box(w-0.1, 0.05, 0.05, wood, 0, 0.2, -d/2+0.06));
-  const du = box(0.36, 0.52, d-0.06, wood, w/2-0.24, 0.28, 0); du.userData.colorable = true; g.add(du);
-  for (let i = 0; i < 3; i++) { g.add(box(0.3,0.13,0.02,mat('#e7ddcb',0.6),w/2-0.24,0.14+i*0.16,d/2-0.04)); const hd=cyl(0.008,0.008,0.1,8,metal); hd.rotation.z=Math.PI/2; hd.position.set(w/2-0.24,0.14+i*0.16,d/2-0.02); g.add(hd); }
+// ---- デスク (IKEA MICKE 142×50×75 風): 薄い天板, 左側板, 右に引き出し1段+オープン棚のユニット(幅36), 配線口付き背面パネル。使う面 +Z ----
+function buildDesk({ color='#f3ece0', w=1.42, d=0.50, h=0.75 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.6), edge = mat(shade(color, 0.93), 0.6), metal = mat('#9aa0a4', 0.3, 0.7, { env: 0.9 });
+  const T = 0.03, uW = 0.36, ux = w/2 - uW/2;
+  const top = box(w, T, d, wood, 0, h-T/2, 0); top.userData.colorable = true; g.add(top);
+  const sideL = box(T, h-T, d-0.02, wood, -w/2+T/2, (h-T)/2, 0); sideL.userData.colorable = true; g.add(sideL);
+  [ux - uW/2 + T/2, ux + uW/2 - T/2].forEach(x => { const sp = box(T, h-T, d-0.02, wood, x, (h-T)/2, 0); sp.userData.colorable = true; g.add(sp); });   // 右ユニット側板
+  g.add(box(uW-2*T, 0.02, d-0.04, edge, ux, 0.05, 0));                                               // 底板
+  g.add(box(uW-2*T, 0.02, d-0.04, edge, ux, h-0.20, 0));                                              // 引き出し下の棚板
+  const dr = box(uW-0.01, 0.15, 0.02, mat(shade(color,1.04), 0.55), ux, h-T-0.085, d/2-0.005); dr.userData.colorable = true; g.add(dr);   // 引き出し前板
+  g.add(box(0.10, 0.006, 0.02, metal, ux, h-T-0.04, d/2+0.006));                                     // 引き手
+  g.add(box(w-uW-T, h-0.28, 0.015, edge, -w/2 + T + (w-uW-T)/2, 0.25 + (h-0.28)/2, -d/2+0.02));      // 背面パネル(下部は配線用に開放)
+  g.add(box(0.12, 0.004, 0.03, mat('#3a3a3a', 0.6), ux - 0.30, h + 0.001, -d/2 + 0.05));             // 天板の配線口
   return g;
 }
-function buildSideTable({ color='#f3ece0', w=0.5, d=0.5, h=0.55 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.6, 0.02, { env: 0.4 });
+// ---- サイドテーブル (IKEA LACK 55×55×45 風): 天板厚5cm, 角脚5×5cmが四隅に面一 ----
+function buildSideTable({ color='#f3ece0', w=0.55, d=0.55, h=0.45 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.55, 0.02, { env: 0.4 });
   const top = box(w, 0.05, d, wood, 0, h-0.025, 0); top.userData.colorable = true; g.add(top);
-  const col = cyl(0.07, 0.1, h-0.05, 16, wood); col.position.y = (h-0.05)/2; col.userData.colorable = true; g.add(col);
+  const L = 0.05;
+  [[-w/2+L/2,d/2-L/2],[-w/2+L/2,-(d/2-L/2)],[w/2-L/2,d/2-L/2],[w/2-L/2,-(d/2-L/2)]].forEach(([lx,lz]) => { const leg = box(L,h-0.05,L,wood,lx,(h-0.05)/2,lz); leg.userData.colorable = true; g.add(leg); });
   return g;
 }
 function buildCafeChair({ color='#6a4830', w=0.46, d=0.48, h=0.87 } = {}) {
@@ -2292,67 +2338,38 @@ function buildRoundTableSm({ color='#8a6a3a', w=0.7, d=0.7, h=0.74 } = {}) {
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildBed({ color='#5b86b8', w=1.0, d=2.1, h=0.55, double=false } = {}) {
-  // 頭側(ヘッドボード)を -Z、足側を +Z に置く。color = 掛け布団(colorable)。
+// ---- ベッド (IKEA MALM ベッドフレーム(高め) 風): 外形 w×d, 幅広で平らなサイドレール(上端38cm), 低いフットボード(38cm),
+//      板状ヘッドボード(高さ h=100cm)。マットレス(90/140×200)はフレーム内側に落とし込み。頭側 -Z, 足側 +Z。color = 掛け布団(colorable) ----
+function buildBed({ color='#5b86b8', w=1.05, d=2.09, h=1.0, double=false, mattW=null, mattL=2.0 } = {}) {
   const g = new THREE.Group();
-  const wood = mat('#6e4f34', 0.55, 0.05, { env: 0.35 });
-  const linen = fabricMat('#cbbda6');              // ヘッドボード張地(無彩のリネン)
-  const sheetM = fabricMat('#fdfaf6'), pillowM = fabricMat('#fcf8f0');
-  const duvetM = fabricMat(color), accentM = fabricMat(shade(color, 1.12)), throwM = fabricMat(shade(color, 0.66));
-  // ---- 脚 (テーパー) ----
-  [[-w/2+0.09,-d/2+0.1],[w/2-0.09,-d/2+0.1],[-w/2+0.09,d/2-0.1],[w/2-0.09,d/2-0.1]].forEach(([lx,lz]) => {
-    const leg = cyl(0.034, 0.022, 0.2, 10, wood); leg.position.set(lx, 0.1, lz); g.add(leg);
-  });
-  // ---- ベースフレーム (台座 + サイドレール + 足側レール) ----
-  g.add(box(w-0.03, 0.14, d-0.03, wood, 0, 0.27, 0));
-  g.add(box(0.05, 0.17, d, wood, -w/2+0.025, 0.275, 0));
-  g.add(box(0.05, 0.17, d, wood,  w/2-0.025, 0.275, 0));
-  g.add(box(w, 0.17, 0.05, wood, 0, 0.275, d/2-0.025));
-  // ---- マットレス (プラッシュ) + サイドパイピング ----
-  const matt = new THREE.Mesh(roundedBoxGeom(w-0.05, 0.22, d-0.12, 0.07, 5), sheetM);
-  matt.position.set(0, 0.46, 0); matt.castShadow = matt.receiveShadow = true; g.add(matt);
-  g.add(new THREE.Mesh(roundedBoxGeom(w-0.03, 0.05, d-0.1, 0.02, 3), fabricMat('#eee7da')).translateY(0.455));
-  // ---- 枕 (ふっくら) + 前のクッション ----
-  const np = double ? 2 : 1, pw = double ? w/2-0.07 : Math.min(w-0.16, 0.56);
-  for (let i = 0; i < np; i++) {
-    const px = double ? (i ? pw/2+0.06 : -pw/2-0.06) : 0;
-    const p = new THREE.Mesh(roundedBoxGeom(pw, 0.17, 0.44, 0.11, 5), pillowM); p.position.set(px, 0.63, -d/2+0.36); p.rotation.x = 0.16; p.castShadow = true; g.add(p);
-    const ac = new THREE.Mesh(roundedBoxGeom(pw*0.78, 0.13, 0.3, 0.09, 4), accentM); ac.position.set(px, 0.61, -d/2+0.66); ac.rotation.x = 0.1; ac.userData.colorable = true; g.add(ac);
-  }
-  // ---- 掛け布団 (足側~62% + サイドの垂れ + 折り返し) ----
-  const dl = d*0.6;
-  const duv = new THREE.Mesh(roundedBoxGeom(w-0.01, 0.17, dl, 0.06, 4), duvetM); duv.position.set(0, 0.57, d/2 - dl/2 - 0.03); duv.castShadow = true; duv.userData.colorable = true; g.add(duv);
-  [-1,1].forEach(sgn => { const dr = new THREE.Mesh(roundedBoxGeom(0.05, 0.2, dl-0.08, 0.02, 3), duvetM); dr.position.set(sgn*(w/2-0.02), 0.45, d/2 - dl/2 - 0.03); dr.userData.colorable = true; g.add(dr); });
-  const fold = new THREE.Mesh(roundedBoxGeom(w-0.01, 0.1, 0.24, 0.05, 4), accentM); fold.position.set(0, 0.64, d/2 - dl); fold.rotation.x = -0.32; fold.userData.colorable = true; g.add(fold);
-  // ---- 足元の畳んだスロー ----
-  const thr = new THREE.Mesh(roundedBoxGeom(w-0.03, 0.11, 0.42, 0.05, 4), throwM); thr.position.set(0, 0.61, d/2 - 0.3); thr.castShadow = true; g.add(thr);
-  // ---- 張りぐるみ(ボタン締め)ヘッドボード + 柱 ----
-  const hbH = h + 0.46, hbY = 0.2 + hbH/2;
-  const hb = new THREE.Mesh(roundedBoxGeom(w-0.04, hbH, 0.1, 0.07, 5), linen); hb.position.set(0, hbY, -d/2+0.05); hb.castShadow = true; g.add(hb);
-  const cols = double ? 4 : 2, sp = (w-0.22)/cols;
-  for (let r = 0; r < 2; r++) for (let c = 0; c < cols; c++) {
-    const t = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 8), fabricMat(shade('#cbbda6', 0.8)));
-    t.position.set((c-(cols-1)/2)*sp, hbY + (r ? 0.1 : -0.14), -d/2+0.105); g.add(t);
-  }
-  [-1,1].forEach(sgn => g.add(box(0.07, hbH+0.05, 0.13, wood, sgn*(w/2-0.035), hbY-0.02, -d/2+0.05)));
+  const wood = mat('#f2efe9', 0.55, 0.03, { env: 0.35 }), woodD = mat('#e4e0d8', 0.6, 0.03);        // ホワイト(MALM 標準色)
+  const mw = mattW != null ? mattW : (double ? 1.40 : 0.90), ml = Math.min(mattL, d - 0.09);
+  const RAIL = 0.38, LEG = 0.12, railW = Math.max(0.05, (w - mw) / 2);                                // レール幅 ≒ 7.5cm
+  [[-w/2+0.10,-d/2+0.12],[w/2-0.10,-d/2+0.12],[-w/2+0.10,d/2-0.12],[w/2-0.10,d/2-0.12]].forEach(([lx,lz]) => g.add(box(0.06, LEG, 0.06, woodD, lx, LEG/2, lz)));   // 脚
+  [-1, 1].forEach(s => g.add(box(railW, RAIL - LEG, d - 0.05, wood, s*(w/2 - railW/2), LEG + (RAIL - LEG)/2, 0)));   // サイドレール(幅広・平ら)
+  g.add(box(w, RAIL - LEG, 0.05, wood, 0, LEG + (RAIL - LEG)/2, d/2 - 0.025));                       // フットボード(レールと同じ高さ)
+  g.add(box(w - 2*railW, 0.02, d - 0.10, woodD, 0, 0.26, 0));                                        // すのこ(ベッドベース)
+  const hb = box(w, h, 0.05, wood, 0, h/2, -d/2 + 0.025); g.add(hb);                                  // ヘッドボード(板状)
+  g.add(box(w - 0.02, 0.008, 0.006, mat('#d9d5cd', 0.6), 0, h - 0.10, -d/2 + 0.053));               // ヘッドボードの目地
+  g.add(bedding(mw, ml, 0.47, { duvet: color, double, mattH: 0.21, pillowZ: 0.32, throwFoot: true })); // 寝具(マットレス上面 47cm)
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildWardrobe({ color='#f3ece0', w=1.8, d=0.6, h=2.1 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.65), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
+// ---- ワードローブ (IKEA PAX 150×58×201 風): 白い箱体 + 幅50cmの開き戸3枚(左端=左開き, 右端=右開き)。使う面 +Z ----
+function buildWardrobe({ color='#f3ece0', w=1.5, d=0.58, h=2.01 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.65), doorM = mat('#fbf7ef', 0.6), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
   const body = box(w, h, d, wood, 0, h/2, 0); body.userData.colorable = true; g.add(body);
-  const dw = w/2 - 0.015;
-  // left door: pivot at left hinge edge
-  const pivL = new THREE.Group(); pivL.position.set(-dw-0.01, h/2, d/2+0.005);
-  const dL = box(dw, h-0.1, 0.03, mat('#fbf7ef', 0.6), dw/2, 0, 0); dL.userData.colorable = true; pivL.add(dL);
-  const hdlL = cyl(0.01,0.01,0.16,10,metal); hdlL.rotation.x = Math.PI/2; hdlL.position.set(dw-0.07, 0, 0.025); pivL.add(hdlL);
-  g.add(pivL);
-  // right door: pivot at right hinge edge
-  const pivR = new THREE.Group(); pivR.position.set(dw+0.01, h/2, d/2+0.005);
-  const dR = box(dw, h-0.1, 0.03, mat('#fbf7ef', 0.6), -dw/2, 0, 0); dR.userData.colorable = true; pivR.add(dR);
-  const hdlR = cyl(0.01,0.01,0.16,10,metal); hdlR.rotation.x = Math.PI/2; hdlR.position.set(-dw+0.07, 0, 0.025); pivR.add(hdlR);
-  g.add(pivR);
-  g.add(box(w+0.04, 0.05, d+0.04, wood, 0, h-0.025, 0));
+  const n = Math.max(2, Math.round(w / 0.5)), dw = w/n - 0.006, dh = h - 0.04, dz = d/2 + 0.005;
+  const handle = (parent, x) => { const hd = cyl(0.006, 0.006, 0.16, 10, metal); hd.position.set(x, 0, 0.02); parent.add(hd); };
+  const pivL = new THREE.Group(); pivL.position.set(-w/2 + 0.003, h/2, dz);                          // 左端の扉: 左端ヒンジ
+  const dL = box(dw, dh, 0.02, doorM, dw/2, 0, 0); dL.userData.colorable = true; pivL.add(dL); handle(pivL, dw - 0.05); g.add(pivL);
+  const pivR = new THREE.Group(); pivR.position.set(w/2 - 0.003, h/2, dz);                           // 右端の扉: 右端ヒンジ
+  const dR = box(dw, dh, 0.02, doorM, -dw/2, 0, 0); dR.userData.colorable = true; pivR.add(dR); handle(pivR, -dw + 0.05); g.add(pivR);
+  for (let i = 1; i < n - 1; i++) {                                                                    // 中間の扉(固定)
+    const x = -w/2 + (w/n) * (i + 0.5);
+    const dm = box(dw, dh, 0.02, doorM, x, h/2, dz); dm.userData.colorable = true; g.add(dm);
+    const hd = cyl(0.006, 0.006, 0.16, 10, metal); hd.position.set(x - dw/2 + 0.05, h/2, dz + 0.02); g.add(hd);
+  }
   g.userData.parts = { doorL: pivL, doorR: pivR };
   return g;
 }
@@ -2410,7 +2427,7 @@ function buildBookshelf({ color='#c8a06a', w=1.0, d=0.3, h=1.8 } = {}) {
 
   const innerL = -w / 2 + T + 0.012, innerR = w / 2 - T - 0.012;
   const innerBot = plinth + T, innerTop = h - T * 1.1;
-  const openings = 4, compH = (innerTop - innerBot) / openings;
+  const openings = Math.max(3, Math.round((h - 0.1) / 0.32)), compH = (innerTop - innerBot) / openings;   // BILLY 202cm: 6段
   for (let i = 0; i < openings; i++) {
     const sy = innerBot + i * compH;
     if (i > 0) { const shf = box(w - 2 * T, T * 0.85, d - 0.015, shelfM, 0, sy - T * 0.42, 0.006); shf.userData.colorable = true; g.add(shf); }
@@ -2446,32 +2463,39 @@ function buildBookshelf({ color='#c8a06a', w=1.0, d=0.3, h=1.8 } = {}) {
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildChest({ color='#5b5048', w=1.0, d=0.5, h=1.0 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.7), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
+// ---- チェスト (IKEA MALM 引き出し×4 80×48×100 風): 取っ手なし(前板下の指掛け), 台輪なしで床に接地, 前板は本体より少し内側 ----
+function buildChest({ color='#5b5048', w=0.8, d=0.48, h=1.0 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.65, 0.02), front = mat(shade(color, 1.1), 0.62, 0.02), gapM = mat(shade(color, 0.45), 0.8);
   const body = box(w, h, d, wood, 0, h/2, 0); body.userData.colorable = true; g.add(body);
-  const drawers = 4;
-  for (let i = 0; i < drawers; i++) {
-    const dy = h/drawers;
-    const dr = box(w-0.06, dy-0.05, 0.04, mat(shade(color,1.18), 0.7), 0, dy*i+dy/2, d/2-0.01); dr.userData.colorable = true; g.add(dr);
-    const hdl = cyl(0.01,0.01,0.14,10,metal); hdl.rotation.z = Math.PI/2; hdl.position.set(0, dy*i+dy/2, d/2+0.02); g.add(hdl);
+  const n = 4, fh = (h - 0.05) / n;
+  for (let i = 0; i < n; i++) {
+    const y = 0.03 + fh*i + fh/2;
+    const dr = box(w - 0.03, fh - 0.012, 0.02, front, 0, y, d/2 + 0.005); dr.userData.colorable = true; g.add(dr);
+    g.add(box(w - 0.06, 0.010, 0.004, gapM, 0, y - fh/2 + 0.004, d/2 + 0.016));                     // 指掛けの影
   }
-  [[-w/2+0.07,d/2-0.06],[-w/2+0.07,-(d/2-0.06)],[w/2-0.07,d/2-0.06],[w/2-0.07,-(d/2-0.06)]].forEach(([lx,lz]) => g.add(box(0.06,0.08,0.06,mat('#3a332b',0.6),lx,0.04,lz)));
   return g;
 }
-function buildTVBoard({ color='#5b5048', w=1.8, d=0.45, h=0.5 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.7), metal = mat('#9aa0a4', 0.3, 0.7, { env: 0.9 });
-  const body = box(w, h, d, wood, 0, h/2+0.06, 0); body.userData.colorable = true; g.add(body);
-  [-w/4, w/4].forEach(dx => { const door = box(w/2-0.05, h-0.1, 0.03, mat(shade(color,1.15),0.7), dx, h/2+0.06, d/2-0.005); door.userData.colorable = true; g.add(door); const hdl = cyl(0.007,0.007,0.1,8,metal); hdl.rotation.x = Math.PI/2; hdl.position.set(dx, h/2+0.06, d/2+0.02); g.add(hdl); });
-  [[-w/2+0.09,d/2-0.07],[-w/2+0.09,-(d/2-0.07)],[w/2-0.09,d/2-0.07],[w/2-0.09,-(d/2-0.07)]].forEach(([lx,lz]) => g.add(box(0.05,0.12,0.05,metal,lx,0.06,lz)));
+// ---- テレビ台 (IKEA BESTÅ 扉付き 180×42×38 風): 白い箱体 + 幅60cmのプッシュオープン扉3枚(取っ手なし)。床置き ----
+function buildTVBoard({ color='#f3ece0', w=1.8, d=0.42, h=0.38 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.65, 0.02), front = mat(shade(color, 1.04), 0.6, 0.02);
+  const body = box(w, h, d, wood, 0, h/2, 0); body.userData.colorable = true; g.add(body);
+  const n = Math.max(1, Math.round(w / 0.6)), dw = w / n;
+  for (let i = 0; i < n; i++) { const x = -w/2 + dw*(i + 0.5); const door = box(dw - 0.008, h - 0.02, 0.02, front, x, h/2, d/2 + 0.005); door.userData.colorable = true; g.add(door); }
   return g;
 }
-function buildFloorLamp({ color='#8a6fb0' } = {}) {
-  const g = new THREE.Group(); const metal = mat('#3a332b', 0.3, 0.7, { env: 0.8 }), shadeM = mat(color, 0.7, 0.05);
-  g.add(cylAt(0.16, 0.2, 0.05, 20, metal, 0, 0.025, 0));
-  g.add(cylAt(0.025, 0.025, 1.5, 10, metal, 0, 0.77, 0));
-  const sh = cyl(0.22, 0.13, 0.26, 20, shadeM); sh.position.y = 1.6; sh.userData.colorable = true; g.add(sh);
-  const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.25, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2cc, transparent: true, opacity: 0.7, side: THREE.BackSide })); inner.position.y = 1.6; g.add(inner);
-  const bulb = new THREE.PointLight(0xffe9b8, 4, 4, 2); bulb.position.set(0, 1.55, 0); bulb.castShadow = false; g.add(bulb);
+// ---- フロアランプ (IKEA HEKTAR 風): 直径34cmの円形ベース, 細い支柱, 首振りアームの先に直径31.5cmの円錐シェード(前方 +Z に向く)。高さ181cm ----
+function buildFloorLamp({ color='#4a4f54', w=0.34, d=0.34, h=1.81 } = {}) {
+  const g = new THREE.Group(); const metal = mat(color, 0.45, 0.6, { env: 0.6 }), dark = mat(shade(color, 0.75), 0.5, 0.5);
+  g.add(cylAt(w/2, w/2, 0.02, 28, dark, 0, 0.01, 0));                                                 // ベース
+  const poleH = h - 0.34;
+  g.add(cylAt(0.014, 0.014, poleH, 12, metal, 0, 0.02 + poleH/2, 0));                                 // 支柱
+  const arm = cylAt(0.011, 0.011, 0.235, 10, metal, 0, 0.02 + poleH + 0.115, 0.02); arm.rotation.x = 0.185; g.add(arm);   // 首振りアーム
+  const shR = 0.1575, shH = 0.30;
+  const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, shR, shH, 24, 1, false), metal);         // 円錐シェード(開口は前下向き)
+  sh.position.set(0, h - 0.20, 0.16); sh.rotation.x = -0.9; sh.castShadow = true; sh.userData.colorable = true; g.add(sh);
+  const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.055, shR - 0.005, shH - 0.01, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2cc, transparent: true, opacity: 0.7, side: THREE.BackSide }));
+  inner.position.copy(sh.position); inner.rotation.copy(sh.rotation); g.add(inner);
+  const bulb = new THREE.PointLight(0xffe9b8, 4, 4, 2); bulb.position.set(0, h - 0.28, 0.24); bulb.castShadow = false; g.add(bulb);
   return g;
 }
 function buildTV({ color='#1c1c1f', w=1.4, h=0.85 } = {}) {
@@ -2498,9 +2522,11 @@ function buildRug({ color='#3f5d7a', w=2.0, d=1.5 } = {}) {
   return g;
 }
 
-function buildSofaL({ color='#c8a06a', w=2.4, d=1.6, h=0.85 } = {}) {
+// ---- Lソファ (IKEA KIVIK 3人掛け 寝椅子付き 風): 3人掛け本体(奥行95)の右端に寝椅子(奥行 d)を前方(+Z)へ延長 ----
+function buildSofaL({ color='#c8a06a', w=2.8, d=1.63, h=0.83 } = {}) {
   const g = new THREE.Group();
   const mainSofa = buildSofa3({ color, w, d: 0.95, h, seats: 3 });
+  mainSofa.position.z = -(d - 0.95) / 2;                 // 背もたれ側を奥(-Z)へ寄せ, 寝椅子を手前(+Z)へ
   g.add(mainSofa);
   const chW = 0.95, chD = d - 0.95;
   const fabric = fabricMat(color), wood = mat('#5c3d1e', 0.7), accent = fabricMat(shade(color, 0.82));
@@ -2509,7 +2535,7 @@ function buildSofaL({ color='#c8a06a', w=2.4, d=1.6, h=0.85 } = {}) {
   const chSeat = new THREE.Mesh(roundedBoxGeom(chW - 0.04, 0.22, chD - 0.1, 0.07, 4), fabric); chSeat.position.set(0, 0.36, 0.05); chSeat.castShadow = true; chSeat.userData.colorable = true; chaise.add(chSeat);
   const chArm = new THREE.Mesh(roundedBoxGeom(0.22, h - 0.12, chD, 0.1, 4), fabric); chArm.position.set(-chW/2 + 0.12, (h-0.12)/2 + 0.08, 0); chArm.castShadow = true; chArm.userData.colorable = true; chaise.add(chArm);
   [[chW/2-0.1,chD/2-0.1],[chW/2-0.1,-(chD/2-0.1)],[-chW/2+0.1,chD/2-0.1],[-chW/2+0.1,-(chD/2-0.1)]].forEach(([lx,lz]) => { const leg = cyl(0.04, 0.05, 0.1, 8, wood); leg.position.set(lx, 0.05, lz); chaise.add(leg); });
-  chaise.position.set(w/2 - chW/2, 0, -(0.95/2 + chD/2));
+  chaise.position.set(w/2 - chW/2, 0, d/2 - chD/2);
   g.add(chaise);
   return g;
 }
@@ -2576,50 +2602,43 @@ function buildRoundCoffeeTable({ color='#c8a06a', w=0.8, d=0.8, h=0.42 } = {}) {
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.03, 16), metal); base.position.set(0, 0.015, 0); g.add(base);
   return g;
 }
-function buildBunkBed({ color='#f3ece0', w=1.05, d=2.05, h=1.65 } = {}) {
-  // 頭側 = -Z。下段 color / 上段 ブルーの掛け布団。共通の bedding() で寝具を載せる。
+// ---- 2段ベッド (IKEA MYDAL パイン材 90×200 風): 角柱4本, 上下段のすのこ+受け桟, 上段は全周ガードレール(縦桟), 足側(+Z)に垂直はしご。
+//      頭側 -Z。color = パイン材(colorable)。寝具は共通 bedding() ----
+function buildBunkBed({ color='#e8c89a', w=0.97, d=2.06, h=1.57 } = {}) {
   const g = new THREE.Group();
-  const wood = mat('#6e4f34', 0.55, 0.05, { env: 0.35 });
-  const postR = 0.045;
-  // 4 本柱 + 玉飾り
-  [[-w/2+postR, d/2-postR],[w/2-postR, d/2-postR],[-w/2+postR, -(d/2-postR)],[w/2-postR, -(d/2-postR)]].forEach(([px,pz]) => {
-    g.add(cylAt(postR, postR, h, 12, wood, px, h/2, pz));
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(postR*1.5, 12, 12), wood); ball.position.set(px, h+postR*0.8, pz); g.add(ball);
+  const pine = mat(color, 0.6, 0.02, { env: 0.3 }), pineD = mat(shade(color, 0.85), 0.62, 0.02);
+  const P = 0.045, iw = w - 2*P, il = d - 2*P;
+  [[-w/2+P/2, d/2-P/2],[w/2-P/2, d/2-P/2],[-w/2+P/2, -(d/2-P/2)],[w/2-P/2, -(d/2-P/2)]].forEach(([px,pz]) => { const post = box(P, h, P, pine, px, h/2, pz); post.userData.colorable = true; g.add(post); });
+  const lowerY = 0.26, upperY = 1.18;                                                                  // すのこ上面
+  [[lowerY, '#c98a5b'], [upperY, '#5b86b8']].forEach(([baseY, dvCol]) => {
+    g.add(box(iw, 0.03, il, pineD, 0, baseY - 0.015, 0));                                             // すのこ
+    g.add(box(iw, 0.10, 0.025, pine, 0, baseY, -d/2 + P + 0.0125));                                    // 頭側/足側の受け桟
+    g.add(box(iw, 0.10, 0.025, pine, 0, baseY,  d/2 - P - 0.0125));
+    [-1, 1].forEach(s => g.add(box(0.025, 0.14, il, pine, s*(w/2 - P - 0.0125), baseY + 0.02, 0)));    // サイドレール(マットレス止め)
+    g.add(bedding(0.86, 1.96, baseY + 0.15, { duvet: dvCol, mattH: 0.15, accent: false, fold: true, pillowZ: 0.28 }));
   });
-  const lowerY = 0.32, upperY = h * 0.56;
-  [[lowerY, color], [upperY, '#5b86b8']].forEach(([baseY, dvCol]) => {
-    g.add(box(w-0.06, 0.06, d-0.06, wood, 0, baseY, 0));                    // すのこ
-    g.add(box(w-0.02, 0.06, 0.05, wood, 0, baseY+0.03, -d/2+0.04));         // 頭側レール
-    g.add(box(w-0.02, 0.06, 0.05, wood, 0, baseY+0.03,  d/2-0.04));         // 足側レール
-    g.add(box(0.05, 0.06, d-0.02, wood, -w/2+0.03, baseY+0.03, 0));         // サイドレール
-    g.add(box(0.05, 0.06, d-0.02, wood,  w/2-0.03, baseY+0.03, 0));
-    g.add(bedding(w-0.07, d-0.07, baseY+0.17, { duvet: dvCol, mattH: 0.13, accent: false, fold: true, pillowZ: 0.28 }));
-  });
-  // 上段の転落防止ガード (長手 -X 側)
-  g.add(box(0.05, 0.18, d*0.62, wood, -w/2+0.03, upperY+0.18, d*0.04));
-  g.add(box(0.05, 0.05, d*0.62, wood, -w/2+0.03, upperY+0.28, d*0.04));     // 手すり上桟
-  // はしご (足側 +X 寄り・2本支柱 + 段)
-  const lx = w/2+0.06, lz0 = d/2-0.55, lz1 = d/2-0.22, ladTop = upperY+0.18;
-  [lz0, lz1].forEach(lz => g.add(box(0.035, ladTop, 0.04, wood, lx, ladTop/2, lz)));
-  for (let i = 0; i < 5; i++) { const ry = 0.2 + i*((ladTop-0.3)/4); g.add(box(0.05, 0.028, lz1-lz0, wood, lx, ry, (lz0+lz1)/2)); }
+  const gy = upperY + 0.30;                                                                            // 上段ガードレール: 上桟 + 縦桟
+  [-1, 1].forEach(s => { g.add(box(0.03, 0.05, il, pine, s*(w/2 - P/2), gy, 0)); for (let i = 1; i < 10; i++) g.add(box(0.025, gy - upperY - 0.04, 0.02, pine, s*(w/2 - P/2), (gy + upperY)/2, -d/2 + P + il * i/10)); });
+  g.add(box(iw, 0.05, 0.03, pine, 0, gy, -d/2 + P/2));
+  const lz = d/2 + 0.02, lx0 = 0.10, lx1 = 0.42, lh = upperY + 0.30;                                   // はしご(足側, 垂直)
+  [lx0, lx1].forEach(x => g.add(box(0.035, lh, 0.035, pine, x, lh/2, lz)));
+  for (let i = 0; i < 5; i++) g.add(box(lx1 - lx0 - 0.035, 0.03, 0.03, pine, (lx0 + lx1)/2, 0.22 + i*0.24, lz));
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
-function buildPendantLamp({ color='#e0a23b', w=0.4, d=0.4, h=1.2 } = {}) {
-  // 天井から吊り下がるペンダントライト。床(y=0)に置いても天井マウント→笠が頭上(約1.85m)に来る。
+// ---- ペンダントライト (IKEA REGOLIT 45cm 和紙シェード + HEMMA コードセット 風): 天井から吊り下げ, 直径45cmの球の中心を約1.85mに ----
+function buildPendantLamp({ color='#f3ece0', w=0.45, d=0.45, h=1.2 } = {}) {
   const g = new THREE.Group();
-  const metal = mat('#3a332b', 0.3, 0.7, { env: 0.8 }), shade_m = mat(color, 0.5, 0.3);
-  const ceilY = WALL_H - 0.02;   // 天井マウント高
-  const shadeY = 1.85;           // 笠(光源)の吊り下げ高さ
-  // ceiling rose
-  const rose = cyl(0.06, 0.06, 0.04, 16, metal); rose.position.set(0, ceilY, 0); g.add(rose);
-  // cord from ceiling down to the shade
-  const cordLen = Math.max(0.1, ceilY - shadeY);
-  const cord = cyl(0.008, 0.008, cordLen, 8, metal); cord.position.set(0, shadeY + cordLen / 2, 0); g.add(cord);
-  // shade dome (open side downward)
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), shade_m); dome.position.set(0, shadeY, 0); dome.castShadow = true; dome.userData.colorable = true; g.add(dome);
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), mat('#ffffee', 0.1, 0.0, { emissive: '#ffffcc', emissiveIntensity: 1.5 })); bulb.position.set(0, shadeY - 0.06, 0); g.add(bulb);
-  const light = new THREE.PointLight(0xfff5cc, 1.3, 4.5); light.position.set(0, shadeY - 0.12, 0); g.add(light);
+  const metal = mat('#f4f4f2', 0.5, 0.2);
+  const paper = mat(color, 0.95, 0); paper.transparent = true; paper.opacity = 0.93; paper.emissive = new THREE.Color('#ffe9b0'); paper.emissiveIntensity = 0.28;
+  const ceilY = WALL_H - 0.02, R = w/2, shadeY = 1.85;
+  const rose = cyl(0.045, 0.045, 0.03, 16, metal); rose.position.set(0, ceilY, 0); g.add(rose);       // シーリングカップ
+  const cordLen = Math.max(0.1, ceilY - shadeY - R);
+  const cord = cyl(0.004, 0.004, cordLen, 8, metal); cord.position.set(0, shadeY + R + cordLen / 2, 0); g.add(cord);
+  const globe = new THREE.Mesh(new THREE.SphereGeometry(R, 24, 16), paper); globe.position.set(0, shadeY, 0); globe.castShadow = true; globe.userData.colorable = true; g.add(globe);
+  for (let i = 1; i < 6; i++) { const y = -R + (2*R) * i/6, r = Math.sqrt(Math.max(0, R*R - y*y)); const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.003, 6, 40), mat('#e8e2d6', 0.9)); ring.rotation.x = Math.PI/2; ring.position.set(0, shadeY + y, 0); g.add(ring); }  // 竹ひご風のリブ
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), mat('#ffffee', 0.1, 0.0)); bulb.material.emissive = new THREE.Color('#ffffcc'); bulb.material.emissiveIntensity = 1.5; bulb.position.set(0, shadeY, 0); g.add(bulb);
+  const light = new THREE.PointLight(0xfff5cc, 1.3, 4.5); light.position.set(0, shadeY - 0.10, 0); g.add(light);
   return g;
 }
 function buildDeskLamp({ color='#3a4250', w=0.3, d=0.3, h=0.5 } = {}) {
@@ -2773,68 +2792,47 @@ function buildKotatsu({ color='#8a5a2b', w=0.9, d=0.9, h=0.37 } = {}) {
   futon.position.set(0, 0.30, 0); futon.material.opacity = 1.0; futon.userData.colorable = true; g.add(futon);
   return g;
 }
-function buildDresser({ color='#f3ece0', w=0.9, d=0.44, h=1.4 } = {}) {
+// ---- ドレッサー (IKEA HEMNES ドレッシングテーブル ミラー付き 100×50×159 風): 白い無垢材テーブル(天板高74, 幅広引き出し1段, ガラス天板)
+//      + 支柱付きミラー(中央に小物棚)。使う面 +Z ----
+function buildDresser({ color='#f3ece0', w=1.0, d=0.5, h=1.59 } = {}) {
   const g = new THREE.Group();
-  const wood = mat(color, 0.62, 0.02);
-  const metal = mat('#9aa0a4', 0.2, 0.8, {env:0.9});
-  // 4 thin tapered legs
-  [[ w/2-0.06,  d/2-0.06], [ w/2-0.06, -(d/2-0.06)],
-   [-(w/2-0.06), d/2-0.06], [-(w/2-0.06), -(d/2-0.06)]].forEach(([lx,lz]) => {
-    g.add(box(0.04, 0.12, 0.04, mat(shade(color,0.7), 0.6), lx, 0.06, lz));
-  });
-  // Lower body (drawer cabinet)
-  const body = box(w, 0.56, d, wood, 0, 0.12+0.28, 0); body.userData.colorable = true; g.add(body);
-  // 3 drawer fronts
-  [0.18, 0.34, 0.50].forEach(dy => {
-    const dr = box(w-0.06, 0.16, 0.025, mat(shade(color,1.08), 0.6), 0, dy, d/2+0.008);
-    dr.userData.colorable = true; g.add(dr);
-    // Drawer handle
-    const hdl = cyl(0.006, 0.006, 0.15, 8, metal);
-    hdl.rotation.y = Math.PI/2; hdl.position.set(0, dy, d/2+0.028); g.add(hdl);
-  });
-  // Counter top surface
-  g.add(box(w+0.02, 0.03, d+0.02, mat(shade(color,0.88), 0.55), 0, 0.705, 0));
-  // Mirror shelf tray
-  g.add(box(w-0.16, 0.04, d*0.38, mat(shade(color,0.82), 0.58), 0, 0.74, d*0.12));
-  // Mirror back plate
-  g.add(box(w-0.12, 0.64, 0.04, mat(shade(color,0.72), 0.5), 0, 1.07, -d/2+0.02));
-  // Mirror surface
-  g.add(box(w-0.18, 0.58, 0.012, mat('#c8d8e0', 0.04, 0.9, {env:1.3}), 0, 1.07, -d/2+0.04));
-  // Mirror side posts
-  g.add(box(0.035, 0.68, 0.04, wood,  (w/2-0.09), 1.07, -d/2+0.02));
-  g.add(box(0.035, 0.68, 0.04, wood, -(w/2-0.09), 1.07, -d/2+0.02));
-  // Small perfume bottle on tray
-  g.add(cylAt(0.025, 0.022, 0.08, 10, mat('#d4a0b0', 0.3, 0.1), 0.16, 0.76, d*0.12));
+  const wood = mat(color, 0.62, 0.02), woodD = mat(shade(color, 0.9), 0.6), metal = mat('#9aa0a4', 0.2, 0.8, {env:0.9});
+  const TH = 0.74;
+  [[w/2-0.05, d/2-0.05],[w/2-0.05,-(d/2-0.05)],[-(w/2-0.05), d/2-0.05],[-(w/2-0.05),-(d/2-0.05)]].forEach(([lx,lz]) => { const l = box(0.05, TH-0.03, 0.05, wood, lx, (TH-0.03)/2, lz); l.userData.colorable = true; g.add(l); });   // 脚
+  g.add(box(w-0.10, 0.12, d-0.10, woodD, 0, TH-0.09, 0));                                             // 幕板
+  const dr = box(w-0.24, 0.09, 0.02, mat(shade(color,1.06), 0.6), 0, TH-0.09, d/2-0.04); dr.userData.colorable = true; g.add(dr);   // 引き出し
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), metal); knob.position.set(0, TH-0.09, d/2-0.02); g.add(knob);
+  const top = box(w, 0.03, d, wood, 0, TH-0.015, 0); top.userData.colorable = true; g.add(top);        // 天板
+  const glass = new THREE.MeshStandardMaterial({ color: 0xcfe0e8, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.35 });
+  g.add(box(w-0.02, 0.006, d-0.02, glass, 0, TH+0.003, 0));                                           // ガラス天板
+  const MH = h - TH;                                                                                    // ミラー部
+  [-1, 1].forEach(s => g.add(box(0.03, MH-0.02, 0.03, wood, s*0.23, TH + (MH-0.02)/2, -d/2+0.10)));    // 支柱
+  g.add(box(0.46, 0.66, 0.03, woodD, 0, TH + 0.45, -d/2+0.10));                                         // 額縁
+  g.add(box(0.40, 0.60, 0.012, mat('#c8d8e0', 0.04, 0.9, {env:1.3}), 0, TH + 0.45, -d/2+0.125));        // 鏡面
+  g.add(box(0.46, 0.03, 0.14, wood, 0, TH + 0.10, -d/2+0.15));                                          // 小物棚
+  g.add(cylAt(0.02, 0.018, 0.08, 10, mat('#d4a0b0', 0.3, 0.1), 0.12, TH + 0.155, -d/2+0.15));           // 香水瓶
   return g;
 }
-function buildHangerRack({ color='#8a7a6a', w=1.0, d=0.38, h=1.75 } = {}) {
+// ---- ハンガーラック (IKEA MULIG 99×46×151 風): 白いスチールパイプ。両端のH型フレーム(脚2本+上下の桟) + ハンガーバー + 下段バー。服3着付き ----
+function buildHangerRack({ color='#f2f2f0', w=0.99, d=0.46, h=1.51 } = {}) {
   const g = new THREE.Group();
-  const metal = mat('#5a5a5a', 0.35, 0.65, {env:0.8});
-  const wood = mat(color, 0.65, 0.02);
-  // Base board
-  const base = box(w, 0.025, d, wood, 0, 0.012, 0); base.userData.colorable = true; g.add(base);
-  // 2 vertical side poles
-  g.add(cylAt(0.018, 0.018, 1.64, 12, metal,  (w/2-0.04), 0.84, 0));
-  g.add(cylAt(0.018, 0.018, 1.64, 12, metal, -(w/2-0.04), 0.84, 0));
-  // Horizontal top bar
-  const topBar = cylAt(0.014, 0.014, w-0.08, 12, metal, 0, 1.58, 0);
-  topBar.rotation.z = Math.PI/2; g.add(topBar);
-  // Lower shelf
-  const shelf = box(w-0.08, 0.022, d-0.08, wood, 0, 0.32, 0); shelf.userData.colorable = true; g.add(shelf);
-  // Diagonal braces
-  [[ (w/2-0.04),  0.01], [ (w/2-0.04), -0.01],
-   [-(w/2-0.04),  0.01], [-(w/2-0.04), -0.01]].forEach(([bx, bz], i) => {
-    const brace = box(0.014, 0.014, 0.36, metal, bx, 0.17, bz);
-    brace.rotation.x = (i % 2 === 0 ? 0.4 : -0.4); g.add(brace);
+  const metal = mat(color, 0.4, 0.55, {env:0.6}); const R = 0.011;
+  [-1, 1].forEach(s => {
+    const x = s*(w/2 - R);
+    [-1, 1].forEach(t => g.add(cylAt(R, R, h - 0.02, 10, metal, x, (h-0.02)/2, t*(d/2 - R))));           // 脚
+    const foot = cylAt(R, R, d - 2*R, 10, metal, x, 0.06, 0); foot.rotation.x = Math.PI/2; g.add(foot);   // 足元の桟
+    const topC = cylAt(R, R, d - 2*R, 10, metal, x, h - 0.02, 0); topC.rotation.x = Math.PI/2; g.add(topC); // 上部の桟
   });
-  // 3 clothes hangers on top bar
-  [-0.25, 0, 0.25].forEach(hx => {
-    g.add(box(0.18, 0.007, 0.007, metal, hx, 1.62, 0));
-    const hook = cyl(0.007, 0.007, 0.08, 6, metal); hook.position.set(hx, 1.595, 0); g.add(hook);
-    // diagonal arms of hanger
-    g.add(box(0.092, 0.006, 0.006, metal, hx-0.046, 1.614, 0));
-    g.add(box(0.092, 0.006, 0.006, metal, hx+0.046, 1.614, 0));
+  const bar = cylAt(R, R, w - 2*R, 12, metal, 0, h - 0.02, 0); bar.rotation.z = Math.PI/2; g.add(bar);   // ハンガーバー
+  const low = cylAt(R*0.8, R*0.8, w - 2*R, 12, metal, 0, 0.06, 0); low.rotation.z = Math.PI/2; g.add(low); // 下段バー
+  const hangM = mat('#5a4a3a', 0.6); const shirts = ['#5b86b8', '#e8e2d6', '#3f5d7a'];
+  shirts.forEach((c, i) => {                                                                            // ハンガー + 服
+    const hx = -0.26 + i*0.26;
+    const hook = cyl(0.004, 0.004, 0.05, 6, hangM); hook.position.set(hx, h - 0.045, 0); g.add(hook);
+    [-1, 1].forEach(s => { const arm = box(0.20, 0.008, 0.008, hangM, hx + s*0.10, h - 0.09, 0); arm.rotation.z = s*0.28; g.add(arm); });
+    const sh = new THREE.Mesh(roundedBoxGeom(0.40, 0.62, 0.05, 0.02, 3), fabricMat(c)); sh.position.set(hx, h - 0.42, 0); sh.castShadow = true; g.add(sh);
   });
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 function buildPiano({ color='#1a1010', w=1.45, d=0.6, h=1.22 } = {}) {
@@ -5138,88 +5136,115 @@ function buildWorker({ color, w=0.5, d=0.5, h=1.8 } = {}) {
 
 // ===== js/builders/household.js =====
 
-function buildShoeCabinet({ color='#f3ece0', w=0.9, d=0.35, h=1.1 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.65), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
-  const body = box(w, h-0.06, d, wood, 0, (h-0.06)/2, 0); body.userData.colorable = true; g.add(body);
-  g.add(box(w+0.04, 0.04, d+0.03, mat(shade(color,0.92), 0.55), 0, h-0.02, 0)); // top surface
-  const dw = w/2 - 0.02;
-  [-dw/2-0.01, dw/2+0.01].forEach(dx => {
-    const door = box(dw, h-0.16, 0.03, mat(shade(color,1.08), 0.6), dx, (h-0.06)/2, d/2+0.005); door.userData.colorable = true; g.add(door);
-    const hdl = cyl(0.008,0.008,0.14,8,metal); hdl.rotation.y = Math.PI/2; hdl.position.set(dx, (h-0.06)/2, d/2+0.03); g.add(hdl);
+// ---- 下駄箱 (IKEA HEMNES 靴収納 4コンパートメント 107×22×101 風): 2列×2段の手前に倒れるフラップ扉(丸ノブ), 前脚のみ, 天板は少し大きい。使う面 +Z ----
+function buildShoeCabinet({ color='#f3ece0', w=1.07, d=0.22, h=1.01 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.62, 0.02), flapM = mat(shade(color, 1.04), 0.6, 0.02), edge = mat(shade(color, 0.9), 0.6), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
+  const LEG = 0.08, T = 0.02, bodyH = h - LEG - 0.03;
+  const body = box(w, bodyH, d, wood, 0, LEG + bodyH/2, 0); body.userData.colorable = true; g.add(body);
+  const top = box(w + 0.03, 0.03, d + 0.015, edge, 0, h - 0.015, 0.0075); top.userData.colorable = true; g.add(top);
+  [-1, 1].forEach(s => g.add(box(0.04, LEG, 0.04, wood, s*(w/2 - 0.03), LEG/2, d/2 - 0.03)));          // 前脚のみ(壁際の巾木をかわす)
+  const cols = 2, rows = 2, fw = (w - 0.06)/cols - 0.02, fh = (bodyH - 0.06)/rows - 0.02;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const x = -w/2 + 0.03 + (fw + 0.02)*(c + 0.5), y = LEG + 0.03 + (fh + 0.02)*(r + 0.5);
+    const flap = box(fw, fh, T, flapM, x, y, d/2 + T/2); flap.userData.colorable = true; g.add(flap);
+    g.add(box(fw - 0.06, 0.008, 0.004, edge, x, y + fh/2 - 0.03, d/2 + T + 0.002));                    // 面取り風の溝
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 10), metal); knob.position.set(x, y, d/2 + T + 0.012); g.add(knob);
+  }
+  return g;
+}
+// ---- トイレ (TOTO ピュアレストQR 組み合わせ便器・手洗なし 風): 壁側にタンク(幅≒w), 前方に大形(エロンゲート)便器, 便座・フタ閉。
+//      奥行 d = 壁から便器先端まで(760mm)。リム高 40cm。使う面 +Z(前) ----
+function buildToilet({ color='#e8e2d6', w=0.418, d=0.76, h=0.817 } = {}) {
+  const g = new THREE.Group(); const white = mat('#f6f5f1', 0.22, 0.05, { env: 0.5 }), lidM = mat('#fbfaf6', 0.3), chrome = mat('#cfd3d6', 0.25, 0.7, { env: 0.9 });
+  const tankD = 0.18, tankH = 0.40;
+  const tank = new THREE.Mesh(roundedBoxGeom(w, tankH, tankD, 0.02, 3), white); tank.position.set(0, h - tankH/2, -d/2 + tankD/2); tank.castShadow = true; g.add(tank);
+  g.add(box(0.30, h - tankH, tankD - 0.02, white, 0, (h - tankH)/2, -d/2 + tankD/2 + 0.02));      // タンク下の便器後部(密結部)
+  g.add(box(w - 0.02, 0.015, tankD - 0.02, mat('#f0eeea', 0.3), 0, h + 0.005, -d/2 + tankD/2));         // タンクふた
+  g.add(box(0.05, 0.02, 0.03, chrome, w/2 - 0.06, h - 0.06, -d/2 + tankD + 0.015));                     // レバー
+  const rim = 0.40, bowlL = d - tankD - 0.02, bowlCz = -d/2 + tankD + bowlL/2;
+  const base = new THREE.Mesh(roundedBoxGeom(0.30, rim - 0.05, bowlL*0.55, 0.05, 4), white); base.position.set(0, (rim - 0.05)/2, bowlCz - bowlL*0.2); base.castShadow = true; g.add(base);   // 便器後部
+  const bowl = cylAt(0.185, 0.14, rim - 0.06, 28, white, 0, (rim - 0.06)/2 + 0.02, bowlCz + 0.02); bowl.scale.z = (bowlL*0.5)/0.185; g.add(bowl);       // 楕円ボウル
+  const seat = cylAt(0.19, 0.19, 0.035, 28, white, 0, rim + 0.02, bowlCz + 0.02); seat.scale.z = (bowlL*0.52)/0.19; g.add(seat);                       // 便座
+  const lid = cylAt(0.185, 0.185, 0.02, 28, lidM, 0, rim + 0.05, bowlCz + 0.02); lid.scale.z = (bowlL*0.5)/0.185; g.add(lid);                          // フタ(閉)
+  g.add(box(0.26, 0.05, 0.10, white, 0, rim + 0.03, -d/2 + tankD + 0.05));                              // ヒンジ部
+  return g;
+}
+// ---- 手洗い器 (TOTO 壁掛手洗器 L870 幅460×奥行205mm 風): 壁付けの浅い矩形ボウル(リム高 = h-10cm), 立水栓, 壁面に給排水管。使う面 +Z ----
+function buildHandBasin({ color='#e8e2d6', w=0.46, d=0.205, h=0.85 } = {}) {
+  const g = new THREE.Group(); const white = mat('#f6f5f1', 0.22, 0.05, { env: 0.5 }), chrome = mat('#cfd3d6', 0.2, 0.85, { env: 1.0 });
+  const rim = h - 0.10, bh = 0.14;
+  const basin = new THREE.Mesh(roundedBoxGeom(w, bh, d, 0.03, 4), white); basin.position.set(0, rim - bh/2, 0); basin.castShadow = true; g.add(basin);
+  g.add(box(w - 0.06, 0.01, d - 0.06, mat('#dfe3e4', 0.25, 0.1), 0, rim - 0.008, 0.01));               // ボウルの凹み
+  g.add(cylAt(0.012, 0.012, 0.06, 10, chrome, 0, rim + 0.03, -d/2 + 0.03));                            // 立水栓
+  g.add(box(0.02, 0.02, 0.07, chrome, 0, rim + 0.07, -d/2 + 0.055));
+  g.add(cylAt(0.015, 0.015, rim - bh - 0.05, 10, chrome, 0.06, (rim - bh - 0.05)/2 + 0.02, -d/2 + 0.03)); // 排水管
+  g.add(cylAt(0.008, 0.008, 0.20, 8, chrome, -0.10, rim - bh - 0.10, -d/2 + 0.02));                    // 給水管
+  return g;
+}
+// ---- 洗面台 (LIXIL オフト 間口750 風): 開き戸+片引出しのキャビネット, ボウル一体カウンター(高さ81.5cm), シングルレバー水栓,
+//      1面鏡(鏡扉+右側オープン棚, 上部照明)。全高 h=180cm。使う面 +Z ----
+function buildVanity({ color='#f3ece0', w=0.75, d=0.5, h=1.8 } = {}) {
+  const g = new THREE.Group(); const white = mat('#f4f2ee', 0.3, 0.05), wood = mat(color, 0.6), front = mat(shade(color, 1.06), 0.6), metal = mat('#cfd3d6', 0.2, 0.85, { env: 1.0 });
+  const counterH = 0.815, KICK = 0.08;
+  const cab = box(w, counterH - 0.03 - KICK, d - 0.02, wood, 0, KICK + (counterH - 0.03 - KICK)/2, -0.01); cab.userData.colorable = true; g.add(cab);
+  g.add(box(w - 0.06, KICK, d - 0.08, mat(shade(color, 0.7), 0.6), 0, KICK/2, -0.03));                 // 台輪(蹴込み)
+  const dwL = w*0.55 - 0.02, dwR = w*0.45 - 0.02, fz = d/2 - 0.005, fH = counterH - 0.03 - KICK - 0.02;
+  const doorL = box(dwL, fH, 0.02, front, -w/2 + 0.01 + dwL/2, KICK + 0.01 + fH/2, fz); doorL.userData.colorable = true; g.add(doorL);   // 開き戸
+  g.add(box(0.10, 0.008, 0.02, metal, -w/2 + 0.01 + dwL - 0.08, counterH - 0.10, fz + 0.015));
+  [0, 1].forEach(i => {                                                                                  // 片引出し(2段)
+    const dh = (fH - 0.02)/2, y = KICK + 0.01 + dh/2 + i*(dh + 0.02);
+    const dr = box(dwR, dh, 0.02, front, w/2 - 0.01 - dwR/2, y, fz); dr.userData.colorable = true; g.add(dr);
+    g.add(box(0.10, 0.008, 0.02, metal, w/2 - 0.01 - dwR/2, y + dh/2 - 0.03, fz + 0.015));
   });
+  const counter = new THREE.Mesh(roundedBoxGeom(w, 0.03, d, 0.01, 3), white); counter.position.set(0, counterH - 0.015, 0); counter.castShadow = true; g.add(counter);   // カウンター
+  const bowl = new THREE.Mesh(roundedBoxGeom(w - 0.16, 0.05, d - 0.16, 0.04, 4), mat('#e7eaea', 0.2, 0.1)); bowl.position.set(0, counterH - 0.02, 0.02); g.add(bowl);   // 大型ボウル
+  g.add(box(w, 0.06, 0.02, white, 0, counterH + 0.03, -d/2 + 0.01));                                  // バックガード
+  g.add(cylAt(0.014, 0.014, 0.10, 10, metal, 0, counterH + 0.05, -d/2 + 0.07)); g.add(box(0.02, 0.02, 0.12, metal, 0, counterH + 0.10, -d/2 + 0.12)); g.add(box(0.05, 0.01, 0.03, metal, 0, counterH + 0.11, -d/2 + 0.06));   // シングルレバー水栓
+  const mY0 = counterH + 0.10, mH = h - mY0 - 0.02, mirD = 0.14;                                        // 1面鏡ユニット
+  g.add(box(w, mH, mirD, mat('#f7f6f3', 0.5), 0, mY0 + mH/2, -d/2 + mirD/2));
+  g.add(box(w*0.62, mH - 0.04, 0.01, mat('#cfe0e8', 0.04, 0.9, { env: 1.2 }), -w*0.19, mY0 + mH/2, -d/2 + mirD + 0.005));     // 鏡扉(左)
+  [0.33, 0.55, 0.77].forEach(f => g.add(box(w*0.34, 0.012, mirD - 0.02, mat('#e6e3de', 0.6), w*0.33, mY0 + mH*f, -d/2 + mirD/2)));   // 右側オープン棚
+  const lamp = box(w - 0.04, 0.03, 0.06, mat('#ffffff', 0.3, 0.1), 0, mY0 + mH - 0.03, -d/2 + mirD + 0.03); lamp.material.emissive = new THREE.Color('#fff4d6'); lamp.material.emissiveIntensity = 0.6; g.add(lamp);   // 照明
   return g;
 }
-function buildToilet({ color='#e8e2d6', w=0.5, d=0.7, h=0.8 } = {}) {
-  const g = new THREE.Group(); const white = mat('#f5f3ee', 0.25, 0.05, { env: 0.5 });
-  // bowl
-  const bowl = cylAt(0.2, 0.16, 0.32, 24, white, 0, 0.2, 0.12); bowl.scale.z = 0.85; g.add(bowl);
-  g.add(box(0.34, 0.06, 0.4, white, 0, 0.4, 0.12)); // seat ring base
-  g.add(box(0.36, 0.04, 0.42, mat('#fbfaf6', 0.3), 0, 0.45, 0.12)); // lid (closed)
-  // tank
-  const tank = box(0.42, 0.42, 0.18, white, 0, 0.6, -d/2+0.11); g.add(tank);
-  g.add(box(0.2, 0.02, 0.04, mat('#cfd3d6', 0.3, 0.6, { env: 0.8 }), 0, 0.83, -d/2+0.13)); // flush button strip
-  g.add(cylAt(0.17, 0.19, 0.06, 16, white, 0, 0.03, 0.12)); // base foot
+// ---- 洗濯機 (Panasonic NA-FA8H3 縦型全自動 8kg 風): 白い箱体, 上面に大きなフタ(半透明の窓), 背面上部に操作パネル。使う面 +Z ----
+function buildWasher({ color='#eceef0', w=0.564, d=0.573, h=1.022 } = {}) {
+  const g = new THREE.Group(); const body = mat(color, 0.4, 0.1, { env: 0.4 }), dark = mat('#2a2f33', 0.3, 0.3), glass = new THREE.MeshStandardMaterial({ color: 0x8fa3b3, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.55 });
+  const bodyH = h - 0.10;                                                                               // 操作パネル部を除いた高さ
+  const b = new THREE.Mesh(roundedBoxGeom(w, bodyH - 0.06, d, 0.02, 3), body); b.position.set(0, 0.06 + (bodyH - 0.06)/2, 0); b.castShadow = true; b.userData.colorable = true; g.add(b);
+  g.add(box(w - 0.06, 0.06, d - 0.06, mat('#c9ccce', 0.5), 0, 0.03, 0));                                // 脚部
+  const topP = new THREE.Mesh(roundedBoxGeom(w - 0.02, 0.03, d - 0.02, 0.01, 3), mat(shade(color, 0.97), 0.4)); topP.position.set(0, bodyH - 0.015, 0); g.add(topP);
+  g.add(box(w - 0.06, 0.012, d - 0.16, mat(shade(color, 1.02), 0.35, 0.1), 0, bodyH + 0.006, 0.03));    // フタ
+  g.add(box(w - 0.14, 0.006, d - 0.26, glass, 0, bodyH + 0.014, 0.03));                                 // 半透明の窓
+  g.add(box(0.12, 0.008, 0.02, dark, 0, bodyH + 0.014, d/2 - 0.05));                                    // フタの取っ手
+  g.add(box(w - 0.02, 0.10, 0.12, mat(shade(color, 0.96), 0.4), 0, bodyH + 0.05, -d/2 + 0.06));         // 操作パネル(背面上部)
+  g.add(box(w - 0.12, 0.05, 0.005, dark, 0, bodyH + 0.055, -d/2 + 0.123));                              // 表示部
+  const kn = cylAt(0.018, 0.018, 0.006, 12, mat('#7fd4ff', 0.3, 0.2), w/2 - 0.08, bodyH + 0.055, -d/2 + 0.125); kn.rotation.x = Math.PI/2; g.add(kn);
+  g.add(box(w - 0.10, 0.03, 0.01, mat('#d5d8da', 0.5), 0, 0.12, d/2 + 0.002));                          // 前面下のライン
   return g;
 }
-function buildHandBasin({ color='#e8e2d6', w=0.4, d=0.3, h=0.85 } = {}) {
-  const g = new THREE.Group(); const white = mat('#f5f3ee', 0.25, 0.05, { env: 0.5 }), metal = mat('#cfd3d6', 0.2, 0.85, { env: 1.0 });
-  g.add(box(0.08, h-0.12, 0.1, white, 0, (h-0.12)/2, -d/2+0.05)); // bracket
-  const bowl = cylAt(w/2-0.02, w/2-0.08, 0.13, 20, white, 0, h-0.06, 0.02); g.add(bowl);
-  g.add(cylAt(w/2-0.05, w/2-0.05, 0.02, 20, mat('#0d1117', 0.3, 0.2), 0, h-0.01, 0.02)); // drain hint
-  // faucet
-  const spout = box(0.04, 0.12, 0.04, metal, 0, h+0.05, -d/2+0.06); g.add(spout);
-  g.add(box(0.04, 0.04, 0.08, metal, 0, h+0.1, -d/2+0.1));
-  return g;
-}
-function buildVanity({ color='#e8e2d6', w=0.75, d=0.5, h=1.85 } = {}) {
-  const g = new THREE.Group(); const white = mat('#f3f0ea', 0.3, 0.05), wood = mat(color, 0.6), metal = mat('#cfd3d6', 0.2, 0.85, { env: 1.0 });
-  const counterH = 0.82;
-  const cab = box(w, counterH-0.06, d, wood, 0, (counterH-0.06)/2, 0); cab.userData.colorable = true; g.add(cab);
-  [-w/4, w/4].forEach(dx => { g.add(box(w/2-0.04, counterH-0.18, 0.02, mat(shade(color,1.08), 0.6), dx, (counterH-0.06)/2, d/2+0.005)); const hd=cyl(0.007,0.007,0.1,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(dx,(counterH-0.06)/2,d/2+0.02); g.add(hd); });
-  // counter + inset basin
-  g.add(box(w+0.02, 0.05, d+0.02, white, 0, counterH, 0));
-  g.add(box(w*0.45, 0.04, d*0.55, mat('#dcdedf', 0.25, 0.1), 0, counterH+0.005, 0.03)); // basin recess
-  g.add(box(0.04, 0.14, 0.04, metal, 0, counterH+0.09, -d/2+0.07)); // faucet
-  g.add(box(0.04, 0.04, 0.08, metal, 0, counterH+0.15, -d/2+0.1));
-  // mirror above
-  const mirror = box(w-0.06, 0.7, 0.03, mat('#cfe0e8', 0.04, 0.9, { env: 1.2 }), 0, h-0.4, -d/2+0.03); g.add(mirror);
-  g.add(box(w+0.02, 0.74, 0.05, mat(shade(color,0.9), 0.5), 0, h-0.4, -d/2+0.01)); // mirror frame
-  return g;
-}
-function buildWasher({ color='#e8e2d6', w=0.6, d=0.6, h=0.9 } = {}) {
-  const g = new THREE.Group(); const body = mat('#eceef0', 0.4, 0.1, { env: 0.4 }), dark = mat('#2a2f33', 0.2, 0.3), glass = new THREE.MeshStandardMaterial({ color: 0x223044, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.6 });
-  const b = box(w, h-0.04, d, body, 0, (h-0.04)/2, 0); b.userData.colorable = true; g.add(b);
-  g.add(box(w-0.02, 0.06, d-0.02, mat('#d6d9db', 0.4), 0, h-0.02, 0)); // top
-  g.add(box(w*0.55, 0.07, 0.04, dark, -0.04, h-0.05, d/2-0.01)); // control strip
-  g.add(cylAt(0.04, 0.04, 0.02, 14, mat('#7fd4ff', 0.3, 0.2), w/2-0.1, h-0.05, d/2+0.005)); // dial
-  // round door
-  const ring = cylAt(0.17, 0.17, 0.04, 24, dark, 0, h/2-0.05, d/2-0.02); ring.rotation.x = Math.PI/2; g.add(ring);
-  const win = cylAt(0.13, 0.13, 0.05, 24, glass, 0, h/2-0.05, d/2+0.005); win.rotation.x = Math.PI/2; g.add(win);
-  return g;
-}
-function buildBathtub({ color='#b9714a', w=0.8, d=1.6, h=0.6 } = {}) {
+// ---- 浴槽 (TOTO 洋風バス ポリバス 1600 P1030 風: 長さ1640×幅820×高さ465mm, 二方全エプロン)。長手 = d ----
+function buildBathtub({ color='#b9714a', w=0.82, d=1.64, h=0.465 } = {}) {
   const g = new THREE.Group(); const shell = mat('#f3f0ea', 0.25, 0.05, { env: 0.5 }), water = new THREE.MeshStandardMaterial({ color: 0x9ad3e6, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.5 });
-  const outer = box(w, h, d, shell, 0, h/2, 0); outer.userData.colorable = true; g.add(outer);
-  g.add(box(w-0.12, 0.4, d-0.12, mat('#dfe6e6', 0.2, 0.1), 0, h/2+0.06, 0)); // inner well
-  const surf = box(w-0.16, 0.02, d-0.16, water, 0, h-0.1, 0); g.add(surf); // water surface
-  g.add(box(w+0.02, 0.05, d+0.02, mat('#fbfaf6', 0.2), 0, h, 0)); // rim
+  const outer = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.03, 4), shell); outer.position.set(0, h/2, 0); outer.castShadow = true; outer.userData.colorable = true; g.add(outer);
+  g.add(box(w-0.12, h*0.7, d-0.12, mat('#dfe6e6', 0.2, 0.1), 0, h/2+0.06, 0));                          // 内側
+  const surf = box(w-0.16, 0.02, d-0.16, water, 0, h-0.08, 0); g.add(surf);                              // 水面
+  g.add(box(w+0.02, 0.04, d+0.02, mat('#fbfaf6', 0.2), 0, h, 0));                                        // リム
   return g;
 }
-function buildBathSet({ color='#e8e2d6', w=1.6, d=1.6, h=2.2 } = {}) {
+// ---- ユニットバス (LIXIL リノビオV 1616 風: 内寸1600×1600, 天井高2005): 壁2面 + 1600浴槽 + カウンター/鏡 + シャワー + 洗い場の床 ----
+function buildBathSet({ color='#e8e2d6', w=1.6, d=1.6, h=2.05 } = {}) {
   const g = new THREE.Group();
-  const panel = mat('#eef0f1', 0.35, 0.05, { env: 0.4 }), metal = mat('#cfd3d6', 0.2, 0.85, { env: 1.0 });
-  // shower walls (two sides of the unit)
-  g.add(box(0.04, h, d, panel, -w/2+0.02, h/2, 0));
-  g.add(box(w, h, 0.04, panel, 0, h/2, -d/2+0.02));
-  // bathtub along one side
-  const tub = buildBathtub({ color: '#cfe0e8', w: 0.75, d: d-0.3, h: 0.55 }); tub.position.set(w/2-0.42, 0, 0); g.add(tub);
-  // shower head + bar on the back wall
-  g.add(box(0.05, 0.9, 0.05, metal, -w/2+0.16, 1.4, -d/2+0.08));
-  const head = cylAt(0.08, 0.06, 0.04, 16, metal, -w/2+0.16, 1.85, -d/2+0.12); g.add(head);
-  // mirror on side wall
-  g.add(box(0.02, 0.5, 0.4, mat('#cfe0e8', 0.04, 0.9, { env: 1.2 }), -w/2+0.05, 1.2, d/2-0.45));
-  // stool
-  g.add(box(0.32, 0.04, 0.26, mat('#dcdee0', 0.4), -w/2+0.45, 0.24, d/2-0.4));
+  const panel = mat('#eef0f1', 0.35, 0.05, { env: 0.4 }), metal = mat('#cfd3d6', 0.2, 0.85, { env: 1.0 }), floorM = mat('#d8dbdc', 0.7, 0.05);
+  g.add(box(0.04, h, d, panel, -w/2+0.02, h/2, 0));                                                     // 壁(左)
+  g.add(box(w, h, 0.04, panel, 0, h/2, -d/2+0.02));                                                     // 壁(奥)
+  g.add(box(w - 0.04, 0.02, d - 0.04, floorM, 0.02, 0.01, 0.02));                                       // 洗い場の床(キレイサーモフロア風)
+  const tub = buildBathtub({ color: '#cfe0e8', w: 0.75, d: d - 0.04, h: 0.55 }); tub.position.set(w/2 - 0.395, 0, 0.02); g.add(tub);   // 1600浴槽
+  g.add(box(0.60, 0.04, 0.24, mat('#f4f4f2', 0.4), -w/2 + 0.34, 0.70, -d/2 + 0.16));                    // カウンター
+  g.add(box(0.04, 0.9, 0.04, metal, -w/2+0.16, 1.4, -d/2+0.08));                                        // シャワースライドバー
+  g.add(cylAt(0.05, 0.04, 0.03, 16, metal, -w/2+0.16, 1.85, -d/2+0.12));                                // シャワーヘッド
+  g.add(box(0.44, 0.60, 0.02, mat('#cfe0e8', 0.04, 0.9, { env: 1.2 }), -w/2 + 0.34, 1.25, -d/2 + 0.05)); // 鏡
+  g.add(box(0.32, 0.04, 0.26, mat('#dcdee0', 0.4), -w/2+0.45, 0.24, d/2-0.4));                          // 風呂椅子
   [[-w/2+0.32,d/2-0.5],[-w/2+0.58,d/2-0.5],[-w/2+0.32,d/2-0.3],[-w/2+0.58,d/2-0.3]].forEach(([lx,lz])=>g.add(box(0.03,0.24,0.03,mat('#cfd3d6',0.4),lx,0.12,lz)));
   return g;
 }
@@ -5235,116 +5260,134 @@ function buildCloset({ color='#f3ece0', w=1.6, d=0.6, h=2.2 } = {}) {
   g.userData.parts = { slideL, slideR, slideRange: dw * 0.82 };
   return g;
 }
-function buildCupboard({ color='#f3ece0', w=0.9, d=0.45, h=1.9 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.65), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
+// ---- 食器棚 (ニトリ キッチンボード レジューム 幅90 風): 下台(高さ95cm: 開き戸2枚) + カウンター + 中段オープン(家電置き, 背面パネル)
+//      + 上台(ガラス開き戸2枚)。全高201cm。扉は parts.lowerL/lowerR/upperL/upperR で開閉アニメ。使う面 +Z ----
+function buildCupboard({ color='#f3ece0', w=0.9, d=0.51, h=2.01 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.65), front = mat(shade(color,1.06), 0.6), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
   const glass = new THREE.MeshStandardMaterial({ color: 0xbcd3dc, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.35 });
-  const body = box(w, h, d, wood, 0, h/2, 0); body.userData.colorable = true; g.add(body);
-  const mid = h*0.45;
-  const ldw = w/2-0.04, udw = w/2-0.05;
-  // shelves
-  for (let i=0;i<2;i++) g.add(box(w-0.1, 0.02, d-0.08, mat(shade(color,0.85),0.7), 0, mid+0.1+i*0.45, 0));
-  // lower left door: pivot at left hinge edge
-  const lowerL = new THREE.Group(); lowerL.position.set(-w/2+0.02, mid/2, d/2+0.005);
-  { const m = box(ldw, mid-0.1, 0.03, mat(shade(color,1.08), 0.6), ldw/2, 0, 0); m.userData.colorable=true; lowerL.add(m); }
-  { const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(ldw-0.05, mid/2-0.18, 0.02); lowerL.add(hd); }
-  g.add(lowerL);
-  // lower right door: pivot at right hinge edge
-  const lowerR = new THREE.Group(); lowerR.position.set(w/2-0.02, mid/2, d/2+0.005);
-  { const m = box(ldw, mid-0.1, 0.03, mat(shade(color,1.08), 0.6), -ldw/2, 0, 0); m.userData.colorable=true; lowerR.add(m); }
-  { const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(-ldw+0.05, mid/2-0.18, 0.02); lowerR.add(hd); }
-  g.add(lowerR);
-  // upper left glass door: pivot at left hinge edge
-  const upy = mid+(h-mid)/2-0.02;
-  const upperL = new THREE.Group(); upperL.position.set(-w/2+0.02, upy, d/2+0.01);
-  upperL.add(box(udw, h-mid-0.12, 0.02, glass, udw/2, 0, 0));
-  { const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(udw-0.05, 0.17-(h-mid)/2, 0.015); upperL.add(hd); }
-  g.add(upperL);
-  // upper right glass door: pivot at right hinge edge
-  const upperR = new THREE.Group(); upperR.position.set(w/2-0.02, upy, d/2+0.01);
-  upperR.add(box(udw, h-mid-0.12, 0.02, glass, -udw/2, 0, 0));
-  { const hd=cyl(0.008,0.008,0.12,8,metal); hd.rotation.x=Math.PI/2; hd.position.set(-udw+0.05, 0.17-(h-mid)/2, 0.015); upperR.add(hd); }
-  g.add(upperR);
+  const LOW = 0.95, OPEN = 0.50, UPD = Math.min(d, 0.40);                                                // 下台高 / 中段オープン高 / 上台奥行
+  const lower = box(w, LOW, d, wood, 0, LOW/2, 0); lower.userData.colorable = true; g.add(lower);        // 下台
+  g.add(box(w + 0.01, 0.03, d + 0.01, mat(shade(color, 0.92), 0.55), 0, LOW + 0.015, 0));                // カウンター
+  const upY0 = LOW + 0.03 + OPEN, upH = h - upY0;
+  const upper = box(w, upH, UPD, wood, 0, upY0 + upH/2, -d/2 + UPD/2); upper.userData.colorable = true; g.add(upper);   // 上台
+  [-1, 1].forEach(s => g.add(box(0.025, OPEN, UPD, wood, s*(w/2 - 0.0125), LOW + 0.03 + OPEN/2, -d/2 + UPD/2)));       // 中段の側板
+  g.add(box(w - 0.05, OPEN, 0.012, mat(shade(color, 0.96), 0.7), 0, LOW + 0.03 + OPEN/2, -d/2 + 0.006));               // 中段の背面パネル
+  g.add(box(0.07, 0.05, 0.01, mat('#f8f8f6', 0.6), w/2 - 0.12, LOW + 0.30, -d/2 + 0.013));                             // コンセント
+  g.add(box(0.30, 0.10, 0.20, mat('#2b2d30', 0.4, 0.3), 0, LOW + 0.03 + 0.05, 0.02));                                    // 家電(トースター)
+  const mkDoor = (x0, y, dw, dh, z, hinge, m) => { const p = new THREE.Group(); p.position.set(x0, y, z); const dm = box(dw, dh, 0.02, m, hinge*dw/2, 0, 0); dm.userData.colorable = (m === front); p.add(dm); const hd = cyl(0.006, 0.006, 0.12, 8, metal); hd.position.set(hinge*(dw - 0.05), 0, 0.02); p.add(hd); g.add(p); return p; };
+  const ldw = w/2 - 0.02, udw = w/2 - 0.02;
+  const lowerL = mkDoor(-w/2 + 0.01, LOW/2, ldw, LOW - 0.05, d/2 + 0.005,  1, front);
+  const lowerR = mkDoor( w/2 - 0.01, LOW/2, ldw, LOW - 0.05, d/2 + 0.005, -1, front);
+  const uz = -d/2 + UPD + 0.005;
+  const upperL = mkDoor(-w/2 + 0.01, upY0 + upH/2, udw, upH - 0.05, uz,  1, glass);
+  const upperR = mkDoor( w/2 - 0.01, upY0 + upH/2, udw, upH - 0.05, uz, -1, glass);
+  for (let i = 0; i < 2; i++) g.add(box(w - 0.06, 0.018, UPD - 0.06, mat(shade(color, 0.88), 0.7), 0, upY0 + 0.18 + i*0.17, -d/2 + UPD/2));   // 上台の棚板
   g.userData.parts = { lowerL, lowerR, upperL, upperR };
   return g;
 }
-function buildKitchenCounter({ color='#e8e2d6', w=2.4, d=0.65, h=0.9 } = {}) {
-  const g = new THREE.Group(); const wood = mat(color, 0.6), steel = mat('#c2c7cb', 0.2, 0.85, { env: 1.0 }), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
-  const cab = box(w, h-0.06, d, wood, 0, (h-0.06)/2, 0); cab.userData.colorable = true; g.add(cab);
-  g.add(box(w+0.02, 0.06, d+0.02, steel, 0, h-0.03, 0)); // stainless top
-  // inset sink (left third)
-  g.add(box(0.5, 0.05, 0.4, mat('#0d1117', 0.2, 0.3), -w/2+0.55, h-0.025, 0));
-  g.add(box(0.04, 0.18, 0.04, steel, -w/2+0.55, h+0.07, -d/2+0.1)); // faucet
-  g.add(box(0.04, 0.04, 0.12, steel, -w/2+0.55, h+0.15, -d/2+0.16));
-  // doors + drawers
-  const dn = 4;
-  for (let i=0;i<dn;i++){ const dx=-w/2+w/(dn)*(i+0.5); const door=box(w/dn-0.05, h-0.22, 0.03, mat(shade(color,1.07),0.6), dx, (h-0.06)/2, d/2+0.005); door.userData.colorable=true; g.add(door); const hd=cyl(0.008,0.008,0.14,8,metal); hd.rotation.y=Math.PI/2; hd.position.set(dx,h-0.18,d/2+0.025); g.add(hd); }
+// ---- システムキッチン (LIXIL シエラS 壁付I型 間口2400 風): ステンレスワークトップ(高さ85cm), 左にシンク, 右にビルトイン3口コンロ,
+//      手前はシンク下開き戸 + 引き出し(スライドストッカー)。使う面 +Z ----
+function buildKitchenCounter({ color='#e8e2d6', w=2.4, d=0.65, h=0.85 } = {}) {
+  const g = new THREE.Group(); const wood = mat(color, 0.55, 0.02), front = mat(shade(color, 1.05), 0.55, 0.02), steel = mat('#c9ced2', 0.25, 0.85, { env: 1.0 }), dark = mat('#1a1c1f', 0.3, 0.3), metal = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
+  const TOP = 0.04, KICK = 0.10;
+  const cab = box(w, h - TOP - KICK, d - 0.02, wood, 0, KICK + (h - TOP - KICK)/2, -0.01); cab.userData.colorable = true; g.add(cab);
+  g.add(box(w - 0.04, KICK, d - 0.10, mat('#6d6a66', 0.6), 0, KICK/2, -0.05));                          // 台輪(蹴込み)
+  g.add(box(w + 0.01, TOP, d + 0.01, steel, 0, h - TOP/2, 0));                                          // ワークトップ
+  const sx = -w/2 + 0.55;                                                                                // シンク(左)
+  g.add(box(0.68, 0.006, 0.42, mat('#8f969b', 0.3, 0.8), sx, h + 0.001, 0.02));
+  g.add(box(0.64, 0.16, 0.38, mat('#a9b0b5', 0.35, 0.7), sx, h - 0.09, 0.02));
+  g.add(cylAt(0.014, 0.014, 0.18, 10, steel, sx, h + 0.09, -d/2 + 0.10)); g.add(box(0.02, 0.02, 0.16, steel, sx, h + 0.17, -d/2 + 0.17));   // 水栓
+  const cx = w/2 - 0.45;                                                                                 // ビルトインコンロ(右, 60cm)
+  g.add(box(0.60, 0.008, 0.46, dark, cx, h + 0.002, 0.0));
+  [[-0.17, 0.07, 0.07], [0.17, 0.07, 0.07], [0, -0.14, 0.06]].forEach(([bx, bz, r]) => { g.add(cylAt(r, r, 0.006, 16, mat('#3a3d40', 0.5, 0.4), cx + bx, h + 0.008, bz)); g.add(cylAt(r*0.35, r*0.35, 0.02, 10, mat('#2a2c2e', 0.5, 0.5), cx + bx, h + 0.016, bz)); });
+  const fz = d/2 - 0.005, fH = h - TOP - KICK - 0.02, fy0 = KICK + 0.01;
+  const knob = (x, y) => { const k = cylAt(0.012, 0.012, 0.02, 10, metal, x, y, fz + 0.015); k.rotation.x = Math.PI/2; g.add(k); };
+  const panel = (x, y, pw, ph) => { const p = box(pw, ph, 0.02, front, x, y, fz); p.userData.colorable = true; g.add(p); g.add(box(Math.min(0.30, pw - 0.10), 0.008, 0.02, metal, x, y + ph/2 - 0.03, fz + 0.015)); };
+  const zw = 0.88, mw = w - 2*zw - 0.04;
+  [-1, 1].forEach(s => panel(-w/2 + 0.02 + zw/4 + (s > 0 ? zw/2 : 0), fy0 + fH/2, zw/2 - 0.01, fH));    // シンク下: 開き戸2枚
+  if (mw > 0.2) for (let i = 0; i < 3; i++) { const dh = (fH - 0.04)/3; panel(0, fy0 + dh/2 + i*(dh + 0.02), mw - 0.01, dh); }   // 中央: 引き出し3段
+  g.add(box(0.56, 0.16, 0.02, dark, cx, h - TOP - 0.10, fz)); g.add(box(0.30, 0.012, 0.02, metal, cx, h - TOP - 0.10, fz + 0.015));   // グリル扉
+  [-0.25, -0.19, 0.22].forEach(kx => knob(cx + kx, h - TOP - 0.10));
+  const cdh = (fH - 0.22 - 0.02)/2; [0, 1].forEach(i => panel(cx, fy0 + cdh/2 + i*(cdh + 0.02), zw - 0.01, cdh));   // コンロ下: 引き出し2段
   return g;
 }
-function buildGasStove({ color='#3a332b', w=0.6, d=0.55, h=0.85 } = {}) {
-  const g = new THREE.Group(); const body = mat(color, 0.4, 0.3), glass = mat('#15171a', 0.1, 0.4), metal = mat('#7a8088', 0.3, 0.8, { env: 0.9 });
-  const b = box(w, h-0.04, d, body, 0, (h-0.04)/2, 0); b.userData.colorable = true; g.add(b);
-  g.add(box(w-0.02, 0.04, d-0.02, glass, 0, h-0.02, 0)); // black glass top
-  // 3 burner rings + grates
-  [[-0.13,0.1,0.07],[0.13,0.1,0.07],[0,-0.13,0.05]].forEach(([x,z,r])=>{ g.add(cylAt(r,r,0.015,16,mat('#0a0c0e',0.3),x,h+0.005,z)); g.add(cylAt(0.025,0.025,0.025,8,metal,x,h+0.015,z)); });
-  // oven door
-  g.add(box(w-0.08, h*0.5, 0.02, mat(shade(color,1.3),0.3,0.4), 0, h*0.32, d/2-0.01));
-  g.add(box(w-0.16, 0.05, 0.03, metal, 0, h*0.55, d/2+0.005)); // oven handle
-  // knobs
-  [-0.12, 0, 0.12].forEach(x=>g.add(cylAt(0.025,0.025,0.03,12,metal,x,0.1,d/2-0.005)));
-  [[-w/2+0.04,d/2-0.04],[-w/2+0.04,-d/2+0.04],[w/2-0.04,d/2-0.04],[w/2-0.04,-d/2+0.04]].forEach(([lx,lz])=>g.add(box(0.04,0.06,0.04,mat('#222',0.5),lx,0.03,lz)));
+// ---- ガスコンロ (リンナイ ガステーブル RT64JH 59cm・2口・水無し片面焼グリル 外形W596×D452×H218mm) を
+//      汎用コンロ台(ステンレス W600×D550×H≒650mm)に載せた状態。使う面 +Z ----
+function buildGasStove({ color='#3a332b', w=0.6, d=0.55, h=0.87 } = {}) {
+  const g = new THREE.Group();
+  const stand = mat('#c9ced2', 0.3, 0.8, { env: 0.9 }), body = mat(color, 0.35, 0.35), glass = mat('#111315', 0.1, 0.4), metal = mat('#7a8088', 0.3, 0.8, { env: 0.9 }), dark = mat('#1f2224', 0.5, 0.3);
+  const GW = 0.596, GD = 0.452, GH = 0.218, SH = h - GH;                                                // ガステーブル外形 / 台の高さ
+  g.add(box(w, 0.03, d, stand, 0, SH - 0.015, 0));                                                      // コンロ台
+  [[-w/2+0.02, d/2-0.02],[w/2-0.02, d/2-0.02],[-w/2+0.02, -(d/2-0.02)],[w/2-0.02, -(d/2-0.02)]].forEach(([x,z]) => g.add(box(0.03, SH - 0.03, 0.03, stand, x, (SH-0.03)/2, z)));
+  g.add(box(w - 0.06, 0.02, d - 0.06, stand, 0, 0.25, 0)); g.add(box(w - 0.06, 0.02, d - 0.06, stand, 0, 0.02, 0));
+  const gz = -d/2 + GD/2 + 0.05;
+  const b = new THREE.Mesh(roundedBoxGeom(GW, GH - 0.02, GD, 0.01, 3), body); b.position.set(0, SH + (GH - 0.02)/2, gz); b.castShadow = true; b.userData.colorable = true; g.add(b);
+  g.add(box(GW - 0.01, 0.02, GD - 0.01, glass, 0, SH + GH - 0.01, gz));                                  // ガラストップ
+  [[-0.16, 0.0], [0.16, 0.0]].forEach(([bx, bz]) => {                                                    // バーナー2口 + 五徳
+    g.add(cylAt(0.085, 0.085, 0.006, 20, dark, bx, SH + GH + 0.003, gz + bz)); g.add(cylAt(0.032, 0.032, 0.018, 10, metal, bx, SH + GH + 0.012, gz + bz));
+    for (let i = 0; i < 5; i++) { const a = i/5*Math.PI*2; const bar = box(0.075, 0.006, 0.006, dark, bx + Math.cos(a)*0.045, SH + GH + 0.012, gz + bz + Math.sin(a)*0.045); bar.rotation.y = -a; g.add(bar); }
+  });
+  g.add(box(0.30, 0.09, 0.02, mat(shade(color, 1.2), 0.3, 0.4), 0.0, SH + 0.075, gz + GD/2 + 0.005));   // グリル扉
+  g.add(box(0.20, 0.012, 0.02, metal, 0.0, SH + 0.115, gz + GD/2 + 0.015));                              // グリル取っ手
+  [-0.25, -0.19, 0.22].forEach(kx => { const k = cylAt(0.014, 0.014, 0.025, 12, metal, kx, SH + 0.06, gz + GD/2 + 0.012); k.rotation.x = Math.PI/2; g.add(k); });   // 点火つまみ
   return g;
 }
-function buildMicrowave({ color='#3a332b', w=0.5, d=0.4, h=0.3 } = {}) {
+// ---- 電子レンジ (Panasonic NE-MS4C オーブンレンジ 26L 風: W470×D390×H350mm): 大きな窓の扉 + 右側の操作パネル(ダイヤル)。使う面 +Z ----
+function buildMicrowave({ color='#3a332b', w=0.47, d=0.39, h=0.35 } = {}) {
   const g = new THREE.Group(); const body = mat(color, 0.4, 0.2), glass = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.75 }), metal = mat('#9aa0a4', 0.3, 0.8, { env: 0.9 });
   const b = box(w, h, d, body, 0, h/2, 0); b.userData.colorable = true; g.add(b);
-  g.add(box(w*0.6, h-0.05, 0.02, glass, -w*0.08, h/2, d/2+0.005)); // door window
-  g.add(box(0.015, h-0.08, 0.02, metal, w*0.22, h/2, d/2+0.02)); // handle
-  // control panel strip on right
-  g.add(box(w*0.22, h-0.06, 0.015, mat('#1c1f22', 0.4), w/2-0.08, h/2, d/2+0.005));
-  for(let i=0;i<3;i++)for(let j=0;j<2;j++) g.add(box(0.03,0.025,0.01,mat('#444',0.5),w/2-0.13+j*0.07,h*0.35+i*0.07,d/2+0.012));
+  g.add(box(w*0.70, h-0.04, 0.02, mat(shade(color, 1.1), 0.4, 0.2), -w*0.12, h/2, d/2+0.005));          // 扉
+  g.add(box(w*0.56, h-0.10, 0.01, glass, -w*0.12, h/2, d/2+0.017));                                     // 窓
+  g.add(box(0.012, h-0.09, 0.02, metal, w*0.20, h/2, d/2+0.025));                                       // 取っ手
+  g.add(box(w*0.22, h-0.04, 0.015, mat('#1c1f22', 0.4), w/2-0.06, h/2, d/2+0.005));                     // 操作パネル
+  const dial = cylAt(0.022, 0.022, 0.012, 14, metal, w/2-0.06, h*0.42, d/2+0.018); dial.rotation.x = Math.PI/2; g.add(dial);   // ダイヤル
+  for (let i = 0; i < 3; i++) g.add(box(0.05, 0.012, 0.006, mat('#4a4d50', 0.5), w/2-0.06, h*0.62+i*0.035, d/2+0.014));
   return g;
 }
-function buildRiceCooker({ color='#e8e2d6', w=0.3, d=0.35, h=0.28 } = {}) {
-  const g = new THREE.Group(); const body = mat('#f0eee9', 0.4, 0.15, { env: 0.4 }), dark = mat('#2a2f33', 0.3, 0.2), metal = mat('#9aa0a4', 0.3, 0.8, { env: 0.9 });
-  const b = cylAt(w/2, w/2-0.02, h-0.06, 24, body, 0, (h-0.06)/2, 0); b.scale.z = d/w; b.userData.colorable = true; g.add(b);
-  const lid = cylAt(w/2+0.01, w/2-0.01, 0.06, 24, body, 0, h-0.03, 0); lid.scale.z = d/w; g.add(lid);
-  g.add(cylAt(0.025, 0.025, 0.03, 12, metal, 0, h+0.005, -0.06)); // steam vent
-  g.add(box(w*0.6, 0.05, 0.01, dark, 0, h*0.4, d/2-0.02)); // front display
+// ---- 炊飯器 (象印 極め炊き NW-VD10 5.5合 IH 風: W255×D375×H205mm): 角の丸い箱型, 上面にフタ(前部に操作パネル), 背面に蒸気口。使う面 +Z ----
+function buildRiceCooker({ color='#f0eee9', w=0.255, d=0.375, h=0.205 } = {}) {
+  const g = new THREE.Group(); const body = mat(color, 0.4, 0.15, { env: 0.4 }), dark = mat('#2a2f33', 0.3, 0.2), metal = mat('#9aa0a4', 0.3, 0.8, { env: 0.9 });
+  const b = new THREE.Mesh(roundedBoxGeom(w, h - 0.05, d, 0.03, 4), body); b.position.set(0, (h - 0.05)/2, 0); b.castShadow = true; b.userData.colorable = true; g.add(b);
+  const lid = new THREE.Mesh(roundedBoxGeom(w - 0.01, 0.05, d - 0.02, 0.02, 4), mat(shade(color, 0.97), 0.35, 0.15)); lid.position.set(0, h - 0.025, 0); lid.castShadow = true; g.add(lid);
+  g.add(box(w - 0.06, 0.004, 0.09, dark, 0, h + 0.002, d/2 - 0.08));                                     // 操作パネル
+  const disp = box(0.04, 0.002, 0.012, mat('#ff8a3c', 0.5, 0.1), 0, h + 0.005, d/2 - 0.06); disp.material.emissive = new THREE.Color('#ff6a00'); disp.material.emissiveIntensity = 0.6; g.add(disp);
+  g.add(box(0.05, 0.012, 0.02, metal, 0, h - 0.01, d/2 - 0.005));                                        // 開閉ボタン
+  g.add(cylAt(0.02, 0.02, 0.006, 12, dark, 0, h + 0.003, -d/2 + 0.05));                                  // 蒸気口
   return g;
 }
-function buildFridge({ color='#e8e2d6', w=0.7, d=0.7, h=1.8 } = {}) {
-  const g = new THREE.Group(); const body = mat('#dde0e2', 0.35, 0.3, { env: 0.6 }), metal = mat('#9aa0a4', 0.25, 0.85, { env: 1.0 });
-  const b = box(w, h, d, body, 0, h/2, 0); b.userData.colorable = true; g.add(b);
-  const split = h*0.62;
-  g.add(box(w-0.04, 0.02, d-0.04, mat('#b8bcbf', 0.4), 0, split, 0)); // door split line
-  // upper door
-  g.add(box(w-0.06, split-0.06, 0.02, mat(shade(color,1.03),0.35,0.3), 0, split/2+0.02, d/2+0.005));
-  g.add(cylAt(0.015,0.015,split-0.3,10,metal,-w/2+0.08,split/2+0.02,d/2+0.03)); // handle
-  // lower freezer
-  g.add(box(w-0.06, h-split-0.06, 0.02, mat(shade(color,1.03),0.35,0.3), 0, split+(h-split)/2, d/2+0.005));
-  g.add(cylAt(0.015,0.015,h-split-0.3,10,metal,-w/2+0.08,split+(h-split)/2,d/2+0.03));
+// ---- 冷蔵庫 (Panasonic NR-C344C 335L 3ドア 右開き 風: W590×D633×H1687mm): 上=冷蔵室(開き戸), 中=野菜室(引き出し), 下=冷凍室(引き出し)。使う面 +Z ----
+function buildFridge({ color='#f2f1ee', w=0.59, d=0.633, h=1.687 } = {}) {
+  const g = new THREE.Group(); const body = mat(color, 0.35, 0.25, { env: 0.6 }), face = mat(shade(color, 1.03), 0.3, 0.3, { env: 0.6 }), gap = mat('#9a9a98', 0.5), dark = mat('#2b2d30', 0.5, 0.3);
+  const b = new THREE.Mesh(roundedBoxGeom(w, h - 0.06, d, 0.012, 3), body); b.position.set(0, 0.06 + (h - 0.06)/2, 0); b.castShadow = true; b.userData.colorable = true; g.add(b);
+  g.add(box(w - 0.08, 0.06, d - 0.10, dark, 0, 0.03, -0.03));                                           // 脚部
+  const fz = d/2 + 0.006;
+  [[0.06, 0.34], [0.40, 0.36], [0.76, h - 0.76 - 0.01]].forEach(([y0, sh], i) => {                     // [下端, 高さ]: 冷凍室 / 野菜室 / 冷蔵室
+    const f = box(w - 0.01, sh - 0.008, 0.012, face, 0, y0 + sh/2, fz); f.userData.colorable = true; g.add(f);
+    if (i < 2) g.add(box(w - 0.10, 0.02, 0.02, gap, 0, y0 + sh - 0.03, fz + 0.012));                     // 引き出しの取っ手(上端の凹み)
+    else g.add(box(0.02, sh - 0.30, 0.02, gap, -w/2 + 0.04, y0 + sh/2, fz + 0.012));                     // 冷蔵室の縦取っ手(左側 = 右開き)
+  });
   return g;
 }
-function buildWallTV({ color='#1c1c1f', w=1.3, d=0.08, h=0.8 } = {}) {
+// ---- 壁掛けテレビ (REGZA 55E770S スタンドなし 風: W1226×H711×D77mm, 15.4kg): 壁掛け金具 + 薄型パネル。画面中心高 1.35m。使う面 +Z ----
+function buildWallTV({ color='#1c1c1f', w=1.226, d=0.08, h=0.711 } = {}) {
   const g = new THREE.Group(); const frame = mat(color, 0.3, 0.5, { env: 0.7 }), screen = mat('#08090c', 0.08, 0.25), metal = mat('#444', 0.4, 0.6);
   const cy = 1.35; // mounted height above floor
-  // VESA wall mount
-  g.add(box(0.22, 0.22, 0.04, metal, 0, cy, -0.02));
-  g.add(box(0.04, 0.18, 0.03, metal, 0, cy, 0.0));
-  // ultra-thin panel
-  const body = box(w, h, 0.035, frame, 0, cy, 0.04); body.userData.colorable = true; g.add(body);
-  g.add(box(w-0.025, h-0.025, 0.012, screen, 0, cy, 0.06));
-  const glow = new THREE.Mesh(new THREE.PlaneGeometry(w-0.04, h-0.04), new THREE.MeshBasicMaterial({ color: 0x2c4a6a, transparent: true, opacity: 0.6 })); glow.position.set(0, cy, 0.067); g.add(glow);
-  const glow2 = new THREE.Mesh(new THREE.PlaneGeometry((w-0.04)*0.45, (h-0.04)*0.55), new THREE.MeshBasicMaterial({ color: 0x6a90c0, transparent: true, opacity: 0.32 })); glow2.position.set(-w*0.14, cy+0.05, 0.069); g.add(glow2);
-  // soundbar below
-  g.add(box(w*0.7, 0.05, 0.06, mat('#2a2a2e', 0.5, 0.2), 0, cy - h/2 - 0.08, 0.04));
+  g.add(box(0.30, 0.30, 0.02, metal, 0, cy, 0.01));                                                     // 壁掛け金具(VESA)
+  g.add(box(0.06, 0.24, 0.02, metal, 0, cy, 0.03));
+  const body = box(w, h, 0.032, frame, 0, cy, d - 0.02); body.userData.colorable = true; g.add(body);    // パネル(最薄部 7.7cm 以内)
+  g.add(box(w*0.85, h*0.55, 0.03, mat('#26272a', 0.5, 0.4), 0, cy - h*0.2, d - 0.05));                  // 背面ハウジング
+  g.add(box(w-0.012, h-0.012, 0.006, screen, 0, cy, d - 0.001));
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(w-0.03, h-0.03), new THREE.MeshBasicMaterial({ color: 0x2c4a6a, transparent: true, opacity: 0.6 })); glow.position.set(0, cy, d + 0.003); g.add(glow);
+  const glow2 = new THREE.Mesh(new THREE.PlaneGeometry((w-0.03)*0.45, (h-0.03)*0.55), new THREE.MeshBasicMaterial({ color: 0x6a90c0, transparent: true, opacity: 0.32 })); glow2.position.set(-w*0.14, cy+0.05, d + 0.004); g.add(glow2);
+  g.add(box(0.10, 0.008, 0.004, mat('#9aa0a4', 0.22, 0.85, { env: 1.0 }), 0, cy - h/2 + 0.02, d + 0.002));   // ロゴ
   return g;
 }
 
 
-function buildWallAC({ color='#f2f2f0', w=0.9, d=0.2, h=0.28 } = {}) {
+// ---- 壁掛けエアコン (ダイキン Eシリーズ 6畳用 S224ATES 室内機 風: W798×H250×D255mm)。天井際(上端 ≒2.45m)に取付。使う面 +Z ----
+function buildWallAC({ color='#f2f2f0', w=0.798, d=0.255, h=0.25 } = {}) {
   const g = new THREE.Group();
-  const cy = 1.97;
+  const cy = 2.32;
   // Body
   const bodyMesh = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.022, 3), mat(color, 0.45, 0.05));
   bodyMesh.position.set(0, cy, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true; bodyMesh.userData.colorable = true; g.add(bodyMesh);
@@ -7276,10 +7319,10 @@ function buildStarWall({ color = '#ffe08a', w = 0.6, d = 0.04, h = 0.55 } = {}) 
 // 実在製品の3Dモデル (メーカー公式寸法で作成)。寸法・出典は catalog.js の product フィールド参照。
 // 慣例: 使う面(画面/座面/ドア面)は +Z。ベッドはヘッドボードを -Z、足側を +Z。
 
-// --- TVS REGZA 55E770S (55V型 4K Mini LED液晶): 外形 W1226×H761×D287mm (スタンド含む) ------------
-function buildRegza55E770S({ color = '#1c1c1f' } = {}) {
+// --- TVS REGZA E770S 系 (センタースタンドの薄型液晶): 外形 W×H×D (スタンド含む), panelH = パネル部の高さ -----------
+function buildRegzaTV({ color = '#1c1c1f', w = 1.226, h = 0.761, d = 0.287, panelH = null } = {}) {
   const g = new THREE.Group();
-  const W = 1.226, H = 0.761, D = 0.287, PH = 0.705;          // PH: パネル高さ (スタンド部を除いた概算)
+  const W = w, H = h, D = d, PH = panelH != null ? panelH : H - 0.056;   // PH: パネル高さ (スタンド部を除いた概算)
   const frame = mat(color, 0.35, 0.45, { env: 0.7 }), screen = mat('#07080b', 0.08, 0.25);
   const dark = mat('#26272a', 0.5, 0.4), chrome = mat('#9aa0a4', 0.22, 0.85, { env: 1.0 });
   const cy = H - PH / 2;                                       // パネル上端 = 0.761
@@ -7293,9 +7336,17 @@ function buildRegza55E770S({ color = '#1c1c1f' } = {}) {
   glow2.position.set(-W * 0.12, cy + 0.03, zf + 0.006); g.add(glow2);
   g.add(box(0.10, 0.008, 0.004, chrome, 0, cy - PH / 2 + 0.02, zf + 0.002));       // ロゴ
   // センタースタンド (プレート + ネック)。プレート奥行 = 設置奥行 28.7cm
-  g.add(box(0.52, 0.014, D, mat('#2b2c2f', 0.4, 0.6, { env: 0.8 }), 0, 0.007, 0));
+  g.add(box(Math.min(0.52, W * 0.42), 0.014, D, mat('#2b2c2f', 0.4, 0.6, { env: 0.8 }), 0, 0.007, 0));
   g.add(box(0.18, 0.05, 0.06, dark, 0, 0.035, zf - 0.06));
   return g;
+}
+// --- TVS REGZA 55E770S (55V型 4K Mini LED液晶): 外形 W1226×H761×D287mm (スタンド含む), 質量16.0kg --------------
+function buildRegza55E770S({ color = '#1c1c1f' } = {}) {
+  return buildRegzaTV({ color, w: 1.226, h: 0.761, d: 0.287, panelH: 0.705 });
+}
+// --- TVS REGZA 65E770S (65V型): 外形 W1446×H885×D316mm (スタンド含む), 質量21.0kg ------------------------------
+function buildRegza65E770S({ color = '#1c1c1f' } = {}) {
+  return buildRegzaTV({ color, w: 1.446, h: 0.885, d: 0.316, panelH: 0.83 });
 }
 
 // --- IKEA FJÄLLBO テレビ台 150x36x54cm: 黒スチールフレーム + 無垢材棚板, 背板なし ---------------------
@@ -7314,9 +7365,9 @@ function buildFjallboTvBench({ color = '#5b3d29' } = {}) {
   return g;
 }
 
-// --- IKEA VALNÄS 2人掛けソファ: W206×D94×H90cm (座面高49, 座面幅160, アーム幅約23) ----------------------
+// --- IKEA VALNÄS 2人掛けソファ: W206×D94×H90cm (座面高49, 座面幅160, アーム幅約23, アームレスト高55) ----------
 function buildValnasSofa2({ color = '#d8c7a6' } = {}) {
-  return buildSofa3({ color, w: 2.06, d: 0.94, h: 0.90, seats: 2 });
+  return buildSofa3({ color, w: 2.06, d: 0.94, h: 0.90, seats: 2, seatH: 0.49, armW: 0.23, armH: 0.55 });
 }
 
 // --- IKEA UGGLERUM コーヒーテーブル: 130×65×H43cm, ウォールナット材突き板, ミッドセンチュリー風テーパー脚 ----
@@ -7364,25 +7415,150 @@ function buildFagelfjalletBed({ color = '#5b7f9b' } = {}) {
 
 // ===== js/catalog.js =====
 
+// ---- 実在製品データ (product): 各アイテムのモデルにした製品。mm = 採用した外形寸法, sources = 確認元 ----
+const IKEA = (path) => 'https://www.ikea.com/jp/ja/p/' + path;
+const PRODUCT = {
+  sofa3: { brand:'IKEA', model:'KIVIK 3人掛けソファ（ティッブレビ ベージュ/グレー 594.405.92 ほか）', name:'KIVIK 3人掛けソファ', mm:{ w:2280, d:950, h:830 }, checked:'2026-09-19',
+    note:'幅228×奥行95×高さ83cm。座面高45／座面奥行60cm、低めのアームレスト。カバー違いで多数のバリエーション。',
+    sources:[ { label:'IKEA公式（日本）KIVIK 3人掛けソファ', url:IKEA('kivik-3-seat-sofa-tibbleby-beige-grey-s59440592/') }, { label:'IKEA公式（日本）KIVIKシリーズ', url:'https://www.ikea.com/jp/ja/cat/kivik-series-18329/' } ] },
+  sofa2: { brand:'IKEA', model:'KIVIK 2人掛けソファ（ティッブレビ ベージュ/グレー 194.405.94 ほか）', name:'KIVIK 2人掛けソファ', mm:{ w:1900, d:950, h:830 }, checked:'2026-09-19',
+    note:'幅190×奥行95×高さ83cm。3人掛けと同じ奥行・高さで幅のみ短い。',
+    sources:[ { label:'IKEA公式（日本）KIVIK 2人掛けソファ', url:IKEA('kivik-2-seat-sofa-tibbleby-beige-grey-s19440594/') } ] },
+  sofal: { brand:'IKEA', model:'KIVIK 3人掛けソファ 寝椅子付き（トレースンド ライトベージュ 594.828.41 ほか）', name:'KIVIK 3人掛けソファ 寝椅子付き', mm:{ w:2800, d:1630, h:830 }, checked:'2026-09-19',
+    note:'幅280×奥行95cm（寝椅子部は奥行163cm）×高さ83cm。寝椅子は左右どちらにも取付可。奥行(D)は寝椅子部の163cmを採用。',
+    sources:[ { label:'IKEA公式（日本）KIVIK 3人掛けソファ 寝椅子付き', url:IKEA('kivik-3-seat-sofa-with-chaise-longue-tresund-light-beige-s59482841/') } ] },
+  sofa1: { brand:'IKEA', model:'STRANDMON ウィングチェア（ノールドヴァッラ ダークグレー 303.598.27 ほか）', name:'STRANDMON ウィングチェア', mm:{ w:820, d:960, h:1010 }, checked:'2026-09-19',
+    note:'幅82×奥行96×高さ101cm、座面高45cm。1950年代のMKチェアを復刻した高い背もたれのウィングチェア。',
+    sources:[ { label:'IKEA公式（日本）STRANDMON ウィングチェア', url:IKEA('strandmon-wing-chair-nordvalla-dark-grey-30359827/') }, { label:'IKEA公式（日本）STRANDMONシリーズ', url:'https://www.ikea.com/jp/ja/cat/strandmon-series-57217/' } ] },
+  dchr: { brand:'IKEA', model:'STEFAN チェア ブラウンブラック 803.634.26', name:'STEFAN チェア', mm:{ w:420, d:490, h:900 }, checked:'2026-09-19',
+    note:'幅42×奥行49×高さ90cm、座面高45cm。無垢材フレーム、耐荷重110kg。クッション付き（KNISA）のバリエーションあり。',
+    sources:[ { label:'IKEA公式（日本）STEFAN チェア', url:IKEA('stefan-chair-brown-black-80363426/') } ] },
+  ochr: { brand:'IKEA', model:'MARKUS オフィスチェア（ヴィースレ ダークグレー 502.611.51）', name:'MARKUS オフィスチェア', mm:{ w:620, d:600, h:1290 }, checked:'2026-09-19',
+    note:'幅62×奥行60×高さ129〜140cm（最低高を採用）。座面幅53／奥行47cm、座面高46〜57cm、耐荷重110kg。メッシュバック＋一体型ヘッドレスト。',
+    sources:[ { label:'IKEA公式（日本）MARKUS オフィスチェア', url:IKEA('markus-office-chair-vissle-dark-grey-50261151/') } ] },
+  dtable: { brand:'IKEA', model:'EKEDALEN 伸長式テーブル 180/240×90cm 203.407.63', name:'EKEDALEN 伸長式テーブル', mm:{ w:1800, d:900, h:750 }, checked:'2026-09-19',
+    note:'長さ180cm（伸長時240cm）×幅90×高さ75cm。通常時の180cmを採用。4〜6人用。',
+    sources:[ { label:'IKEA公式（日本）EKEDALEN 伸長式テーブル', url:IKEA('ekedalen-extendable-table-dark-brown-20340763/') } ] },
+  ctable: { brand:'IKEA', model:'LACK コーヒーテーブル 118×78cm 404.499.05', name:'LACK コーヒーテーブル', mm:{ w:1180, d:780, h:450 }, checked:'2026-09-19',
+    note:'長さ118×幅78×高さ45cm。天板厚5cm、5×5cmの角脚、下段棚板付き。',
+    sources:[ { label:'IKEA公式（日本）LACK コーヒーテーブル', url:IKEA('lack-coffee-table-white-40449899/') } ] },
+  desk: { brand:'IKEA', model:'MICKE デスク ホワイト 142×50cm 403.542.78', name:'MICKE デスク', mm:{ w:1420, d:500, h:750 }, checked:'2026-09-19',
+    note:'幅142×奥行50×高さ75cm、最大荷重50kg。引き出し1段、背面パネルで配線を隠せる。',
+    sources:[ { label:'IKEA公式（日本）MICKE デスク 142x50', url:IKEA('micke-desk-white-40354278/') } ] },
+  stable: { brand:'IKEA', model:'LACK サイドテーブル ホワイト 55×55cm 104.499.09', name:'LACK サイドテーブル', mm:{ w:550, d:550, h:450 }, checked:'2026-09-19',
+    note:'長さ55×幅55×高さ45cm、最大荷重25kg。',
+    sources:[ { label:'IKEA公式（日本）LACK サイドテーブル', url:IKEA('lack-side-table-white-10449909/') } ] },
+  sbed: { brand:'IKEA', model:'MALM ベッドフレーム ホワイト 90×200cm 202.651.79', name:'MALM ベッドフレーム シングル', mm:{ w:1050, d:2090, h:1000 }, checked:'2026-09-19',
+    note:'外形 長さ209×幅105cm、ヘッドボード高100cm／フットボード高38cm、マットレスサイズ90×200cm（別売）。高さ(H)はヘッドボード高。',
+    sources:[ { label:'IKEA公式（日本）MALM ベッドフレーム 90×200', url:IKEA('malm-bed-frame-high-white-20265179/') } ] },
+  dbed: { brand:'IKEA', model:'MALM ベッドフレーム ホワイト 140×200cm 302.905.07', name:'MALM ベッドフレーム ダブル', mm:{ w:1560, d:2090, h:1000 }, checked:'2026-09-19',
+    note:'外形 長さ209×幅156cm、ヘッドボード高100cm／フットボード高38cm、マットレスサイズ140×200cm（別売）。',
+    sources:[ { label:'IKEA公式（日本）MALM ベッドフレーム 140×200', url:IKEA('malm-bed-frame-high-white-30290507/') } ] },
+  bunkbed: { brand:'IKEA', model:'MYDAL 2段ベッドフレーム パイン材 90×200cm 003.687.72', name:'MYDAL 2段ベッドフレーム', mm:{ w:970, d:2060, h:1570 }, checked:'2026-09-19',
+    note:'幅97×長さ206×高さ157cm。無垢パイン材、耐荷重100kg／段、マットレス厚は最大19cm。',
+    sources:[ { label:'IKEA公式（日本）MYDAL 2段ベッドフレーム', url:IKEA('mydal-bunk-bed-frame-pine-00368772/') } ] },
+  wardrobe: { brand:'IKEA', model:'PAX ワードローブ ホワイト 150×58×201cm 692.278.74', name:'PAX ワードローブ 150', mm:{ w:1500, d:580, h:2010 }, checked:'2026-09-19',
+    note:'幅150×奥行58×高さ201cm。フレーム75cm×2に幅50cmの開き戸3枚（FORSAND）の組み合わせ。',
+    sources:[ { label:'IKEA公式（日本）PAX ワードローブ 150x58x201', url:IKEA('pax-wardrobe-white-s69227874/') } ] },
+  closet: { brand:'IKEA', model:'PAX / HASVIK ワードローブ 引き戸 ホワイト 200×66×201cm 794.899.26', name:'PAX/HASVIK 引き戸ワードローブ 200', mm:{ w:2000, d:660, h:2010 }, checked:'2026-09-19',
+    note:'幅200×奥行66×高さ201cm。引き戸なので開閉スペース不要（造作クローゼットの代替として採用）。',
+    sources:[ { label:'IKEA公式（日本）PAX/HASVIK 200x66x201', url:IKEA('pax-hasvik-wardrobe-white-white-s79489926/') } ] },
+  shelf: { brand:'IKEA', model:'BILLY 書棚 80×28×202cm 005.220.47', name:'BILLY 書棚', mm:{ w:800, d:280, h:2020 }, checked:'2026-09-19',
+    note:'幅80×奥行28×高さ202cm。可動棚4枚＋固定棚1枚で6段。',
+    sources:[ { label:'IKEA公式（日本）BILLY 書棚 80x28x202', url:IKEA('billy-bookcase-white-00522047/') } ] },
+  chest: { brand:'IKEA', model:'MALM チェスト 引き出し×4 80×100cm 203.546.46', name:'MALM チェスト（引き出し×4）', mm:{ w:800, d:480, h:1000 }, checked:'2026-09-19',
+    note:'幅80×奥行48×高さ100cm。取っ手のない前板。壁への固定が必要。',
+    sources:[ { label:'IKEA公式（日本）MALM チェスト 引き出し×4', url:IKEA('malm-chest-of-4-drawers-white-20354646/') } ] },
+  tvboard: { brand:'IKEA', model:'BESTÅ テレビ台 扉付き ホワイト/ラップヴィーケン 180×42×38cm 192.991.37', name:'BESTÅ テレビ台 180', mm:{ w:1800, d:420, h:380 }, checked:'2026-09-19',
+    note:'幅180×奥行42×高さ38cm、テレビ最大荷重30kg。幅60cmの扉3枚。脚を付けると高さ48cm。',
+    sources:[ { label:'IKEA公式（日本）BESTÅ テレビ台 180x42x38', url:IKEA('besta-tv-bench-with-doors-white-lappviken-white-s19299137/') } ] },
+  shoebox: { brand:'IKEA', model:'HEMNES 靴収納 4コンパートメント ホワイト 107×22×101cm', name:'HEMNES 靴収納', mm:{ w:1070, d:220, h:1010 }, checked:'2026-09-19',
+    note:'幅107×奥行22×高さ101cm、靴約8足。前脚のみなので巾木の上に壁付けできる。壁への固定が必要。',
+    sources:[ { label:'IKEA公式（日本）HEMNES 靴収納 4コンパートメント', url:IKEA('hemnes-shoe-cabinet-with-4-compartments-white-20161209/') }, { label:'IKEA公式（スウェーデン）寸法 107x22x101', url:'https://www.ikea.com/se/en/p/hemnes-shoe-cabinet-with-4-compartments-white-60156121/' } ] },
+  hangerrack: { brand:'IKEA', model:'MULIG 洋服ラック ホワイト 99×46×151cm 801.794.33', name:'MULIG 洋服ラック', mm:{ w:990, d:460, h:1510 }, checked:'2026-09-19',
+    note:'幅99×奥行46×高さ151cm。スチール製、ハンガーバー1本＋下段バー。',
+    sources:[ { label:'IKEA公式（日本）MULIG 洋服ラック', url:IKEA('mulig-clothes-rack-white-80179433/') } ] },
+  dresser: { brand:'IKEA', model:'HEMNES ドレッシングテーブル ミラー付き ホワイト 100×50cm 103.556.70', name:'HEMNES ドレッシングテーブル', mm:{ w:1000, d:500, h:1590 }, checked:'2026-09-19',
+    note:'幅100×奥行50×高さ159cm（テーブル高74cm＋ミラー）。無垢材、ガラス天板。',
+    sources:[ { label:'IKEA公式（日本）HEMNES ドレッシングテーブル ミラー付き', url:IKEA('hemnes-dressing-table-white-10355670/') } ] },
+  cupboard: { brand:'ニトリ', model:'キッチンボード（レジューム 90AG-S DBR/90QH-R DBR）', name:'レジューム キッチンボード 幅90', mm:{ w:900, d:510, h:2010 }, checked:'2026-09-19',
+    note:'幅90×奥行51×高さ201cm（上台106cm＋下台95cm）。上台・下台の組み合わせで型番が変わる（扉／引き出し構成は型番により異なる）。',
+    sources:[ { label:'ニトリ公式 キッチンボード（レジューム 90AG-S）', url:'https://www.nitori-net.jp/ec/product/4714522-4714582/' } ] },
+  kitchen: { brand:'LIXIL', model:'シエラS 壁付I型 基本プラン 間口2400mm 奥行650mm', name:'LIXIL シエラS I型 2400', mm:{ w:2400, d:650, h:850 }, checked:'2026-09-19',
+    note:'間口2400×奥行650mm、ワークトップ高85cm（80/85/90cmから選択）。高さ(H)はワークトップ高。吊戸棚は含まない。ステンレストップ、シンク＋ビルトインコンロ。',
+    sources:[ { label:'LIXIL公式 シエラS', url:'https://www.lixil.co.jp/lineup/kitchen/shiera/' }, { label:'LIXIL 商品選定カタログ（シエラS I型レイアウト）', url:'https://www2.biz-lixil.com/files/user/contents/proptool_sheet/yok-24002-240403.pdf' } ] },
+  stove: { brand:'リンナイ', model:'ガステーブル RT64JH6S2-G（59cm幅・2口・水無し片面焼グリル）', name:'リンナイ RT64JH ガステーブル', mm:{ w:596, d:452, h:218 }, checked:'2026-09-19',
+    note:'本体外形 幅596×奥行452×高さ218mm。モデルは汎用コンロ台（幅60×奥行55×高さ約65cm）に載せた状態で、カタログ寸法(W60×D55×H87cm)はその合計。',
+    sources:[ { label:'リンナイ公式通販 ガステーブル スタンダード 仕様', url:'https://www.rinnai-basic.jp/gastable/standard/spec/' }, { label:'参考: 楽天市場 RT64JH6S2-G', url:'https://item.rakuten.co.jp/gas/rt64jh6s2-g/' } ] },
+  microwave: { brand:'Panasonic', model:'オーブンレンジ NE-MS4C（26L）', name:'Panasonic NE-MS4C', mm:{ w:470, d:390, h:350 }, checked:'2026-09-19',
+    note:'外形寸法 幅470×奥行390×高さ350mm、庫内 幅370×奥行335×高さ206mm。',
+    sources:[ { label:'Panasonic公式 NE-MS4C 仕様', url:'https://panasonic.jp/range/products/NE-MS4C/spec.html' } ] },
+  ricecook: { brand:'象印', model:'極め炊き IH炊飯ジャー NW-VD10（5.5合）', name:'象印 NW-VD10', mm:{ w:255, d:375, h:205 }, checked:'2026-09-19',
+    note:'外形寸法 幅25.5×奥行37.5×高さ20.5cm（ふた開き時 約41cm）。',
+    sources:[ { label:'象印公式 NW-VD10・18 商品情報', url:'https://www.zojirushi.co.jp/syohin/rice/ricecooker/nw-vd/' } ] },
+  fridge: { brand:'Panasonic', model:'冷凍冷蔵庫 NR-C344C（335L・3ドア・右開き）', name:'Panasonic NR-C344C', mm:{ w:590, d:633, h:1687 }, weightKg:66, checked:'2026-09-19',
+    note:'外形寸法 幅590×奥行633×高さ1687mm、質量66kg。上から冷蔵室179L／野菜室88L／冷凍室68L。',
+    sources:[ { label:'Panasonic公式 NR-C344C', url:'https://panasonic.jp/reizo/products/NR-C344C.html' } ] },
+  toilet: { brand:'TOTO', model:'ピュアレストQR 組み合わせ便器 CS232B＋SH232BA（床排水200mm・手洗なし）', name:'TOTO ピュアレストQR', mm:{ w:418, d:760, h:817 }, checked:'2026-09-19',
+    note:'手洗なしタンクで横幅418×奥行718×高さ817mm（販売店掲載値）。壁から便器先端までの寸法はTOTO公式で760mmのため、奥行(D)は760mmを採用。便座は別売。',
+    sources:[ { label:'TOTO公式 ピュアレストQR', url:'https://jp.toto.com/products/toilet/purerest_qr/' }, { label:'参考: トイレリフォーム専門店（サイズ記載）', url:'https://toirereform.com/toilet/toilet-pyuarest-qr' } ] },
+  handbasin: { brand:'TOTO', model:'壁掛手洗器 L870型 LSL870ASR（ハンドル式・壁給水・床排水）', name:'TOTO L870 手洗器', mm:{ w:460, d:205, h:850 }, checked:'2026-09-19',
+    note:'手洗器本体 幅460×奥行205mm。高さ(H)は床からの水栓上端の想定値（リム高≒75cmで設置）。',
+    sources:[ { label:'参考: サンリフレ TOTO LSL870ASR', url:'https://www.sunrefre.jp/wc/toto/LSL870ASR/' }, { label:'参考: 広瀬トータルサービス LSL870ASR', url:'https://h-totalservice.com/lsl870asr/' } ] },
+  vanity: { brand:'LIXIL', model:'洗面化粧台 オフト 間口750（片引出タイプ FTV1H-754 ＋ 1面鏡）', name:'LIXIL オフト 750', mm:{ w:750, d:500, h:1800 }, checked:'2026-09-19',
+    note:'間口750×奥行500mm、洗面ボウル高815mm。1面鏡（標準）で全高1800mm（3面鏡は1780/1850mm）。',
+    sources:[ { label:'LIXIL公式 オフト', url:'https://www.lixil.co.jp/lineup/powderroom/oft/' }, { label:'参考: サンリフレ オフト 間口750', url:'https://www.sunrefre.jp/powderroom/senmen/inax/oft-width750set/' } ] },
+  washer: { brand:'Panasonic', model:'縦型全自動洗濯機 NA-FA8H3（8kg）', name:'Panasonic NA-FA8H3', mm:{ w:564, d:573, h:1022 }, weightKg:34, checked:'2026-09-19',
+    note:'外形寸法 幅564×奥行573×高さ1022mm（給・排水ホース含む）、質量約34kg。',
+    sources:[ { label:'Panasonic公式 NA-FA8H3 詳細（スペック）', url:'https://panasonic.jp/wash/c-db/products/NA-FA8H3/spec.html' } ] },
+  bathtub: { brand:'TOTO', model:'洋風バス ポリバス 1600サイズ P1030R/LN（二方全エプロン）', name:'TOTO ポリバス 1600', mm:{ w:820, d:1640, h:465 }, checked:'2026-09-19',
+    note:'長さ1640×幅820×高さ465mm、満水時湯量210L。奥行(D)に長さ1640mmを採用。',
+    sources:[ { label:'参考: タカラ住設ショップ TOTO P1030R/LN', url:'https://house.tss-shop.com/products/P1030_N&pri=y' }, { label:'TOTO公式 浴槽（単体浴槽）', url:'https://jp.toto.com/products/bath/' } ] },
+  bathset: { brand:'LIXIL', model:'システムバスルーム リノビオV 1616サイズ（マンションリフォーム用）', name:'LIXIL リノビオV 1616', mm:{ w:1600, d:1600, h:2005 }, checked:'2026-09-19',
+    note:'内寸 1600×1600mm、天井高2005mm（設置必要寸法 1660×1660×2439mm）。モデルは内寸で表現。',
+    sources:[ { label:'LIXIL公式 リノビオV', url:'https://www.lixil.co.jp/lineup/bathroom/renobio/' }, { label:'参考: i-port リノビオV 1616 Mタイプ', url:'https://www.i-port.jp/shopdetail/000000006414/' } ] },
+  walltv: { brand:'TVS REGZA', model:'55E770S（55V型 4K Mini LED液晶）壁掛け・スタンドなし', name:'レグザ 55E770S（壁掛け）', mm:{ w:1226, d:77, h:711 }, weightKg:15.4, checked:'2026-09-19',
+    note:'スタンドなし外形 幅122.6×高さ71.1×奥行7.7cm、質量15.4kg。壁掛け金具は別売（奥行はモデル上8cm）。',
+    sources:[ { label:'REGZA公式 仕様表（E770S）', url:'https://www.regza.com/tv/lineup/e770s/spec' } ] },
+  tv: { brand:'TVS REGZA', model:'65E770S（65V型 4K Mini LED液晶）', name:'レグザ 65E770S', mm:{ w:1446, d:316, h:885 }, weightKg:21.0, checked:'2026-09-19',
+    note:'スタンド含む外形 幅144.6×高さ88.5×奥行31.6cm、質量21.0kg。テレビ台に載せて使用。',
+    sources:[ { label:'REGZA公式 仕様表（E770S）', url:'https://www.regza.com/tv/lineup/e770s/spec' }, { label:'参考: 価格.com 65E770S', url:'https://kakaku.com/item/K0001789866/' } ] },
+  wallac: { brand:'ダイキン', model:'ルームエアコン Eシリーズ S224ATES-W（おもに6畳・室内機 F224ATES）', name:'ダイキン Eシリーズ 6畳用 室内機', mm:{ w:798, d:255, h:250 }, checked:'2026-09-19',
+    note:'室内機 幅798×高さ250×奥行255mm。室外機（幅675×高さ550×奥行284mm）は含まない。',
+    sources:[ { label:'ダイキン公式 Eシリーズ 仕様', url:'https://www.ac.daikin.co.jp/kabekake/2024/products/e_series/spec' } ] },
+  lamp: { brand:'IKEA', model:'HEKTAR フロアランプ ダークグレー 402.165.45', name:'HEKTAR フロアランプ', mm:{ w:340, d:340, h:1810 }, checked:'2026-09-19',
+    note:'高さ181cm、シェード直径31.5cm、ベース直径34cm。首振りシェード。',
+    sources:[ { label:'IKEA公式（日本）HEKTAR フロアランプ', url:IKEA('hektar-floor-lamp-dark-grey-40216545/') } ] },
+  pendlamp: { brand:'IKEA', model:'REGOLIT ペンダントランプシェード ホワイト 45cm 001.727.89（＋HEMMA コードセット）', name:'REGOLIT ペンダントランプシェード', mm:{ w:450, d:450, h:1200 }, checked:'2026-09-19',
+    note:'和紙製の球形シェード 直径45cm。コードセット・電球は別売。高さ(H)は天井からの吊り下げ範囲の目安。',
+    sources:[ { label:'IKEA公式（日本）REGOLIT 45cm', url:IKEA('regolit-pendant-lamp-shade-white-00172789/') } ] },
+  rug: { brand:'IKEA', model:'STOENSE ラグ パイル短 オフホワイト 133×195cm 204.270.06', name:'STOENSE ラグ 133×195', mm:{ w:1950, d:1330, h:18 }, checked:'2026-09-19',
+    note:'長さ195×幅133cm、パイル短。幅(W)に長さ195cmを採用。',
+    sources:[ { label:'IKEA公式（日本）STOENSE ラグ 133x195', url:IKEA('stoense-rug-low-pile-off-white-20427006/') } ] },
+  kotatsu: { brand:'東谷（AZUMAYA）', model:'こたつテーブル KT-115（正方形 75cm・アカシア・石英管ヒーター300W）', name:'東谷 KT-115 こたつ', mm:{ w:750, d:750, h:380 }, checked:'2026-09-19',
+    note:'幅75×奥行75×高さ38cm、重量13kg。こたつ布団は別売（モデルの布団は表現用）。',
+    sources:[ { label:'参考: Yahoo!ショッピング 東谷 KT-115', url:'https://store.shopping.yahoo.co.jp/palette-life/kt-115.html' }, { label:'参考: うさぎ屋 AZM-KT-115', url:'https://store.shopping.yahoo.co.jp/usagi-shop/azm-kt-115.html' } ] },
+};
+
 const FURNITURE_DEFS = [
-  { id:'sofa3',   cat:'seating', name:'3人掛けソファ',     icon:'fa-couch',          w:2.2, d:0.95, h:0.85, colorIdx:0, build:buildSofa3 },
-  { id:'sofa1',   cat:'seating', name:'1人掛けソファ',     icon:'fa-chair',          w:0.9, d:0.85, h:0.85, colorIdx:0, build:buildArmchair },
-  { id:'dchr',    cat:'seating', name:'ダイニングチェア',  icon:'fa-chair',          w:0.48,d:0.48, h:0.9,  colorIdx:2, build:buildDiningChair },
-  { id:'ochr',    cat:'seating', name:'オフィスチェア',    icon:'fa-person-sitting', w:0.6, d:0.6,  h:1.1,  colorIdx:2, build:buildOfficeChair },
-  { id:'dtable',  cat:'table',   name:'ダイニングテーブル',icon:'fa-table',          w:1.8, d:0.9,  h:0.75, colorIdx:8, build:buildDiningTable },
-  { id:'ctable',  cat:'table',   name:'コーヒーテーブル',  icon:'fa-table',          w:1.2, d:0.6,  h:0.42, colorIdx:0, build:buildCoffeeTable },
-  { id:'desk',    cat:'table',   name:'デスク',            icon:'fa-desktop',        w:1.4, d:0.7,  h:0.75, colorIdx:1, build:buildDesk },
-  { id:'stable',  cat:'table',   name:'サイドテーブル',    icon:'fa-circle-dot',     w:0.5, d:0.5,  h:0.55, colorIdx:1, build:buildSideTable },
-  { id:'sbed',    cat:'sleep',   name:'シングルベッド',    icon:'fa-bed',            w:1.0, d:2.1,  h:0.55, colorIdx:1, build:(o)=>buildBed({...o,double:false}) },
-  { id:'dbed',    cat:'sleep',   name:'ダブルベッド',      icon:'fa-bed',            w:1.8, d:2.1,  h:0.55, colorIdx:1, build:(o)=>buildBed({...o,double:true}) },
-  { id:'wardrobe',cat:'storage', name:'ワードローブ',      icon:'fa-door-closed',    w:1.8, d:0.6,  h:2.1,  colorIdx:1, build:buildWardrobe },
-  { id:'shelf',   cat:'storage', name:'本棚',              icon:'fa-book-open',      w:1.0, d:0.3,  h:1.8,  colorIdx:0, build:buildBookshelf },
-  { id:'chest',   cat:'storage', name:'チェスト',          icon:'fa-box',            w:1.0, d:0.5,  h:1.0,  colorIdx:2, build:buildChest },
-  { id:'tvboard', cat:'storage', name:'テレビボード',      icon:'fa-tv',             w:1.8, d:0.45, h:0.5,  colorIdx:2, build:buildTVBoard },
-  { id:'lamp',    cat:'deco',    name:'フロアランプ',      icon:'fa-lightbulb',      w:0.3, d:0.3,  h:1.7,  colorIdx:7, build:buildFloorLamp },
+  { id:'sofa3',   cat:'seating', name:'3人掛けソファ',     icon:'fa-couch',          w:2.28,d:0.95, h:0.83, colorIdx:11,build:buildSofa3,     product:PRODUCT.sofa3 },
+  { id:'sofa1',   cat:'seating', name:'1人掛けソファ',     icon:'fa-chair',          w:0.82,d:0.96, h:1.01, colorIdx:13,build:buildArmchair,  product:PRODUCT.sofa1 },
+  { id:'dchr',    cat:'seating', name:'ダイニングチェア',  icon:'fa-chair',          w:0.42,d:0.49, h:0.9,  colorIdx:2, build:buildDiningChair, product:PRODUCT.dchr },
+  { id:'ochr',    cat:'seating', name:'オフィスチェア',    icon:'fa-person-sitting', w:0.62,d:0.6,  h:1.29, colorIdx:2, build:buildOfficeChair, product:PRODUCT.ochr },
+  { id:'dtable',  cat:'table',   name:'ダイニングテーブル',icon:'fa-table',          w:1.8, d:0.9,  h:0.75, colorIdx:8, build:buildDiningTable, product:PRODUCT.dtable },
+  { id:'ctable',  cat:'table',   name:'コーヒーテーブル',  icon:'fa-table',          w:1.18,d:0.78, h:0.45, colorIdx:1, build:buildCoffeeTable, product:PRODUCT.ctable },
+  { id:'desk',    cat:'table',   name:'デスク',            icon:'fa-desktop',        w:1.42,d:0.5,  h:0.75, colorIdx:1, build:buildDesk,        product:PRODUCT.desk },
+  { id:'stable',  cat:'table',   name:'サイドテーブル',    icon:'fa-circle-dot',     w:0.55,d:0.55, h:0.45, colorIdx:1, build:buildSideTable,   product:PRODUCT.stable },
+  { id:'sbed',    cat:'sleep',   name:'シングルベッド',    icon:'fa-bed',            w:1.05,d:2.09, h:1.0,  colorIdx:4, build:(o)=>buildBed({...o,double:false}), product:PRODUCT.sbed },
+  { id:'dbed',    cat:'sleep',   name:'ダブルベッド',      icon:'fa-bed',            w:1.56,d:2.09, h:1.0,  colorIdx:4, build:(o)=>buildBed({...o,double:true}),  product:PRODUCT.dbed },
+  { id:'wardrobe',cat:'storage', name:'ワードローブ',      icon:'fa-door-closed',    w:1.5, d:0.58, h:2.01, colorIdx:1, build:buildWardrobe,    product:PRODUCT.wardrobe },
+  { id:'shelf',   cat:'storage', name:'本棚',              icon:'fa-book-open',      w:0.8, d:0.28, h:2.02, colorIdx:1, build:buildBookshelf,   product:PRODUCT.shelf },
+  { id:'chest',   cat:'storage', name:'チェスト',          icon:'fa-box',            w:0.8, d:0.48, h:1.0,  colorIdx:1, build:buildChest,       product:PRODUCT.chest },
+  { id:'tvboard', cat:'storage', name:'テレビボード',      icon:'fa-tv',             w:1.8, d:0.42, h:0.38, colorIdx:1, build:buildTVBoard,     product:PRODUCT.tvboard },
+  { id:'lamp',    cat:'deco',    name:'フロアランプ',      icon:'fa-lightbulb',      w:0.34,d:0.34, h:1.81, colorIdx:13,build:buildFloorLamp,   product:PRODUCT.lamp },
   { id:'plant',   cat:'deco',    name:'観葉植物',          icon:'fa-leaf',           w:0.4, d:0.4,  h:1.3,  colorIdx:5, build:buildPlant, stack:true },
-  { id:'tv',      cat:'deco',    name:'テレビ',            icon:'fa-tv',             w:1.4, d:0.1,  h:0.85, colorIdx:2, build:buildTV, stack:true },
-  { id:'rug',     cat:'deco',    name:'ラグ',              icon:'fa-rug',            w:2.0, d:1.5,  h:0.02, colorIdx:9, build:buildRug },
+  { id:'tv',      cat:'deco',    name:'テレビ（65V型）',   icon:'fa-tv',             w:1.446,d:0.316,h:0.885,colorIdx:13,build:buildRegza65E770S, stack:true, product:PRODUCT.tv },
+  { id:'rug',     cat:'deco',    name:'ラグ',              icon:'fa-rug',            w:1.95,d:1.33, h:0.02, colorIdx:10,build:buildRug,         product:PRODUCT.rug },
   { id:'workbench',  cat:'factory', name:'作業台',          icon:'fa-screwdriver-wrench', w:1.5,  d:0.75, h:0.9,  colorIdx:2, build:buildWorkbench },
   { id:'toolcab',    cat:'factory', name:'ツールキャビネット', icon:'fa-toolbox',          w:0.7,  d:0.45, h:1.12, colorIdx:3, build:buildToolCabinet },
   { id:'conveyor',   cat:'factory', name:'コンベアベルト',   icon:'fa-arrows-left-right',  w:2.4,  d:0.5,  h:0.82, colorIdx:14, build:buildConveyor },
@@ -7390,22 +7566,22 @@ const FURNITURE_DEFS = [
   { id:'cnc',        cat:'factory', name:'CNC工作機械',      icon:'fa-gear',               w:1.2,  d:1.0,  h:1.54, colorIdx:2, build:buildCNCMachine },
   { id:'palletrack', cat:'factory', name:'パレットラック',   icon:'fa-layer-group',         w:1.7,  d:0.5,  h:2.46, colorIdx:3, build:buildPalletRack },
   { id:'ctrlpanel',  cat:'factory', name:'制御盤',           icon:'fa-sliders',            w:0.8,  d:0.45, h:1.86, colorIdx:2, build:buildControlPanel },
-  { id:'shoebox',  cat:'storage',  name:'下駄箱',        icon:'fa-shoe-prints',     w:0.9, d:0.35, h:1.1, colorIdx:1, build:buildShoeCabinet },
-  { id:'closet',   cat:'storage',  name:'クローゼット',  icon:'fa-door-closed',     w:1.6, d:0.6,  h:2.2, colorIdx:1, build:buildCloset },
-  { id:'cupboard', cat:'kitchen',  name:'食器棚',        icon:'fa-wine-glass',      w:0.9, d:0.45, h:1.9, colorIdx:1, build:buildCupboard },
-  { id:'kitchen',  cat:'kitchen',  name:'システムキッチン', icon:'fa-sink',         w:2.4, d:0.65, h:0.9, colorIdx:10, build:buildKitchenCounter },
-  { id:'stove',    cat:'kitchen',  name:'ガスコンロ',    icon:'fa-fire-burner',     w:0.6, d:0.55, h:0.85, colorIdx:2, build:buildGasStove },
-  { id:'microwave',cat:'kitchen',  name:'電子レンジ',    icon:'fa-square',          w:0.5, d:0.4,  h:0.3, colorIdx:2, build:buildMicrowave, stack:true },
-  { id:'ricecook', cat:'kitchen',  name:'炊飯器',        icon:'fa-bowl-rice',       w:0.3, d:0.35, h:0.28, colorIdx:10, build:buildRiceCooker, stack:true },
-  { id:'fridge',   cat:'kitchen',  name:'冷蔵庫',        icon:'fa-snowflake',       w:0.7, d:0.7,  h:1.8, colorIdx:10, build:buildFridge },
-  { id:'toilet',   cat:'sanitary', name:'トイレ',        icon:'fa-toilet',          w:0.5, d:0.7,  h:0.8, colorIdx:10, build:buildToilet },
-  { id:'handbasin',cat:'sanitary', name:'手洗い器',      icon:'fa-faucet',          w:0.4, d:0.3,  h:0.85, colorIdx:10, build:buildHandBasin },
-  { id:'vanity',   cat:'sanitary', name:'洗面台',        icon:'fa-pump-soap',       w:0.75,d:0.5,  h:1.85, colorIdx:10, build:buildVanity },
-  { id:'washer',   cat:'sanitary', name:'洗濯機',        icon:'fa-soap',            w:0.6, d:0.6,  h:0.9, colorIdx:10, build:buildWasher },
-  { id:'bathtub',  cat:'sanitary', name:'浴槽',          icon:'fa-bath',            w:0.8, d:1.6,  h:0.6, colorIdx:4, build:buildBathtub },
-  { id:'bathset',  cat:'sanitary', name:'ユニットバス',  icon:'fa-shower',          w:1.6, d:1.6,  h:2.2, colorIdx:10, build:buildBathSet },
-  { id:'walltv',   cat:'deco',     name:'壁掛けテレビ',  icon:'fa-tv',              w:1.3, d:0.08, h:0.8, colorIdx:2, build:buildWallTV, wallMount:true },
-  { id:'wallac',   cat:'household', name:'壁掛けエアコン',   icon:'fa-wind',         w:0.9, d:0.2,  h:0.28, colorIdx:10, build:buildWallAC,           wallMount:true },
+  { id:'shoebox',  cat:'storage',  name:'下駄箱',        icon:'fa-shoe-prints',     w:1.07,d:0.22, h:1.01, colorIdx:1,  build:buildShoeCabinet,    product:PRODUCT.shoebox },
+  { id:'closet',   cat:'storage',  name:'クローゼット',  icon:'fa-door-closed',     w:2.0, d:0.66, h:2.01, colorIdx:1,  build:buildCloset,         product:PRODUCT.closet },
+  { id:'cupboard', cat:'kitchen',  name:'食器棚',        icon:'fa-wine-glass',      w:0.9, d:0.51, h:2.01, colorIdx:1,  build:buildCupboard,       product:PRODUCT.cupboard },
+  { id:'kitchen',  cat:'kitchen',  name:'システムキッチン', icon:'fa-sink',         w:2.4, d:0.65, h:0.85, colorIdx:10, build:buildKitchenCounter, product:PRODUCT.kitchen },
+  { id:'stove',    cat:'kitchen',  name:'ガスコンロ',    icon:'fa-fire-burner',     w:0.6, d:0.55, h:0.87, colorIdx:2,  build:buildGasStove,       product:PRODUCT.stove },
+  { id:'microwave',cat:'kitchen',  name:'電子レンジ',    icon:'fa-square',          w:0.47,d:0.39, h:0.35, colorIdx:2,  build:buildMicrowave, stack:true, product:PRODUCT.microwave },
+  { id:'ricecook', cat:'kitchen',  name:'炊飯器',        icon:'fa-bowl-rice',       w:0.255,d:0.375,h:0.205,colorIdx:10, build:buildRiceCooker, stack:true, product:PRODUCT.ricecook },
+  { id:'fridge',   cat:'kitchen',  name:'冷蔵庫',        icon:'fa-snowflake',       w:0.59,d:0.633,h:1.687,colorIdx:10, build:buildFridge,         product:PRODUCT.fridge },
+  { id:'toilet',   cat:'sanitary', name:'トイレ',        icon:'fa-toilet',          w:0.418,d:0.76,h:0.817,colorIdx:10, build:buildToilet,         product:PRODUCT.toilet },
+  { id:'handbasin',cat:'sanitary', name:'手洗い器',      icon:'fa-faucet',          w:0.46,d:0.205,h:0.85, colorIdx:10, build:buildHandBasin,      product:PRODUCT.handbasin },
+  { id:'vanity',   cat:'sanitary', name:'洗面台',        icon:'fa-pump-soap',       w:0.75,d:0.5,  h:1.8,  colorIdx:1,  build:buildVanity,         product:PRODUCT.vanity },
+  { id:'washer',   cat:'sanitary', name:'洗濯機',        icon:'fa-soap',            w:0.564,d:0.573,h:1.022,colorIdx:10,build:buildWasher,         product:PRODUCT.washer },
+  { id:'bathtub',  cat:'sanitary', name:'浴槽',          icon:'fa-bath',            w:0.82,d:1.64, h:0.465,colorIdx:4,  build:buildBathtub,        product:PRODUCT.bathtub },
+  { id:'bathset',  cat:'sanitary', name:'ユニットバス',  icon:'fa-shower',          w:1.6, d:1.6,  h:2.05, colorIdx:10, build:buildBathSet,        product:PRODUCT.bathset },
+  { id:'walltv',   cat:'deco',     name:'壁掛けテレビ',  icon:'fa-tv',              w:1.226,d:0.08,h:0.711,colorIdx:13, build:buildWallTV, wallMount:true, product:PRODUCT.walltv },
+  { id:'wallac',   cat:'household', name:'壁掛けエアコン',   icon:'fa-wind',         w:0.798,d:0.255,h:0.25,colorIdx:10, build:buildWallAC, wallMount:true, product:PRODUCT.wallac },
   // ---- office ----
   { id:'conftable',  cat:'office',  name:'会議テーブル',      icon:'fa-table',             w:3.6, d:1.2,  h:0.74, colorIdx:8,  build:buildConferenceTable },
   { id:'whiteboard', cat:'office',  name:'ホワイトボード',    icon:'fa-chalkboard',        w:1.5, d:0.04, h:1.4,  colorIdx:1,  build:buildWhiteboard, wallMount:true },
@@ -7461,9 +7637,9 @@ const FURNITURE_DEFS = [
   { id:'barstool',   cat:'shop',    name:'バースツール',      icon:'fa-chair',             w:0.4, d:0.4,  h:0.85, colorIdx:2,  build:buildBarStool },
   { id:'roundtable', cat:'shop',    name:'丸テーブル',        icon:'fa-circle',            w:0.9, d:0.9,  h:0.74, colorIdx:8,  build:buildRoundTable },
   // ---- seating variants ----
-  { id:'sofa2',      cat:'seating', name:'2人掛けソファ',     icon:'fa-couch',             w:1.4, d:0.95, h:0.85, colorIdx:0,  build:(o)=>buildSofa3({...o,seats:2}) },
+  { id:'sofa2',      cat:'seating', name:'2人掛けソファ',     icon:'fa-couch',             w:1.9, d:0.95, h:0.83, colorIdx:11, build:(o)=>buildSofa3({...o,seats:2}), product:PRODUCT.sofa2 },
   { id:'sofalow',    cat:'seating', name:'ローソファ',         icon:'fa-couch',             w:2.2, d:1.0,  h:0.72, colorIdx:0,  build:(o)=>buildSofa3({...o,low:true}) },
-  { id:'sofal',      cat:'seating', name:'Lソファ',            icon:'fa-couch',             w:2.4, d:1.6,  h:0.85, colorIdx:0,  build:buildSofaL },
+  { id:'sofal',      cat:'seating', name:'Lソファ',            icon:'fa-couch',             w:2.8, d:1.63, h:0.83, colorIdx:11, build:buildSofaL,       product:PRODUCT.sofal },
   { id:'stool',      cat:'seating', name:'スツール',           icon:'fa-chair',             w:0.4, d:0.4,  h:0.46, colorIdx:2,  build:buildStool },
   { id:'bench',      cat:'seating', name:'ベンチ',             icon:'fa-minus',             w:1.4, d:0.4,  h:0.45, colorIdx:8,  build:buildBench },
   { id:'loungechair',cat:'seating', name:'ラウンジチェア',    icon:'fa-chair',             w:0.8, d:0.85, h:0.78, colorIdx:0,  build:buildLoungeChair },
@@ -7478,9 +7654,9 @@ const FURNITURE_DEFS = [
   { id:'cafetable',     cat:'table',   name:'カフェテーブル',        icon:'fa-table',    w:0.65, d:0.65, h:0.74, colorIdx:8,  build:buildCafeTable },
   { id:'roundtablesm',  cat:'table',   name:'丸テーブル小',          icon:'fa-circle',   w:0.7,  d:0.7,  h:0.74, colorIdx:8,  build:buildRoundTableSm },
   // ---- sleep variants ----
-  { id:'bunkbed',    cat:'sleep',   name:'二段ベッド',         icon:'fa-bed',               w:1.05,d:2.05, h:1.65, colorIdx:1,  build:buildBunkBed },
+  { id:'bunkbed',    cat:'sleep',   name:'二段ベッド',         icon:'fa-bed',               w:0.97,d:2.06, h:1.57, colorIdx:0,  build:buildBunkBed,     product:PRODUCT.bunkbed },
   // ---- deco variants ----
-  { id:'pendlamp',   cat:'deco',    name:'ペンダントライト',  icon:'fa-lightbulb',         w:0.4, d:0.4,  h:1.2,  colorIdx:0,  build:buildPendantLamp },
+  { id:'pendlamp',   cat:'deco',    name:'ペンダントライト',  icon:'fa-lightbulb',         w:0.45,d:0.45, h:1.2,  colorIdx:1,  build:buildPendantLamp, product:PRODUCT.pendlamp },
   { id:'desklamp',   cat:'deco',    name:'デスクランプ',       icon:'fa-lightbulb',         w:0.3, d:0.3,  h:0.5,  colorIdx:2,  build:buildDeskLamp,   stack:true },
   { id:'tablelamp',  cat:'deco',    name:'テーブルランプ',    icon:'fa-lightbulb',         w:0.3, d:0.3,  h:0.55, colorIdx:6,  build:buildTableLamp,  stack:true },
   { id:'cactus',      cat:'deco',    name:'サボテン',           icon:'fa-leaf',     w:0.30, d:0.30, h:0.55,  colorIdx:5,  build:buildCactus,        stack:true },
@@ -7556,9 +7732,9 @@ const FURNITURE_DEFS = [
   { id:'worker',         cat:'factory', name:'作業員',              icon:'fa-person-walking',        w:0.5,  d:0.5,  h:1.8,   colorIdx:20, build:buildWorker },
   // ---- 家具追加 ----
   { id:'monitor',       cat:'office',   name:'PCモニター',          icon:'fa-desktop',        w:0.52, d:0.18, h:0.44, colorIdx:2,  build:buildMonitor,         stack:true },
-  { id:'kotatsu',       cat:'table',    name:'こたつ',              icon:'fa-table',          w:0.9,  d:0.9,  h:0.38, colorIdx:0,  build:buildKotatsu },
-  { id:'dresser',       cat:'storage',  name:'ドレッサー',          icon:'fa-mirror',         w:0.9,  d:0.44, h:1.4,  colorIdx:1,  build:buildDresser },
-  { id:'hangerrack',    cat:'storage',  name:'ハンガーラック',      icon:'fa-shirt',          w:1.0,  d:0.4,  h:1.75, colorIdx:7,  build:buildHangerRack },
+  { id:'kotatsu',       cat:'table',    name:'こたつ',              icon:'fa-table',          w:0.75, d:0.75, h:0.38, colorIdx:0,  build:buildKotatsu,    product:PRODUCT.kotatsu },
+  { id:'dresser',       cat:'storage',  name:'ドレッサー',          icon:'fa-mirror',         w:1.0,  d:0.5,  h:1.59, colorIdx:1,  build:buildDresser,    product:PRODUCT.dresser },
+  { id:'hangerrack',    cat:'storage',  name:'ハンガーラック',      icon:'fa-shirt',          w:0.99, d:0.46, h:1.51, colorIdx:10, build:buildHangerRack, product:PRODUCT.hangerrack },
   { id:'piano',         cat:'deco',     name:'アップライトピアノ',  icon:'fa-music',          w:1.45, d:0.6,  h:1.22, colorIdx:2,  build:buildPiano },
   { id:'espresso',      cat:'kitchen',  name:'エスプレッソマシン',  icon:'fa-mug-hot',        w:0.3,  d:0.38, h:0.42, colorIdx:7,  build:buildEspressoMachine, stack:true },
   { id:'dishwasher',    cat:'kitchen',  name:'食洗機',              icon:'fa-soap',           w:0.6,  d:0.6,  h:0.85, colorIdx:10, build:buildDishwasher },
@@ -8268,7 +8444,7 @@ const PRESETS = [
       // ブースA (z:-2〜0.5) — 1人集中作業
       P('sofa1',   8.4, -0.8, 270, '#4a6a7a'),
       P('stable',  7.3, -0.8, 0),
-      P('desklamp', 7.3, -0.8, 0, undefined, 0.55),
+      P('desklamp', 7.3, -0.8, 0, undefined, 0.45),
       // ブースB (z:0.5〜3) — 向かい合わせ2人打ち合わせ
       P('sofa1',   8.4,  1.8, 270, '#4a6a7a'),
       P('sofa1',   6.8,  1.8, 90,  '#4a6a7a'),

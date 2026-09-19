@@ -5,10 +5,10 @@ import { shade } from '../core/util.js';
 import { roundedBoxGeom, mat, box, cyl, bedding } from '../core/helpers.js';
 import { buildSofa3 } from './furniture.js';
 
-// --- TVS REGZA 55E770S (55V型 4K Mini LED液晶): 外形 W1226×H761×D287mm (スタンド含む) ------------
-function buildRegza55E770S({ color = '#1c1c1f' } = {}) {
+// --- TVS REGZA E770S 系 (センタースタンドの薄型液晶): 外形 W×H×D (スタンド含む), panelH = パネル部の高さ -----------
+function buildRegzaTV({ color = '#1c1c1f', w = 1.226, h = 0.761, d = 0.287, panelH = null } = {}) {
   const g = new THREE.Group();
-  const W = 1.226, H = 0.761, D = 0.287, PH = 0.705;          // PH: パネル高さ (スタンド部を除いた概算)
+  const W = w, H = h, D = d, PH = panelH != null ? panelH : H - 0.056;   // PH: パネル高さ (スタンド部を除いた概算)
   const frame = mat(color, 0.35, 0.45, { env: 0.7 }), screen = mat('#07080b', 0.08, 0.25);
   const dark = mat('#26272a', 0.5, 0.4), chrome = mat('#9aa0a4', 0.22, 0.85, { env: 1.0 });
   const cy = H - PH / 2;                                       // パネル上端 = 0.761
@@ -22,9 +22,17 @@ function buildRegza55E770S({ color = '#1c1c1f' } = {}) {
   glow2.position.set(-W * 0.12, cy + 0.03, zf + 0.006); g.add(glow2);
   g.add(box(0.10, 0.008, 0.004, chrome, 0, cy - PH / 2 + 0.02, zf + 0.002));       // ロゴ
   // センタースタンド (プレート + ネック)。プレート奥行 = 設置奥行 28.7cm
-  g.add(box(0.52, 0.014, D, mat('#2b2c2f', 0.4, 0.6, { env: 0.8 }), 0, 0.007, 0));
+  g.add(box(Math.min(0.52, W * 0.42), 0.014, D, mat('#2b2c2f', 0.4, 0.6, { env: 0.8 }), 0, 0.007, 0));
   g.add(box(0.18, 0.05, 0.06, dark, 0, 0.035, zf - 0.06));
   return g;
+}
+// --- TVS REGZA 55E770S (55V型 4K Mini LED液晶): 外形 W1226×H761×D287mm (スタンド含む), 質量16.0kg --------------
+function buildRegza55E770S({ color = '#1c1c1f' } = {}) {
+  return buildRegzaTV({ color, w: 1.226, h: 0.761, d: 0.287, panelH: 0.705 });
+}
+// --- TVS REGZA 65E770S (65V型): 外形 W1446×H885×D316mm (スタンド含む), 質量21.0kg ------------------------------
+function buildRegza65E770S({ color = '#1c1c1f' } = {}) {
+  return buildRegzaTV({ color, w: 1.446, h: 0.885, d: 0.316, panelH: 0.83 });
 }
 
 // --- IKEA FJÄLLBO テレビ台 150x36x54cm: 黒スチールフレーム + 無垢材棚板, 背板なし ---------------------
@@ -43,9 +51,9 @@ function buildFjallboTvBench({ color = '#5b3d29' } = {}) {
   return g;
 }
 
-// --- IKEA VALNÄS 2人掛けソファ: W206×D94×H90cm (座面高49, 座面幅160, アーム幅約23) ----------------------
+// --- IKEA VALNÄS 2人掛けソファ: W206×D94×H90cm (座面高49, 座面幅160, アーム幅約23, アームレスト高55) ----------
 function buildValnasSofa2({ color = '#d8c7a6' } = {}) {
-  return buildSofa3({ color, w: 2.06, d: 0.94, h: 0.90, seats: 2 });
+  return buildSofa3({ color, w: 2.06, d: 0.94, h: 0.90, seats: 2, seatH: 0.49, armW: 0.23, armH: 0.55 });
 }
 
 // --- IKEA UGGLERUM コーヒーテーブル: 130×65×H43cm, ウォールナット材突き板, ミッドセンチュリー風テーパー脚 ----
@@ -90,4 +98,4 @@ function buildFagelfjalletBed({ color = '#5b7f9b' } = {}) {
   return g;
 }
 
-export { buildRegza55E770S, buildFjallboTvBench, buildValnasSofa2, buildUgglerumCoffeeTable, buildFagelfjalletBed };
+export { buildRegzaTV, buildRegza55E770S, buildRegza65E770S, buildFjallboTvBench, buildValnasSofa2, buildUgglerumCoffeeTable, buildFagelfjalletBed };
