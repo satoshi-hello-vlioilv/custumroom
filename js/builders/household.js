@@ -283,45 +283,28 @@ function buildWallAC({ color='#f2f2f0', w=0.798, d=0.255, h=0.25 } = {}) {
   return g;
 }
 
-function buildEspressoMachine({ color='#2a2a2e', w=0.3, d=0.38, h=0.42 } = {}) {
+// ---- エスプレッソマシン (デロンギ マグニフィカS ECAM22112 全自動 風): W238×D430×H350。上面に豆ホッパー, 前面上部に操作パネル,
+//      中央に高さ調節できる抽出口, 下部にカップ受けトレイ, 右側面に給水タンク, スチームノズル。使う面 +Z ----
+function buildEspressoMachine({ color='#2a2a2e', w=0.238, d=0.43, h=0.35 } = {}) {
   const g = new THREE.Group();
-  const bodyMat = mat(color, 0.3, 0.65, { env: 0.9 });
-  const chromeMat = mat('#c8ccd0', 0.15, 0.85, { env: 1.1 });
-  // Drip tray
-  g.add(box(w-0.02, 0.022, d-0.06, mat('#2a2a2e', 0.45, 0.5), 0, 0.011, 0.02));
-  // Tray grate
-  g.add(box(w-0.06, 0.008, d-0.12, mat('#3a3a3e', 0.5, 0.6), 0, 0.024, 0.02));
-  // Main body
-  const body = new THREE.Mesh(roundedBoxGeom(w-0.02, h-0.06, d-0.04, 0.022, 3), bodyMat);
-  body.position.set(0, 0.03+(h-0.06)/2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
-  // Water reservoir (rear)
-  g.add(box(w-0.08, h*0.62, 0.06, mat(shade(color,1.4), 0.35, 0.4), 0, 0.06+h*0.31, -d/2+0.04));
-  // Front panel area (buttons)
-  g.add(box(w-0.08, h*0.22, 0.012, mat('#1a1a1e', 0.5, 0.3), 0, 0.03+h-0.06-h*0.12, d/2-0.06-0.008));
-  const btn1 = cylAt(0.012,0.012,0.014,10,chromeMat, -0.055, 0.03+h-0.07, d/2-0.055); btn1.rotation.x = Math.PI/2; g.add(btn1);
-  const btn2 = cylAt(0.012,0.012,0.014,10,chromeMat,  0.055, 0.03+h-0.07, d/2-0.055); btn2.rotation.x = Math.PI/2; g.add(btn2);
-  // Group head barrel
-  const barrel = cylAt(0.032,0.032,0.055,14,chromeMat, 0, 0.14, d/2-0.04); barrel.rotation.x = Math.PI/2; g.add(barrel);
-  // Diffuser disk
-  const diffuser = cylAt(0.028,0.028,0.01,14,mat('#1a1a1e',0.5,0.4), 0, 0.14, d/2); diffuser.rotation.x = Math.PI/2; g.add(diffuser);
-  // Portafilter handle
-  g.add(box(0.045, 0.018, 0.18, mat('#4a3020', 0.7), 0, 0.1, d/2+0.06));
-  const pfl1 = cylAt(0.01,0.01,0.04,8,chromeMat, -0.02, 0.085, d/2+0.0); g.add(pfl1);
-  const pfl2 = cylAt(0.01,0.01,0.04,8,chromeMat,  0.02, 0.085, d/2+0.0); g.add(pfl2);
-  // Steam wand base joint
-  const swBase = cylAt(0.012,0.012,0.025,8,chromeMat, w/2-0.04, 0.25, 0.04); g.add(swBase);
-  // Steam wand
-  const wand = box(0.012, 0.12, 0.012, chromeMat, w/2+0.02, 0.18, 0.06); wand.rotation.z = 0.45; g.add(wand);
-  // Steam wand tip
-  g.add(cylAt(0.008,0.006,0.025,8,chromeMat, w/2+0.04, 0.11, 0.09));
-  // Pressure gauge face
-  const gauge = cylAt(0.024,0.024,0.008,16,mat('#f0f0e8',0.6), -w*0.28, 0.03+h*0.62, d/2-0.055); gauge.rotation.x = Math.PI/2; g.add(gauge);
-  // Gauge inner dial
-  const dial = cylAt(0.018,0.018,0.01,16,mat('#1a3060',0.4), -w*0.28, 0.03+h*0.62, d/2-0.055); dial.rotation.x = Math.PI/2; dial.position.z += 0.005; g.add(dial);
+  const bodyMat = mat(color, 0.35, 0.5, { env: 0.8 }), chromeMat = mat('#c8ccd0', 0.15, 0.85, { env: 1.1 }), dark = mat('#141416', 0.5, 0.3);
+  const body = new THREE.Mesh(roundedBoxGeom(w, h, d - 0.02, 0.015, 3), bodyMat); body.position.set(0, h/2, -0.01); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  g.add(cylAt(0.06, 0.06, 0.012, 20, mat(shade(color, 1.3), 0.3, 0.3), 0, h + 0.006, -0.06));         // 豆ホッパーのふた
+  g.add(box(w - 0.03, 0.01, 0.08, mat(shade(color, 1.2), 0.4, 0.3), 0, h + 0.005, d/2 - 0.08));        // 上面のパウダー投入口
+  g.add(box(w - 0.04, 0.07, 0.008, dark, 0, h - 0.06, d/2 - 0.014));                                   // 操作パネル
+  [-0.07, -0.035, 0.0, 0.035, 0.07].forEach(x => { const b = cylAt(0.007, 0.007, 0.006, 10, chromeMat, x, h - 0.06, d/2 - 0.009); b.rotation.x = Math.PI/2; g.add(b); });
+  const spout = new THREE.Mesh(roundedBoxGeom(0.07, 0.06, 0.05, 0.01, 3), dark); spout.position.set(0, h * 0.42, d/2 - 0.02); g.add(spout);   // 抽出口(上下可動)
+  [-0.012, 0.012].forEach(x => g.add(cylAt(0.004, 0.004, 0.02, 8, chromeMat, x, h * 0.42 - 0.04, d/2 - 0.01)));
+  g.add(box(w - 0.02, 0.03, 0.12, dark, 0, 0.015, d/2 - 0.07));                                        // 受けトレイ
+  g.add(box(w - 0.06, 0.006, 0.09, chromeMat, 0, 0.033, d/2 - 0.07));                                  // トレイのグリル
+  g.add(cylAt(0.028, 0.024, 0.06, 16, mat('#f4f1ea', 0.6), 0, 0.066, d/2 - 0.07));                     // カップ
+  g.add(box(0.015, h * 0.8, 0.09, new THREE.MeshStandardMaterial({ color: 0x9fb8c8, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.5 }), w/2 + 0.006, h * 0.45, -0.08));   // 給水タンク(右側面)
+  const wand = cyl(0.006, 0.006, 0.11, 8, chromeMat); wand.position.set(w/2 + 0.02, h * 0.55, 0.08); wand.rotation.x = 0.5; wand.rotation.z = 0.35; g.add(wand);   // スチームノズル
   return g;
 }
 
-function buildDishwasher({ color='#e0e0dc', w=0.6, d=0.6, h=0.85 } = {}) {
+// ---- 食洗機 (ボッシュ 60cm ビルトイン SMV4ZDX016 風): W598×D550×H815, ステンレス面材のドア + 上部操作パネル。使う面 +Z ----
+function buildDishwasher({ color='#e0e0dc', w=0.598, d=0.573, h=0.815 } = {}) {
   const g = new THREE.Group();
   const steelMat = mat('#c4c8cc', 0.22, 0.72, { env: 0.8 });
   const bodyMat = mat(color, 0.5, 0.06);
@@ -347,36 +330,22 @@ function buildDishwasher({ color='#e0e0dc', w=0.6, d=0.6, h=0.85 } = {}) {
   return g;
 }
 
-function buildLockerUnit({ color='#8a9a9e', w=1.2, d=0.45, h=1.85 } = {}) {
+// ---- ロッカー (コクヨ LKロッカー 4人用 LK-4F1 風): W900×D515×H1790, 幅225mmの扉4枚(通気孔・名札・シリンダー錠), 台輪付き。使う面 +Z ----
+function buildLockerUnit({ color='#c9cdd0', w=0.9, d=0.515, h=1.79 } = {}) {
   const g = new THREE.Group();
-  const metalMat = mat(color, 0.38, 0.55, { env: 0.7 });
-  const darkMat = mat('#2a2a2e', 0.5, 0.3);
-  // Body
+  const metalMat = mat(color, 0.38, 0.55, { env: 0.7 }), darkMat = mat('#2a2a2e', 0.5, 0.3), hdlM = mat('#9aa0a4', 0.25, 0.8, { env: 0.9 });
   const body = box(w, h, d, metalMat, 0, h/2, 0); body.userData.colorable = true; g.add(body);
-  // Base plinth
-  g.add(box(w, 0.05, d+0.02, mat(shade(color,0.72),0.45,0.4), 0, 0.025, 0));
-  // Top cap
-  g.add(box(w+0.02, 0.03, d+0.02, mat(shade(color,0.8),0.4,0.5), 0, h+0.015, 0));
-  // 3 door panels
-  for (let i = 0; i < 3; i++) {
-    const lockerX = -w/3 + (i+0.5)*w/3;
-    const door = box(w/3-0.025, h-0.14, 0.03, mat(shade(color,1.12),0.42,0.5), lockerX, h/2, d/2+0.005);
-    door.userData.colorable = true; g.add(door);
-    // Ventilation slots
-    for (let j = 0; j < 3; j++) {
-      g.add(box(w/3-0.1, 0.018, 0.035, darkMat, lockerX, h-0.12-j*0.04, d/2+0.006));
-    }
-    // Handle
-    g.add(box(0.06, 0.025, 0.04, mat('#9aa0a4',0.25,0.8,{env:0.9}), lockerX+0.09, h/2, d/2+0.028));
-    // Number plate
-    g.add(box(0.06, 0.04, 0.004, mat('#f5f0e0',0.8), lockerX-0.06, h-0.07, d/2+0.022));
+  g.add(box(w - 0.04, 0.06, d - 0.06, mat(shade(color, 0.6), 0.5, 0.3), 0, 0.03, -0.03));             // 台輪(蹴込み)
+  g.add(box(w + 0.01, 0.02, d + 0.01, mat(shade(color, 0.85), 0.4, 0.5), 0, h - 0.01, 0));           // 天板
+  const n = Math.max(1, Math.round(w / 0.225)), dw = w / n;
+  for (let i = 0; i < n; i++) {
+    const x = -w/2 + dw*(i + 0.5);
+    const door = box(dw - 0.008, h - 0.10, 0.02, mat(shade(color, 1.06), 0.42, 0.5), x, 0.07 + (h - 0.10)/2, d/2 + 0.005); door.userData.colorable = true; g.add(door);
+    for (let j = 0; j < 4; j++) { g.add(box(dw - 0.09, 0.006, 0.006, darkMat, x, h - 0.16 - j*0.018, d/2 + 0.016)); g.add(box(dw - 0.09, 0.006, 0.006, darkMat, x, 0.24 + j*0.018, d/2 + 0.016)); }   // 通気孔(上下)
+    g.add(box(0.06, 0.03, 0.004, mat('#f5f0e0', 0.8), x, h - 0.10, d/2 + 0.016));                     // 名札
+    g.add(box(0.02, 0.10, 0.012, hdlM, x + dw/2 - 0.04, h * 0.52, d/2 + 0.02));                        // 取っ手
+    const key = cyl(0.007, 0.007, 0.01, 8, hdlM); key.rotation.x = Math.PI/2; key.position.set(x + dw/2 - 0.04, h * 0.52 + 0.08, d/2 + 0.02); g.add(key);   // シリンダー錠
   }
-  // Vertical dividers
-  [-w/6, w/6].forEach(dx => {
-    g.add(box(0.012, h, 0.035, mat(shade(color,0.72),0.4), dx, h/2, d/2+0.002));
-  });
-  // Floor channel drain hint
-  g.add(box(w-0.08, 0.005, d-0.08, mat('#1a1a1e',0.7), 0, 0.052, 0));
   return g;
 }
 

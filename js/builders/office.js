@@ -15,33 +15,33 @@ function buildConferenceTable({ color='#8a5a2b', w=3.6, d=1.2, h=0.74 } = {}) {
   g.add(cylAt(0.03, 0.03, 0.022, 10, mat('#3a3530', 0.45, 0.5), 0, h + 0.01, 0));
   return g;
 }
-function buildWhiteboard({ color='#f9f9f6' } = {}) {
+// ---- ホワイトボード (馬印 ホーローホワイトボード 壁掛 1800×900 風): アルミ枠, 板面 w×h, 粉受け, マーカー。下端 0.9m。使う面 +Z ----
+function buildWhiteboard({ color='#f9f9f6', w=1.8, d=0.04, h=0.9 } = {}) {
   const g = new THREE.Group();
-  const frame = mat('#8a9098', 0.3, 0.65, { env: 0.8 });
-  // 裏面バッキング(壁側) — 裏が白板面に見えて混同しないよう薄灰の板で塞ぐ。原点=壁内面に置くと面一で室内へ突き出す
-  g.add(box(1.54, 1.04, 0.012, mat('#aeb4ba', 0.7), 0, 0.88, -0.022));
-  const board = box(1.5, 1.0, 0.03, mat(color, 0.9, 0), 0, 0.88, 0); board.userData.colorable = true; g.add(board);
-  g.add(box(1.56, 0.04, 0.04, frame, 0, 1.40, 0));
-  g.add(box(1.56, 0.08, 0.04, frame, 0, 0.37, 0));
-  g.add(box(0.04, 1.1, 0.04, frame, -0.78, 0.88, 0));
-  g.add(box(0.04, 1.1, 0.04, frame, 0.78, 0.88, 0));
-  g.add(box(1.5, 0.04, 0.1, frame, 0, 0.38, 0.05));
-  ['#e53', '#38f', '#2a2'].forEach((c, i) => g.add(box(0.018, 0.12, 0.018, mat(c, 0.7), -0.12 + i * 0.12, 0.42, 0.08)));
-  [-0.6, 0.6].forEach(x => { g.add(box(0.04, 0.38, 0.04, frame, x, 0.19, 0)); g.add(box(0.28, 0.025, 0.05, frame, x, 0.025, 0)); });
-  g.add(box(0.55, 0.018, 0.005, mat('#3b6bbf', 0.9), -0.25, 1.0, 0.022));
-  g.add(box(0.30, 0.018, 0.005, mat('#3b6bbf', 0.9),  0.25, 0.82, 0.022));
-  g.add(box(0.45, 0.018, 0.005, mat('#2a9c5a', 0.9), -0.1, 0.66, 0.022));
+  const frame = mat('#b9bec3', 0.3, 0.65, { env: 0.8 });
+  const y0 = 0.9, cy = y0 + h/2;
+  g.add(box(w + 0.04, h + 0.04, 0.012, mat('#aeb4ba', 0.7), 0, cy, -0.022));                        // 裏面バッキング(壁側)
+  const board = box(w, h, 0.025, mat(color, 0.9, 0), 0, cy, 0); board.userData.colorable = true; g.add(board);
+  g.add(box(w + 0.05, 0.025, d, frame, 0, y0 + h + 0.0125, 0)); g.add(box(w + 0.05, 0.025, d, frame, 0, y0 - 0.0125, 0));   // アルミ枠
+  [-1, 1].forEach(s => g.add(box(0.025, h + 0.05, d, frame, s*(w/2 + 0.0125), cy, 0)));
+  g.add(box(w * 0.8, 0.03, 0.09, frame, 0, y0 - 0.03, 0.045));                                       // 粉受け
+  ['#e53', '#38f', '#2a2'].forEach((c, i) => g.add(box(0.018, 0.12, 0.018, mat(c, 0.7), -0.12 + i * 0.12, y0 - 0.01, 0.07)));
+  g.add(box(w * 0.30, 0.018, 0.005, mat('#3b6bbf', 0.9), -w * 0.15, cy + h * 0.22, 0.015));           // 板書
+  g.add(box(w * 0.18, 0.018, 0.005, mat('#3b6bbf', 0.9),  w * 0.12, cy + h * 0.04, 0.015));
+  g.add(box(w * 0.25, 0.018, 0.005, mat('#2a9c5a', 0.9), -w * 0.05, cy - h * 0.14, 0.015));
   return g;
 }
-function buildFilingCabinet({ color='#7a8fa0', w=0.46, d=0.62, h=1.32 } = {}) {
+// ---- ファイリングキャビネット (コクヨ A4-04F1N 風): A4引き出し4段, W388×D620×H1335, ナチュラルグレー ----
+function buildFilingCabinet({ color='#b7bcbf', w=0.388, d=0.62, h=1.335 } = {}) {
   const g = new THREE.Group();
   const cab = box(w, h, d, mat(color, 0.35, 0.5, { env: 0.8 }), 0, h / 2, 0); cab.userData.colorable = true; g.add(cab);
-  g.add(box(w + 0.02, 0.03, d + 0.02, mat(shade(color, 0.82), 0.4, 0.5), 0, h + 0.015, 0));
-  const hdl = mat('#c0c8d4', 0.2, 0.8, { env: 1.0 });
-  for (let i = 0; i < 4; i++) {
-    const fr = box(w - 0.04, 0.28, 0.022, mat(shade(color, 1.12), 0.38, 0.5), 0, 0.18 + i * 0.3, d / 2 + 0.007); fr.userData.colorable = true; g.add(fr);
-    g.add(box(0.22, 0.022, 0.022, hdl, 0, 0.18 + i * 0.3, d / 2 + 0.026));
-    g.add(box(0.2, 0.07, 0.006, mat('#e8e0d0', 0.75), 0, 0.26 + i * 0.3, d / 2 + 0.016));
+  const hdl = mat('#c0c8d4', 0.2, 0.8, { env: 1.0 }), n = 4, dh = (h - 0.08)/n;
+  for (let i = 0; i < n; i++) {
+    const y = 0.06 + dh*i + dh/2;
+    const fr = box(w - 0.02, dh - 0.012, 0.022, mat(shade(color, 1.06), 0.38, 0.5), 0, y, d / 2 + 0.007); fr.userData.colorable = true; g.add(fr);
+    g.add(box(w - 0.14, 0.02, 0.02, hdl, 0, y - dh/2 + 0.05, d / 2 + 0.026));                          // 引き手
+    g.add(box(0.11, 0.045, 0.006, mat('#e8e0d0', 0.75), 0, y + dh/2 - 0.05, d / 2 + 0.016));            // 見出しカード
+    if (i === n - 1) { const key = cyl(0.008, 0.008, 0.01, 8, hdl); key.rotation.x = Math.PI/2; key.position.set(w/2 - 0.04, y + dh/2 - 0.05, d/2 + 0.02); g.add(key); }   // シリンダー錠
   }
   g.add(box(w - 0.04, 0.04, d - 0.04, mat('#444', 0.7), 0, 0.02, 0));
   return g;
@@ -241,24 +241,24 @@ function buildProjector({ color='#2a2a2f', w=0.3, d=0.25, h=0.12 } = {}) {
   return g;
 }
 
-function buildProjectorScreen({ color='#f5f5f2', w=1.8, d=0.05, h=1.4 } = {}) {
+// ---- プロジェクタースクリーン (キクチ GRANDVIEW GSR-80WXW 風): 80型 16:10 手動巻き上げ。上部ケース(幅 w)から画面 1723×1077 が垂れる。
+//      ケース上端 2.2m。使う面 +Z ----
+function buildProjectorScreen({ color='#f5f5f2', w=1.87, d=0.09, h=1.4 } = {}) {
   const g = new THREE.Group();
-  // Housing at top
-  g.add(box(w + 0.08, 0.08, 0.08, mat('#2e2e2e', 0.5), 0, 2.2, 0));
-  // Screen surface (DoubleSide)
+  const top = 2.2, caseR = d/2;
+  const cs = cyl(caseR, caseR, w, 20, mat('#f2f2f0', 0.45, 0.2)); cs.rotation.z = Math.PI/2; cs.position.set(0, top - caseR, 0); g.add(cs);   // 巻き上げケース
+  [-1, 1].forEach(s => g.add(box(0.02, d + 0.01, d + 0.01, mat('#2e2e2e', 0.5), s*(w/2 + 0.01), top - caseR, 0)));                      // エンドキャップ
+  const sw = w - 0.15, sh = sw * 10/16, drop = Math.max(0.05, h - sh - d - 0.06);                     // 画面(16:10) + 上部黒帯
   const screenMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.86, metalness: 0, side: THREE.DoubleSide });
-  const screenMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 1.32, 0.008), screenMat);
-  screenMesh.position.set(0, 1.50, 0); screenMesh.castShadow = true; screenMesh.receiveShadow = true; screenMesh.userData.colorable = true; g.add(screenMesh);
-  // Black border frame
-  const borderMat = mat('#1a1a1a', 0.6);
-  g.add(box(w + 0.04, 0.028, 0.01, borderMat, 0, 2.16 + 0.014, 0));   // top
-  g.add(box(w + 0.04, 0.028, 0.01, borderMat, 0, 0.84 - 0.014, 0));   // bottom
-  g.add(box(0.028, 1.32 + 0.056, 0.01, borderMat, -w / 2 - 0.014, 1.50, 0)); // left
-  g.add(box(0.028, 1.32 + 0.056, 0.01, borderMat,  w / 2 + 0.014, 1.50, 0)); // right
-  // Side pull strings
-  const strMat = mat('#3a3a3a', 0.7);
-  g.add(box(0.012, 0.2, 0.012, strMat, -(w / 2 + 0.04), 2.16 - 0.1, 0));
-  g.add(box(0.012, 0.2, 0.012, strMat,   w / 2 + 0.04,  2.16 - 0.1, 0));
+  const black = mat('#1a1a1a', 0.6); black.side = THREE.DoubleSide;
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(sw + 0.06, drop, 0.006), black).translateY(top - d - drop/2));
+  const sy = top - d - drop - sh/2;
+  const screenMesh = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, 0.008), screenMat);
+  screenMesh.position.set(0, sy, 0); screenMesh.castShadow = true; screenMesh.receiveShadow = true; screenMesh.userData.colorable = true; g.add(screenMesh);
+  g.add(box(sw + 0.06, 0.03, 0.01, black, 0, sy + sh/2 + 0.015, 0)); g.add(box(sw + 0.06, 0.03, 0.01, black, 0, sy - sh/2 - 0.015, 0));   // 黒縁
+  [-1, 1].forEach(s => g.add(box(0.03, sh + 0.06, 0.01, black, s*(sw/2 + 0.015), sy, 0)));
+  g.add(box(sw + 0.08, 0.025, 0.025, mat('#8a8d90', 0.4, 0.6), 0, sy - sh/2 - 0.045, 0));            // 下端バー
+  const cord = cyl(0.003, 0.003, 0.18, 6, mat('#3a3a3a', 0.7)); cord.position.set(0, sy - sh/2 - 0.15, 0); g.add(cord);   // 引き手ひも
   return g;
 }
 
@@ -330,25 +330,20 @@ function buildATM({ color='#2a2a2e', w=0.65, d=0.55, h=1.7 } = {}) {
 
 // 連続デスク (ベンチデスク): 天板が footprint 全幅を占め、横に並べると隙間なく一続きになる。
 // 脚は端から内側に控えて配置し、連結時に天板どうしが突き合う。アクセス面 = +Z。
-function buildBenchDesk({ color='#e7e1d6', w=1.2, d=0.7, h=0.73 } = {}) {
+// 連続デスク (IKEA MITTZON デスク 120×60 風): 全幅シームレス天板(厚2.5cm), 端から控えたT字脚(支柱+足元バー), 背面の配線トレイ。
+// 横に並べると隙間なく一続きになる。アクセス面 = +Z。
+function buildBenchDesk({ color='#f3ece0', w=1.2, d=0.6, h=0.75 } = {}) {
   const g = new THREE.Group();
-  const wood = mat(color, 0.55), metal = mat('#6a7078', 0.35, 0.7, { env: 0.8 });
-  // 全幅シームレス天板 (隣とエッジで突き合う)
-  const top = box(w, 0.04, d, wood, 0, h - 0.02, 0); top.userData.colorable = true; g.add(top);
-  g.add(box(w, 0.012, d + 0.004, mat(shade(color, 0.84), 0.5), 0, h - 0.045, 0)); // edge band
-  // 端から控えた A 字金属脚 (前後ポスト+足元レール)。連結列が一体に見える
-  const legInset = 0.1, legH = h - 0.04;
+  const wood = mat(color, 0.55), metal = mat('#f4f4f2', 0.35, 0.55, { env: 0.7 });
+  const top = box(w, 0.025, d, wood, 0, h - 0.0125, 0); top.userData.colorable = true; g.add(top);
+  const legInset = 0.10, legH = h - 0.025;
   [-(w / 2 - legInset), (w / 2 - legInset)].forEach(lx => {
-    g.add(box(0.05, legH, 0.05, metal, lx, legH / 2,  (d / 2 - 0.07)));
-    g.add(box(0.05, legH, 0.05, metal, lx, legH / 2, -(d / 2 - 0.07)));
-    g.add(box(0.06, 0.04, d - 0.06, metal, lx, 0.02, 0));   // foot rail
+    g.add(box(0.06, legH - 0.03, 0.06, metal, lx, 0.03 + (legH - 0.03) / 2, 0));                     // T字脚の支柱
+    g.add(box(0.06, 0.03, d - 0.10, metal, lx, 0.015, 0));                                            // 足元バー
+    g.add(box(0.06, 0.03, d - 0.14, metal, lx, legH - 0.015, 0));                                     // 天板受け
   });
-  // 脚を繋ぐビーム (天板下・背側)
-  g.add(box(w - 2 * legInset + 0.05, 0.05, 0.05, metal, 0, h - 0.13, -(d / 2 - 0.09)));
-  // 幕板 (背 -Z 側・膝が +Z から入る)
-  g.add(box(w - 0.05, 0.26, 0.02, wood, 0, h - 0.19, -(d / 2 - 0.04)));
-  // 配線トレイ
-  g.add(box(w - 0.2, 0.05, 0.07, mat('#45454a', 0.6), 0, h - 0.16, -(d / 2 - 0.13)));
+  g.add(box(w - 2 * legInset + 0.06, 0.05, 0.05, metal, 0, h - 0.05, -(d / 2 - 0.10)));               // 背側ビーム
+  g.add(box(w - 0.24, 0.06, 0.10, mat('#45454a', 0.6), 0, h - 0.06, -(d / 2 - 0.18)));                // 配線トレイ
   return g;
 }
 
