@@ -13,7 +13,15 @@ const COLORS = [
   // パステル(キッズ/可愛い系) — 既存indexを崩さないよう末尾に追加
   '#f7a8c4','#a9e7cf','#c9b3ec','#ffd382','#a9d8f0',
   // ワークウェア(作業着) — index 20
-  '#aebccc'
+  '#aebccc',
+  // 産業機器のネオグレー(TRUSCO 等の塗装色) — index 21
+  '#a3aba6',
+  // 消火器の赤 — index 22
+  '#c8201e',
+  // 工作機械の塗装色 (淡いマシングリーン) — index 23
+  '#7a9486',
+  // IKEA STOENSE のライトオリーブグリーン — index 24
+  '#a4a67c'
 ];
 
 function roundedBoxGeom(w, h, d, radius = 0.03, seg = 3) {

@@ -59,41 +59,89 @@ function buildReceptionCounter({ color='#f3ece0', w=2.4, d=0.7, h=1.1 } = {}) {
   return g;
 }
 
-function buildDisplayCase({ color='#aabcc8' } = {}) {
+// ---- 展示ケース (チヨダディステム クアドラート W900×D450×H1200): 化粧板の台 + フレームレスのアクリル被せカバー(プッシュロック) ----
+function buildDisplayCase({ color='#e8e2d6', w=0.9, d=0.45, h=1.2 } = {}) {
   const g = new THREE.Group();
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0xbcdde8, roughness: 0.04, metalness: 0.08, transparent: true, opacity: 0.22, side: THREE.DoubleSide });
-  const frameMat = mat('#9aa8b0', 0.28, 0.72, { env: 1.0 });
-  g.add(box(0.88, 0.1, 0.58, mat('#4e4840', 0.65), 0, 0.05, 0));
-  g.add(box(0.82, 0.2, 0.52, mat('#5e5448', 0.62), 0, 0.2, 0));
-  const pw = 0.82, pd = 0.52, gh = 0.88, gy = 0.3 + gh / 2;
-  g.add(plainBox(pw, gh, 0.008, glassMat, 0, gy,  pd / 2));
-  g.add(plainBox(pw, gh, 0.008, glassMat, 0, gy, -pd / 2));
-  g.add(plainBox(0.008, gh, pd, glassMat, -pw / 2, gy, 0));
-  g.add(plainBox(0.008, gh, pd, glassMat,  pw / 2, gy, 0));
-  [[pw/2,pd/2],[pw/2,-pd/2],[-pw/2,pd/2],[-pw/2,-pd/2]].forEach(([x,z]) => g.add(box(0.02, gh + 0.06, 0.02, frameMat, x, gy, z)));
-  g.add(box(pw + 0.02, 0.03, pd + 0.02, frameMat, 0, 0.3 + gh + 0.015, 0));
-  const obj = box(0.14, 0.18, 0.1, mat('#c8a438', 0.42, 0.58, { env: 1.4 }), 0, 0.39, 0); obj.userData.colorable = true; g.add(obj);
+  const board = mat(color, 0.55, 0.02), boardD = mat(shade(color, 0.86), 0.6);
+  const acryl = new THREE.MeshPhysicalMaterial({ color: 0xf2fbff, roughness: 0.02, metalness: 0.0, transmission: 0.0, transparent: true, opacity: 0.16, side: THREE.DoubleSide });
+  const edgeM = new THREE.MeshStandardMaterial({ color: 0xcfe6ea, roughness: 0.1, transparent: true, opacity: 0.55 });
+  const coverH = 0.4, baseH = h - coverH, t = 0.006;
+  // 台: 巾木(引っ込み) + 本体 + 天板(展示面)
+  g.add(box(w - 0.04, 0.06, d - 0.04, boardD, 0, 0.03, 0));
+  const body = box(w, baseH - 0.08, d, board, 0, 0.06 + (baseH - 0.08) / 2, 0); body.userData.colorable = true; g.add(body);
+  const deck = box(w, 0.02, d, mat(shade(color, 1.03), 0.5), 0, baseH - 0.01, 0); deck.userData.colorable = true; g.add(deck);
+  g.add(box(w - 0.04, 0.004, d - 0.04, mat('#d8d2c8', 0.9), 0, baseH + 0.002, 0));      // 展示面のクロス
+  g.add(cylAt(0.011, 0.011, 0.008, 16, mat('#b9bcc0', 0.3, 0.8), w * 0.36, baseH - 0.05, d / 2 + 0.003).rotateX(Math.PI / 2));   // プッシュロック
+  // アクリルカバー (5面・フレームレス) + 小口の光るエッジ
+  const cy = baseH + coverH / 2;
+  g.add(plainBox(w - 0.01, coverH, t, acryl, 0, cy,  d / 2 - 0.008));
+  g.add(plainBox(w - 0.01, coverH, t, acryl, 0, cy, -d / 2 + 0.008));
+  g.add(plainBox(t, coverH, d - 0.02, acryl, -w / 2 + 0.008, cy, 0));
+  g.add(plainBox(t, coverH, d - 0.02, acryl,  w / 2 - 0.008, cy, 0));
+  g.add(plainBox(w - 0.01, t, d - 0.01, acryl, 0, h - t / 2, 0));
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz]) => g.add(plainBox(0.004, coverH, 0.004, edgeM, sx * (w / 2 - 0.006), cy, sz * (d / 2 - 0.006))));
+  [-1, 1].forEach(sz => g.add(plainBox(w - 0.012, 0.003, 0.004, edgeM, 0, h - 0.003, sz * (d / 2 - 0.006))));
+  // 展示物: 青磁の壺 (回転体) + 小さな台
+  g.add(box(0.16, 0.03, 0.12, mat('#3a2e26', 0.5), -0.08, baseH + 0.019, 0));
+  const vase = new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [0.04, 0], [0.055, 0.04], [0.06, 0.1], [0.045, 0.17], [0.022, 0.2], [0.026, 0.23], [0, 0.23]].map(([x, y]) => new THREE.Vector2(x, y)), 28), mat('#9cbfae', 0.25, 0.05, { env: 1.1 }));
+  vase.position.set(-0.08, baseH + 0.034, 0); vase.castShadow = true; g.add(vase);
+  g.add(box(0.1, 0.006, 0.06, mat('#f5f2ea', 0.8), 0.22, baseH + 0.008, 0.1));       // キャプション札
   return g;
 }
-function buildPedestal({ color='#c8c0b4' } = {}) {
+// ---- 展示台 (鈴屋 スクエア展示台(側板付) H925×W450×D450): アルミの角フレーム + 白い側板・天板。天板上の球は展示物 ----
+function buildPedestal({ color='#f3ece0', w=0.45, d=0.45, h=0.925 } = {}) {
   const g = new THREE.Group();
-  g.add(box(0.56, 0.06, 0.56, mat(shade(color, 0.82), 0.7), 0, 0.03, 0));
-  const col = box(0.5, 0.96, 0.5, mat(color, 0.68, 0.04), 0, 0.51, 0); col.userData.colorable = true; g.add(col);
-  g.add(box(0.56, 0.05, 0.56, mat(shade(color, 0.85), 0.65), 0, 0.985, 0));
-  const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.14, 20, 14), mat('#c8a020', 0.38, 0.72, { env: 1.5 }));
-  sphere.position.y = 1.16; sphere.castShadow = true; sphere.userData.colorable = true; g.add(sphere);
+  const alu = mat('#c9ced3', 0.3, 0.75, { env: 0.9 }), aluD = mat('#9aa1a8', 0.4, 0.6);
+  const panel = mat(color, 0.6, 0.02);
+  const p = 0.024, top = 0.018;
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz]) => {                                  // 支柱 (溝付きの角アルミ)
+    const x = sx * (w / 2 - p / 2), z = sz * (d / 2 - p / 2);
+    g.add(box(p, h - top, p, alu, x, (h - top) / 2, z));
+    g.add(box(0.006, h - top - 0.02, 0.006, aluD, x - sx * p / 2, (h - top) / 2, z - sz * 0.004));
+  });
+  [0.012, h - top - 0.012].forEach(y => {                                                        // 上下の横桟
+    [-1, 1].forEach(s => { g.add(box(w - 2 * p, 0.024, 0.018, alu, 0, y, s * (d / 2 - 0.012))); g.add(box(0.018, 0.024, d - 2 * p, alu, s * (w / 2 - 0.012), y, 0)); });
+  });
+  const ph = h - top - 0.05, py = 0.025 + ph / 2;                                                // 側板 (白塗装)
+  [-1, 1].forEach(s => {
+    const a = box(w - 2 * p, ph, 0.006, panel, 0, py, s * (d / 2 - 0.009)); a.userData.colorable = true; g.add(a);
+    const b = box(0.006, ph, d - 2 * p, panel, s * (w / 2 - 0.009), py, 0); b.userData.colorable = true; g.add(b);
+  });
+  const tp = box(w, top, d, mat(shade(color, 1.03), 0.5), 0, h - top / 2, 0); tp.userData.colorable = true; g.add(tp);
+  // 展示物 (金属の球体オブジェ) + 台座リング
+  g.add(cylAt(0.05, 0.06, 0.02, 24, mat('#2a2826', 0.5), 0, h + 0.01, 0));
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.12, 28, 18), mat('#c8a020', 0.32, 0.8, { env: 1.5 }));
+  sphere.position.y = h + 0.02 + 0.115; sphere.castShadow = true; g.add(sphere);
   return g;
 }
-function buildInfoPanel({ color='#f2eee8' } = {}) {
+// ---- 解説パネル (ベルク アルモード 2383 A1 片面 ポスタースタンド): 直立したアルミフレーム(A1) + 背面の支柱 + キャスター付きスチールベース ----
+function buildInfoPanel({ color='#f2eee8', w=0.645, d=0.421, h=1.608 } = {}) {
   const g = new THREE.Group();
-  const frame = mat('#2a2418', 0.6, 0.15);
-  g.add(box(0.03, 1.5, 0.03, frame, 0, 0.75, 0));
-  g.add(box(0.28, 0.025, 0.06, frame, 0, 0.025, 0));
-  const board = box(0.72, 0.92, 0.025, mat(color, 0.78), 0, 1.02, 0.02); board.userData.colorable = true; g.add(board);
-  g.add(box(0.76, 0.96, 0.03, mat('#1c1810', 0.7), 0, 1.02, 0.006));
-  g.add(box(0.55, 0.06, 0.006, mat('#3a2a18', 0.7), 0, 1.36, 0.036));
-  [0.18, 0.06, -0.06, -0.18].forEach(dy => g.add(box(0.48, 0.015, 0.006, mat('#5a4a38', 0.85), 0, 1.0 + dy, 0.036)));
-  g.add(box(0.24, 0.22, 0.006, mat('#8a9888', 0.7), -0.18, 0.67, 0.034));
+  const alu = mat('#c3c8cd', 0.28, 0.8, { env: 1.0 }), steel = mat('#2e3033', 0.5, 0.4), rub = mat('#161616', 0.8);
+  const fh = 0.841 + 0.09, fy = h - fh / 2, fz = 0.03;                                             // フレーム(A1 + 枠)
+  // ベース (L型: 前後に長いスチール板) + キャスター(後) + アジャスター(前)
+  g.add(box(w - 0.1, 0.022, d, steel, 0, 0.034, 0));
+  [-1, 1].forEach(s => {
+    const cz = -d / 2 + 0.06, cx = s * (w / 2 - 0.1);
+    const whl = cyl(0.022, 0.022, 0.018, 14, rub); whl.rotation.z = Math.PI / 2; whl.position.set(cx, 0.022, cz); g.add(whl);
+    g.add(box(0.03, 0.012, 0.03, steel, cx, 0.02, cz));
+    g.add(cylAt(0.016, 0.018, 0.022, 12, rub, s * (w / 2 - 0.1), 0.011, d / 2 - 0.05));
+  });
+  // 支柱 (背面中央, 高さ調整式の二重パイプ)
+  g.add(box(0.05, fy + 0.2, 0.03, alu, 0, (fy + 0.2) / 2 + 0.03, -0.02));
+  g.add(box(0.058, 0.04, 0.038, steel, 0, fy - 0.2, -0.02));                                      // 高さ調整ノブ
+  g.add(cylAt(0.012, 0.012, 0.03, 12, rub, 0, fy - 0.2, 0.0).rotateX(Math.PI / 2));
+  // A1 フレーム (4辺開閉式) + アクリル面板 + ポスター
+  const fw = w, border = 0.033;
+  [-1, 1].forEach(s => { g.add(box(border, fh, 0.03, alu, s * (fw / 2 - border / 2), fy, fz)); g.add(box(fw, border, 0.03, alu, 0, fy + s * (fh / 2 - border / 2), fz)); });
+  g.add(box(fw - 0.02, fh - 0.02, 0.006, mat('#e9e6df', 0.8), 0, fy, fz - 0.012));              // 背板(MDF)
+  const poster = box(0.579, 0.826, 0.003, mat(color, 0.85), 0, fy, fz + 0.002); poster.userData.colorable = true; g.add(poster);
+  const pz = fz + 0.0045, px = -0.579 / 2 + 0.04;
+  g.add(plainBox(0.5, 0.05, 0.001, mat('#2f3a44', 0.7), 0, fy + 0.34, pz));                     // 見出し帯
+  g.add(plainBox(0.28, 0.2, 0.001, mat('#8a9a8c', 0.7), px + 0.14, fy + 0.15, pz));              // 図版
+  [0.2, 0.16, 0.12, 0.08].forEach(dy => g.add(plainBox(0.2, 0.012, 0.001, mat('#6c655c', 0.9), 0.16, fy + dy + 0.02, pz)));
+  for (let i = 0; i < 9; i++) g.add(plainBox(i % 4 === 3 ? 0.32 : 0.5, 0.01, 0.001, mat('#6c655c', 0.9), i % 4 === 3 ? -0.09 : 0, fy - 0.04 - i * 0.034, pz));
+  g.add(plainBox(0.579, 0.826, 0.002, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.03, transparent: true, opacity: 0.1 }), 0, fy, fz + 0.012));   // アクリル
   return g;
 }
 
@@ -132,18 +180,54 @@ function buildRegisterCounter({ color='#f3ece0', w=1.2, d=0.65, h=0.9 } = {}) {
   g.add(box(0.015, h - 0.05, d, mat('#a09888', 0.5), w / 2 - 0.015, (h - 0.05) / 2, 0));
   return g;
 }
-function buildShowcaseFridge({ color='#d8d0c4', w=1.2, d=0.72, h=2.0 } = {}) {
+// ホシザキ リーチイン冷蔵ショーケース RSC-120EM (W1200×D600×H1880, 669L, 129kg, スライド扉・ユニット下置き):
+// 下部に冷凍ユニット室 (前面ガラリ), 中段がガラス越しに見える庫内 (棚4段 + 飲料), 上部に照明付きヘッダー。
+// 前面は 2 枚のスライドガラス扉 (前後にずらして重ねる) で、取っ手も奥行 d の内側に収める。
+function buildShowcaseFridge({ color='#d8d0c4', w=1.2, d=0.6, h=1.88 } = {}) {
   const g = new THREE.Group();
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0x90c8e4, roughness: 0.05, metalness: 0.12, transparent: true, opacity: 0.28, side: THREE.DoubleSide });
-  const frame = mat('#6a7078', 0.3, 0.72, { env: 0.9 });
-  const bodyMesh = box(w, h, d, mat(color, 0.4, 0.3, { env: 0.6 }), 0, h / 2, 0); bodyMesh.userData.colorable = true; g.add(bodyMesh);
-  [-w / 4, w / 4].forEach(x => {
-    g.add(plainBox(w / 2 - 0.025, h - 0.1, 0.02, glassMat, x, h / 2, d / 2 + 0.01));
-    g.add(box(0.04, 0.2, 0.042, frame, x, h * 0.5, d / 2 + 0.07));
+  const shell = mat(color, 0.4, 0.3, { env: 0.6 }), frame = mat('#3c4046', 0.35, 0.6, { env: 0.7 }), dark = mat('#1e2124', 0.6, 0.2);
+  const inner = mat('#eef1f2', 0.45, 0.1), wire = mat('#b8c2c8', 0.35, 0.6, { env: 0.6 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xcfe6f0, roughness: 0.04, metalness: 0.1, transparent: true, opacity: 0.16, side: THREE.DoubleSide });
+  const t = 0.05, unitH = 0.3, headH = 0.14, y0 = unitH, y1 = h - headH;          // 庫内の下端・上端
+  const tag = (m) => { m.userData.colorable = true; return m; };
+  // 外箱: 左右側板・天板・背板・底 (庫内が見えるよう箱を組む)
+  [-1, 1].forEach(s => g.add(tag(box(t, h, d, shell, s * (w / 2 - t / 2), h / 2, 0))));
+  g.add(tag(box(w, headH, d, shell, 0, h - headH / 2, 0)));
+  g.add(plainBox(w - 2 * t, y1 - y0, 0.04, inner, 0, (y0 + y1) / 2, -d / 2 + 0.02));
+  g.add(tag(box(w, unitH, d, shell, 0, unitH / 2, 0)));
+  // 冷凍ユニット室の前面ガラリ + 巾木
+  g.add(box(w - 0.12, unitH - 0.1, 0.012, dark, 0, unitH / 2 + 0.02, d / 2 - 0.004));
+  for (let i = 0; i < 9; i++) g.add(plainBox(w - 0.16, 0.008, 0.006, mat('#3a3e42', 0.5, 0.3), 0, 0.1 + i * 0.02, d / 2 + 0.003));
+  g.add(plainBox(w - 0.02, 0.05, 0.01, dark, 0, 0.025, d / 2 - 0.02));
+  // ヘッダー: 前面の照明パネル (ロゴ帯)
+  g.add(plainBox(w - 0.14, headH - 0.05, 0.006, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: new THREE.Color('#e8f4ff'), emissiveIntensity: 0.55, roughness: 0.4 }), 0, h - headH / 2, d / 2 + 0.002));
+  g.add(plainBox(0.3, 0.03, 0.004, mat('#2a5aa8', 0.4), 0, h - headH / 2, d / 2 + 0.006));
+  // 庫内: LED 照明・棚 4 段 (ワイヤー) ・飲料 (ペットボトルと缶)
+  const inW = w - 2 * t, inD = d - 0.12, inZ = -0.02;
+  g.add(plainBox(inW - 0.04, 0.012, 0.03, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.8 }), 0, y1 - 0.02, d / 2 - 0.12));
+  const levels = [y0 + 0.02, y0 + 0.33, y0 + 0.64, y0 + 0.95, y0 + 1.22];
+  const cols = ['#e33a2c', '#2d7fd6', '#f2c230', '#2fa35a', '#f07f2a', '#8a4fc0', '#e8e8e8', '#2a2a2a'], mcache = {};
+  levels.forEach((ly, li) => {
+    if (li > 0) g.add(box(inW - 0.02, 0.012, inD, wire, 0, ly, inZ));
+    const tall = li % 2 === 0, bh = tall ? 0.22 : 0.12, br = tall ? 0.034 : 0.033, n = Math.floor((inW - 0.04) / (br * 2 + 0.008));
+    // 手前 2 列だけ並べる (ガラス越しに見える範囲。奥は同じ商品が続く)
+    const pet = mat('#dfeef4', 0.1, 0.05, { env: 0.6 });
+    for (let r = 0; r < 2; r++) for (let i = 0; i < n; i++) {
+      const ck = cols[(i + li * 3 + (i >> 2)) % cols.length] + (tall ? 'p' : 'c'), c = mcache[ck] || (mcache[ck] = mat(ck.slice(0, 7), 0.4, tall ? 0 : 0.6)), x = -inW / 2 + 0.02 + br + i * (br * 2 + 0.008), z = inZ + inD / 2 - 0.06 - r * 0.15;
+      if (tall) { g.add(cylAt(br, br, bh - 0.04, 10, pet, x, ly + 0.006 + (bh - 0.04) / 2, z)); g.add(cylAt(br * 1.02, br * 1.02, 0.07, 10, c, x, ly + 0.08, z)); g.add(cylAt(0.014, br, 0.05, 8, c, x, ly + bh - 0.025, z)); }
+      else g.add(cylAt(br, br, bh, 10, c, x, ly + 0.006 + bh / 2, z));
+    }
   });
-  g.add(box(w, 0.18, d, mat('#3a3a3a', 0.6, 0.2), 0, h + 0.09, 0));
-  [0.4, 0.85, 1.3, 1.72].forEach(y => g.add(box(w - 0.1, 0.02, d - 0.1, mat('#c0d0d8', 0.45, 0.2), 0, y, 0)));
-  g.add(box(w, 0.06, d, mat('#333', 0.7), 0, 0.03, 0));
+  // スライドガラス扉 2 枚 (枠 + ガラス + 縦の取っ手)。前の扉 = 左, 奥の扉 = 右
+  const dW = inW / 2 + 0.03, dH = y1 - y0;
+  [[-1, d / 2 - 0.028], [1, d / 2 - 0.058]].forEach(([s, z]) => {
+    const cx = s * (inW / 4 - 0.005);
+    [-1, 1].forEach(k => { g.add(plainBox(0.035, dH, 0.024, frame, cx + k * (dW / 2 - 0.0175), y0 + dH / 2, z)); g.add(plainBox(dW, 0.035, 0.024, frame, cx, y0 + (k > 0 ? dH - 0.0175 : 0.0175), z)); });
+    g.add(plainBox(dW - 0.07, dH - 0.07, 0.006, glassMat, cx, y0 + dH / 2, z));
+    g.add(plainBox(0.022, 0.5, 0.02, mat('#9aa3aa', 0.25, 0.8), cx - s * (dW / 2 - 0.05), y0 + dH * 0.5, z + 0.02));
+  });
+  g.add(plainBox(inW, 0.02, 0.07, frame, 0, y0 - 0.01, d / 2 - 0.045));                        // 下レール
+  g.add(plainBox(inW, 0.02, 0.07, frame, 0, y1 + 0.01, d / 2 - 0.045));                        // 上レール
   return g;
 }
 function buildBarCounter({ color='#5b3a22', w=2.4, d=0.5, h=1.1 } = {}) {
@@ -182,40 +266,50 @@ function buildRoundTable({ color='#c8a06a', w=0.85, d=0.85, h=0.75 } = {}) {
 }
 
 
-function buildCopier({ color='#e2e2de', w=0.62, d=0.56, h=1.08 } = {}) {
+// リコー RICOH IM C3000F (A3 カラー複合機, W587×D685×H913, 96kg 以下): 下段に給紙トレイ 2 段, 前扉, 本体と読み取り部の間の胴内排紙スペース,
+// 読み取り部 (原稿ガラス) + 両面同時読み取り ADF (上に原稿トレイ), 右前に 10.1 型スマートオペレーションパネル (手前へ張り出し, 上向きにチルト)。
+// 右側面に手差しトレイ。パネルの張り出しを含めて外形 w×d×h に収める。
+function buildCopier({ color='#e2e2de', w=0.587, d=0.685, h=0.913 } = {}) {
   const g = new THREE.Group();
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0xaaccdd, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.5 });
-  // Lower body
-  const lower = box(w, h * 0.55, d, mat(color, 0.52, 0.04), 0, h * 0.55 / 2, 0); lower.userData.colorable = true; g.add(lower);
-  // Paper cassette gap lines (2)
-  const cassMat = mat(shade(color, 0.80), 0.5);
-  [0.09, 0.21].forEach(cy => g.add(box(w - 0.04, 0.016, d * 0.9, cassMat, 0, cy, 0)));
-  // Cassette handle tab
-  g.add(box(0.16, 0.014, 0.014, mat(shade(color, 0.75), 0.5), 0.08, 0.15, d / 2 + 0.004));
-  // Scanner bed (upper section)
-  const scannerY = h * 0.55 + h * 0.06;
-  const scannerMesh = box(w, h * 0.12, d, mat(shade(color, 0.92), 0.45), 0, scannerY, 0); scannerMesh.userData.colorable = true; g.add(scannerMesh);
-  // Glass platen on scanner top
-  g.add(plainBox(w - 0.06, 0.015, d - 0.06, glassMat, 0, scannerY + h * 0.06 + 0.0075, 0));
-  // ADF lid
-  const adfY = scannerY + h * 0.06 + h * 0.045;
-  const adf = box(w - 0.02, h * 0.09, d - 0.02, mat(shade(color, 0.86), 0.48), 0, adfY, 0); adf.userData.colorable = true; g.add(adf);
-  // Crease line at front edge of ADF
-  g.add(box(w - 0.04, 0.006, 0.006, mat(shade(color, 0.72), 0.6), 0, adfY + h * 0.045 - 0.004, d / 2 - 0.02));
-  // Control panel (raised on right side, tilted)
-  const panelY = h * 0.6 + h * 0.12 + h * 0.09 + h * 0.095;
-  const panel = box(w * 0.52, h * 0.19, d * 0.46, mat(shade(color, 0.95), 0.45, 0.02), w * 0.16, panelY, -d * 0.08); panel.userData.colorable = true; panel.rotation.x = -0.22; g.add(panel);
-  // LCD on panel
-  g.add(box(w * 0.36, h * 0.12, 0.012, mat('#0a1828', 0.85), w * 0.16, panelY, -d * 0.08 + d * 0.23 + 0.006));
-  g.add(box(w * 0.34, h * 0.10, 0.010, mat('#1a4575', 0.7, 0.2), w * 0.16, panelY, -d * 0.08 + d * 0.23 + 0.001));
-  // Output tray (between scanner and ADF)
-  const tray = box(w - 0.02, 0.018, d * 0.62, mat(shade(color, 0.88), 0.5), 0, scannerY + h * 0.06 + 0.009, d * 0.1);
-  tray.rotation.x = 0.12; g.add(tray);
-  // Base feet (4 corners)
-  const feetMat = mat('#2a2a2f', 0.7);
-  [[-w / 2 + 0.04, -d / 2 + 0.04], [w / 2 - 0.04, -d / 2 + 0.04], [-w / 2 + 0.04, d / 2 - 0.04], [w / 2 - 0.04, d / 2 - 0.04]].forEach(([fx, fz]) => {
-    g.add(box(0.055, 0.018, 0.055, feetMat, fx, 0.009, fz));
+  const body = mat(color, 0.5, 0.04), bodyD = mat(shade(color, 0.86), 0.55, 0.04), gap = mat('#3a3d42', 0.7), dark = mat('#26292d', 0.5, 0.2);
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x9fbccc, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.55 });
+  const rb = (bw, bh, bd, m, x, y, z, r = 0.01) => { const o = new THREE.Mesh(roundedBoxGeom(bw, bh, bd, r, 3), m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; g.add(o); return o; };
+  const tag = (o) => { o.userData.colorable = true; return o; };
+  const bd = d - 0.07, bz = -0.035, fz = bz + bd / 2;                     // 本体の奥行と前面 (パネルは前面から 7cm 張り出す)
+  const yT = 0.33, yExit0 = 0.6, yScan = 0.7, yAdf = 0.79;                 // 給紙トレイ上端 / 胴内排紙 / 読み取り部 / ADF
+  // 台座 + 給紙トレイ 2 段 (前面に取っ手の凹み)
+  tag(rb(w, 0.05, bd, bodyD, 0, 0.025, bz, 0.006));
+  [[0.05, 0.19], [0.19, yT]].forEach(([y0, y1]) => {
+    tag(rb(w - 0.01, y1 - y0 - 0.006, bd, body, 0, (y0 + y1) / 2, bz, 0.006));
+    g.add(plainBox(0.16, 0.022, 0.012, gap, 0, y1 - 0.03, fz + 0.001));
+    g.add(plainBox(0.03, 0.05, 0.004, mat('#9aa3aa', 0.4), w / 2 - 0.05, (y0 + y1) / 2, fz + 0.001));   // 用紙残量表示
   });
+  // 本体 (前扉) + 右側面の手差しトレイ (閉じた状態)
+  tag(rb(w, yExit0 - yT, bd, body, 0, (yT + yExit0) / 2, bz, 0.008));
+  g.add(plainBox(0.004, yExit0 - yT - 0.04, 0.004, gap, -0.05, (yT + yExit0) / 2, fz + 0.001));
+  g.add(plainBox(0.12, 0.012, 0.004, mat('#b0b5ba', 0.4), -0.18, yExit0 - 0.05, fz + 0.001));
+  rb(0.012, 0.18, 0.36, bodyD, w / 2 + 0.0, 0.48, bz, 0.004);
+  // 胴内排紙スペース: 右側だけ柱で読み取り部を支え, 左と前は開いている (排紙された用紙)
+  tag(rb(0.14, yScan - yExit0, bd, body, w / 2 - 0.07, (yExit0 + yScan) / 2, bz, 0.006));
+  rb(w - 0.14, 0.01, bd - 0.02, gap, -0.07, yExit0 + 0.005, bz, 0.003);
+  g.add(plainBox(0.3, 0.004, 0.42, mat('#fbfbf8', 0.9), -0.09, yExit0 + 0.014, bz + 0.02));
+  // 読み取り部 + 原稿ガラス (ADF の下) + ADF (原稿トレイ・排紙トレイ・開閉レバー)
+  tag(rb(w, yAdf - yScan, bd, body, 0, (yScan + yAdf) / 2, bz, 0.008));
+  g.add(plainBox(w - 0.06, 0.004, bd - 0.08, glassMat, 0, yAdf - 0.002, bz));
+  tag(rb(w - 0.01, 0.075, bd - 0.02, bodyD, 0, yAdf + 0.0375, bz, 0.01));
+  const tray = rb(w - 0.2, 0.012, bd * 0.55, body, -0.03, h - 0.028, bz - 0.02, 0.004); tray.rotation.x = 0.1;        // 原稿トレイ
+  rb(0.12, 0.02, 0.18, body, -0.03, h - 0.012, bz - bd * 0.28, 0.006);                                                    // 給紙ローラカバー
+  g.add(plainBox(0.21, 0.002, 0.297, mat('#fbfbf8', 0.9), -0.03, h - 0.016, bz + 0.01));                                  // 原稿 (A4)
+  g.add(plainBox(0.1, 0.012, 0.02, dark, w / 2 - 0.12, yAdf + 0.05, fz - 0.005));
+  // 10.1 型スマートオペレーションパネル (右前, 手前へ張り出して上向きにチルト)
+  const pn = new THREE.Group(); pn.position.set(w / 2 - 0.16, yScan + 0.02, d / 2 - 0.085); pn.rotation.x = -0.9; g.add(pn);
+  const ph = new THREE.Mesh(roundedBoxGeom(0.29, 0.2, 0.03, 0.01, 3), dark); ph.castShadow = true; pn.add(ph);
+  pn.add(plainBox(0.24, 0.15, 0.004, new THREE.MeshStandardMaterial({ color: 0x0b1a28, emissive: new THREE.Color('#2a78c8'), emissiveIntensity: 0.55, roughness: 0.25 }), 0, 0.005, 0.016));
+  [0, 1, 2, 3].forEach(i => pn.add(plainBox(0.045, 0.035, 0.002, new THREE.MeshBasicMaterial({ color: i === 0 ? 0xe8f2ff : 0x7fb2e6 }), -0.08 + i * 0.055, 0.02, 0.019)));
+  rb(0.06, 0.05, 0.06, bodyD, w / 2 - 0.16, yScan + 0.01, fz - 0.01, 0.006);                                             // パネルの取付アーム
+  // 前面のロゴ帯 + 主電源ランプ
+  g.add(plainBox(0.12, 0.018, 0.003, mat('#c8102e', 0.4), -0.17, yAdf - 0.035, fz + 0.001));
+  g.add(cylAt(0.006, 0.006, 0.004, 10, mat('#2fd060', 0.3), w / 2 - 0.03, yAdf - 0.03, fz + 0.001).rotateX(Math.PI / 2));
   return g;
 }
 

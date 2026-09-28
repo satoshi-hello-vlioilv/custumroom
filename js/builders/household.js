@@ -349,39 +349,66 @@ function buildLockerUnit({ color='#c9cdd0', w=0.9, d=0.515, h=1.79 } = {}) {
   return g;
 }
 
-function buildVendingMachine({ color='#e8e0d8', w=0.75, d=0.35, h=1.85 } = {}) {
+// サンデン・リテールシステム 缶・ボトル飲料自販機 30セレクション (W1186×D642×H1830): 上部に照明付きの見本陳列窓
+// (3段×10列の見本 + 「つめた〜い」青 / 「あったか〜い」赤のボタン), 右下に金銭処理部 (金額表示・硬貨投入口・紙幣投入口・IC リーダー・返却レバー)
+// と釣銭口, 下部に商品取出口 (半透明フラップ) と巾木。本体色は colorable。前面 +Z。
+function buildVendingMachine({ color='#5b86b8', w=1.186, d=0.642, h=1.83 } = {}) {
   const g = new THREE.Group();
-  const bodyMat = mat(color, 0.45, 0.1, { env: 0.3 });
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0xb8d4e0, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.35 });
-  const darkMat = mat('#1a1a1e', 0.5, 0.2);
-  // Cabinet body
-  const cab = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.025, 3), bodyMat);
-  cab.position.set(0, h/2, 0); cab.castShadow = true; cab.userData.colorable = true; g.add(cab);
-  // Display window
-  g.add(plainBox(w-0.14, h*0.52, 0.016, glassMat, 0, h*0.64, d/2-0.005));
-  // Product rows behind glass
-  const productColors = ['#e8242a','#f5a623','#4a90e2','#7ed321','#d0021b'];
-  for (let j = 0; j < 4; j++) {
-    g.add(box(w-0.22, 0.08, 0.04, mat(productColors[j%5], 0.7), 0, h*0.42+j*0.1, d/2-0.04));
+  const bodyMat = mat(color, 0.4, 0.15, { env: 0.4 }), darkMat = mat('#1a1a1e', 0.5, 0.2), chrome = mat('#c9ced3', 0.2, 0.9, { env: 1.0 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xdff0f6, roughness: 0.04, metalness: 0.1, transparent: true, opacity: 0.18 });
+  const tag = (o) => { o.userData.colorable = true; return o; };
+  const fz = d / 2, dt = 0.21;                                        // 前面 / 見本陳列窓の奥行 (前面ブロックの厚み)
+  const wx0 = -w / 2 + 0.05, wx1 = w / 2 - 0.05, wy0 = 0.98, wy1 = h - 0.09;   // 見本陳列窓
+  // 本体 (窓の奥まで) + 前面ブロック (窓のまわりの 4 辺)
+  g.add(tag(box(w, h, d - dt, bodyMat, 0, h / 2, -dt / 2)));
+  g.add(tag(box(w, wy0, dt, bodyMat, 0, wy0 / 2, fz - dt / 2)));
+  g.add(tag(box(w, h - wy1, dt, bodyMat, 0, (wy1 + h) / 2, fz - dt / 2)));
+  [-1, 1].forEach(s => g.add(tag(plainBox(0.05, wy1 - wy0, dt, bodyMat, s * (w / 2 - 0.025), (wy0 + wy1) / 2, fz - dt / 2))));
+  // 見本陳列窓の内部 (白い奥板・天井の照明・棚3段・見本・価格とボタン)
+  const inner = mat('#f4f6f7', 0.5), rz = fz - 0.2;
+  g.add(plainBox(wx1 - wx0, wy1 - wy0, 0.01, inner, 0, (wy0 + wy1) / 2, rz));
+  g.add(plainBox(wx1 - wx0, 0.012, 0.01, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.9 }), 0, wy1 - 0.02, fz - 0.03));
+  const drinks = ['#d8261c', '#1f6fd0', '#f3c21b', '#2e9e4f', '#f08a1f', '#e8e8e8', '#6b3a1f', '#8e44ad', '#16a3b8', '#222222'];
+  const mc = {}, dm = (c, r, m) => mc[c + r] || (mc[c + r] = mat(c, r, m));
+  const pet = mat('#e3f1f6', 0.08, 0.05, { env: 0.6 });
+  const pitch = (wx1 - wx0) / 10, rowH = (wy1 - wy0) / 3;
+  for (let r = 0; r < 3; r++) {
+    const sy = wy0 + r * rowH + 0.055;
+    g.add(plainBox(wx1 - wx0, 0.012, 0.16, inner, 0, sy - 0.006, fz - 0.12));                         // 棚
+    g.add(plainBox(wx1 - wx0, 0.045, 0.012, darkMat, 0, sy - 0.03, fz - 0.035));                     // ボタン帯
+    for (let i = 0; i < 10; i++) {
+      const x = wx0 + pitch * (i + 0.5), c = drinks[(i * 3 + r * 7) % drinks.length], hot = r === 0 && i >= 6;
+      if ((i + r) % 3 === 0) {                                                                         // ペットボトル
+        g.add(cylAt(0.034, 0.034, 0.15, 12, pet, x, sy + 0.075, fz - 0.11));
+        g.add(cylAt(0.0345, 0.0345, 0.06, 12, dm(c, 0.4, 0), x, sy + 0.07, fz - 0.11));
+        g.add(cylAt(0.013, 0.034, 0.04, 10, pet, x, sy + 0.17, fz - 0.11));
+        g.add(cylAt(0.014, 0.014, 0.016, 10, dm(c, 0.4, 0), x, sy + 0.198, fz - 0.11));
+      } else {                                                                                          // 缶
+        g.add(cylAt(0.033, 0.033, 0.122, 12, dm(c, 0.3, 0.6), x, sy + 0.061, fz - 0.11));
+        g.add(cylAt(0.028, 0.033, 0.01, 12, chrome, x, sy + 0.127, fz - 0.11));
+      }
+      g.add(plainBox(0.07, 0.016, 0.006, dm(hot ? '#e0301e' : '#1d6fd6', 0.4, 0), x, sy - 0.022, fz - 0.027));   // つめた〜い/あったか〜い
+      g.add(plainBox(0.05, 0.012, 0.004, new THREE.MeshStandardMaterial({ color: 0x1a0a00, emissive: new THREE.Color('#ff9a1a'), emissiveIntensity: 0.7 }), x, sy - 0.04, fz - 0.028));   // 価格表示
+    }
   }
-  // Interior glow
-  const glow = new THREE.Mesh(new THREE.BoxGeometry(w-0.2, h*0.48, 0.01), new THREE.MeshBasicMaterial({ color: 0xfff8e0, transparent: true, opacity: 0.3 }));
-  glow.position.set(0, h*0.62, d/2-0.06); g.add(glow);
-  // Payment panel
-  g.add(box(0.18, h*0.22, 0.04, mat('#1a1a1e',0.4), w*0.28, h*0.28, d/2-0.002));
-  // Panel screen
-  g.add(box(0.12, 0.08, 0.008, mat('#0a1828',0.3,0.15), w*0.28, h*0.34, d/2+0.022));
-  // Coin slot
-  g.add(box(0.06, 0.012, 0.012, darkMat, w*0.28, h*0.26, d/2+0.022));
-  // Bill slot
-  g.add(box(0.09, 0.018, 0.012, darkMat, w*0.28, h*0.22, d/2+0.022));
-  // Dispense slot
-  g.add(box(w-0.16, 0.05, 0.06, mat(shade(color,0.7),0.5), 0, 0.16, d/2-0.01));
-  g.add(box(w-0.24, 0.04, 0.04, darkMat, 0, 0.16, d/2+0.006));
-  // Coin return
-  g.add(box(0.055, 0.04, 0.04, darkMat, -w*0.32, h*0.16, d/2-0.002));
-  // Decorative stripe
-  g.add(box(0.06, h-0.1, 0.025, mat('#e8242a', 0.6), -w/2+0.06, h/2, d/2-0.003));
+  g.add(plainBox(wx1 - wx0, wy1 - wy0, 0.006, glassMat, 0, (wy0 + wy1) / 2, fz - 0.008));              // 前面の透明板
+  // 窓の下の広告帯
+  g.add(plainBox(w - 0.3, 0.1, 0.004, mat('#fafafa', 0.5), -0.1, wy0 - 0.08, fz + 0.001));
+  g.add(plainBox(w - 0.5, 0.03, 0.002, mat(shade(color, 0.7), 0.5), -0.1, wy0 - 0.08, fz + 0.004));
+  // 金銭処理部 (右): 金額表示・硬貨投入口・紙幣投入口・IC リーダー・返却レバー
+  const px = w / 2 - 0.17, py = 0.8;
+  g.add(plainBox(0.26, 0.32, 0.012, darkMat, px, py, fz - 0.004));
+  g.add(plainBox(0.1, 0.03, 0.004, new THREE.MeshStandardMaterial({ color: 0x200000, emissive: new THREE.Color('#ff2a1a'), emissiveIntensity: 0.8 }), px - 0.05, py + 0.12, fz + 0.003));
+  g.add(plainBox(0.05, 0.035, 0.008, chrome, px + 0.07, py + 0.1, fz + 0.002)); g.add(plainBox(0.004, 0.022, 0.004, darkMat, px + 0.07, py + 0.1, fz + 0.006));   // 硬貨投入口
+  g.add(plainBox(0.1, 0.03, 0.01, mat('#0e0f11', 0.4), px - 0.03, py + 0.03, fz + 0.003)); g.add(plainBox(0.08, 0.004, 0.004, mat('#1fbf4a', 0.4), px - 0.03, py + 0.018, fz + 0.008));   // 紙幣投入口
+  g.add(plainBox(0.08, 0.06, 0.006, new THREE.MeshStandardMaterial({ color: 0x0a1a2a, emissive: new THREE.Color('#2a8fff'), emissiveIntensity: 0.5 }), px + 0.07, py - 0.06, fz + 0.002));   // IC リーダー
+  g.add(plainBox(0.05, 0.016, 0.02, chrome, px - 0.06, py - 0.08, fz + 0.008));                        // 返却レバー
+  g.add(plainBox(0.12, 0.08, 0.01, darkMat, px, 0.52, fz - 0.002));                                    // 釣銭口
+  // 商品取出口 (半透明フラップ) + 巾木
+  g.add(plainBox(0.62, 0.2, 0.01, darkMat, -0.16, 0.25, fz - 0.002));
+  const flap = plainBox(0.58, 0.17, 0.006, new THREE.MeshStandardMaterial({ color: 0x8a9aa6, roughness: 0.2, transparent: true, opacity: 0.55 }), -0.16, 0.255, fz + 0.002); flap.rotation.x = -0.12; g.add(flap);
+  g.add(plainBox(0.66, 0.02, 0.012, chrome, -0.16, 0.36, fz + 0.001));
+  g.add(plainBox(w - 0.02, 0.06, 0.012, darkMat, 0, 0.03, fz - 0.004));
   return g;
 }
 

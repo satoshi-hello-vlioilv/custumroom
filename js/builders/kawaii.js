@@ -23,13 +23,15 @@ function cap(r, len, material, x = 0, y = 0, z = 0, rz = 0, rx = 0, seg = 10) {
 }
 
 // ---------------------------------------------------------------- 人物
-// 顔は +Z 向き。s=h/1.7 で全身をスケール。headBig で子供体型(大きめの頭)。
+// 顔は +Z 向き。h = 身長 (足裏〜頭頂, 髪のボリュームは含まない)。headBig で子供体型(大きめの頭)。
 function buildPerson({ h = 1.6, skin = '#f4cba0', hair = '#4a3526', style = 'short',
   color, top, bottom = '#5b7fb0', skirt = false, bag = null, headBig = false, shoe = '#e2607a',
   ribbon = '#ef7fa6', eye = '#5a4636',
   adult = false, helmet = null, jacket = false, cargo = false, gloves = null, boots = false, suit = false } = {}) {
   const g = new THREE.Group();
-  const s = h / 1.7;
+  // 頭頂 = 頭の中心(1.45s + hr) + 頭の半径×1.06 → 身長 h に一致するよう s を決める
+  const hrRel = headBig ? 0.155 : 0.125;
+  const s = h / (1.45 + hrRel * 2.06);
   const topCol = color || top || '#ff9aa2';   // 服(colorable)はカラーピッカー対応
   const skinM = mat(skin, 0.66, 0.02), topM = mat(topCol, 0.72), botM = mat(bottom, 0.76),
         hairM = mat(hair, 0.5, 0.06), shoeM = mat(shoe, 0.4, 0.12), soleM = mat('#2c2c2e', 0.85),
@@ -58,7 +60,7 @@ function buildPerson({ h = 1.6, skin = '#f4cba0', hair = '#4a3526', style = 'sho
       const fl = box(0.058 * s, 0.022 * s, 0.092 * s, legM, x + sgn * 0.07 * s, 0.465 * s, 0.012 * s);
       if (legColorable) fl.userData.colorable = true; g.add(fl);
     }
-    g.add(sph(0.05 * s, soleM, x, 0.013 * s, 0.035 * s));          // ankle/heel
+    g.add(sph(0.05 * s, soleM, x, 0.052 * s, 0.035 * s));          // ankle/heel (靴の中, 床より上)
     if (boots) {   // 安全靴 (つま先キャップ + 履き口リブ)
       const bm = mat('#16120f', 0.42, 0.18);
       const bt = new THREE.Mesh(roundedBoxGeom(0.118 * s, 0.105 * s, 0.25 * s, 0.05 * s, 3), bm);
@@ -238,25 +240,50 @@ function buildUnicornToy({ color = '#f3e3f7', w = 0.5, d = 0.26, h = 0.6 } = {})
   g.add(new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.16, 4, 8), maneM).translateX(-0.22).translateY(0.28));
   return g;
 }
-function buildBalloon({ color = '#ff7d9c', w = 0.3, d = 0.3, h = 1.5 } = {}) {
+// Qualatex 11インチ ラウンド (膨らませて直径約28cm): ゴム風船 + 結び目 + カールしたリボン + 重り。高さ(H)は床からの高さ
+function buildBalloon({ color = '#ff7d9c', w = 0.28, d = 0.28, h = 1.5 } = {}) {
   const g = new THREE.Group();
-  const balloonM = mat(color, 0.35, 0.05), stringM = mat('#cfcfcf', 0.7);
-  const top = 1.32;
-  const b = sph(0.17, balloonM, 0, top, 0); b.scale.set(1, 1.18, 1); b.userData.colorable = true; g.add(b);
-  g.add(new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.05, 8), balloonM).translateY(top - 0.2)); // knot
-  g.add(cylAt(0.004, 0.004, top - 0.25, 5, stringM, 0, (top - 0.25) / 2 + 0.03, 0)); // string
-  g.add(cylAt(0.05, 0.06, 0.04, 12, mat('#caa46d', 0.6), 0, 0.02, 0)); // little weight
-  // highlight
-  g.add(sph(0.04, mat('#ffffff', 0.2), -0.06, top + 0.05, 0.12, 8));
+  const balloonM = mat(color, 0.28, 0.08, { env: 0.8 }), stringM = mat('#e8e2d8', 0.7);
+  const r = Math.min(w, d) / 2, top = h - r * 1.1;
+  const b = sph(r, balloonM, 0, top, 0, 28); b.scale.set(1, 1.1, 1); b.userData.colorable = true; g.add(b);
+  const knot = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.025, 10), balloonM); knot.position.y = top - r * 1.1 - 0.008; knot.rotation.x = Math.PI; g.add(knot);
+  // カールしたリボン (ゆるい螺旋) → 重り
+  const pts = []; for (let i = 0; i <= 24; i++) { const t = i / 24; pts.push(new THREE.Vector3(Math.sin(t * 9) * 0.012 * (1 - t), top - r * 1.1 - 0.02 - t * (top - r * 1.1 - 0.06), Math.cos(t * 9) * 0.012 * (1 - t))); }
+  for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], c = pts[i + 1], len = a.distanceTo(c); const seg = cylAt(0.0015, 0.0015, len, 4, stringM, (a.x + c.x) / 2, (a.y + c.y) / 2, (a.z + c.z) / 2); seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(c.x - a.x, c.y - a.y, c.z - a.z).normalize()); g.add(seg); }
+  g.add(cylAt(0.028, 0.032, 0.04, 16, mat('#f4f0ea', 0.4), 0, 0.02, 0));                                   // 重り
+  g.add(sph(r * 0.22, mat('#ffffff', 0.15), -r * 0.38, top + r * 0.35, r * 0.72, 10));                     // ハイライト
   return g;
 }
+// ハートクッション (床置き・横向き): ハート形の輪郭を押し出してふっくら面取り + 縁のパイピング。定義寸法 w×d×h に合わせて伸縮
 function buildHeartCushion({ color = '#ff8fab', w = 0.5, d = 0.5, h = 0.18 } = {}) {
   const g = new THREE.Group();
   const fab = fabricMat(color);
-  const lobe = (sgn) => { const m = sph(0.14, fab, sgn * 0.1, 0.12, 0.02); m.scale.set(1, 0.6, 1); m.userData.colorable = true; return m; };
-  g.add(lobe(-1)); g.add(lobe(1));
-  const bottom = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.26, 4), fab); bottom.position.set(0, 0.04, 0.02); bottom.rotation.y = Math.PI / 4; bottom.scale.set(1, 0.45, 1); bottom.userData.colorable = true; g.add(bottom);
-  g.add(sph(0.02, mat(shade(color, 0.8), 0.9), 0, 0.13, 0.12, 8)); // center button
+  const s = new THREE.Shape();
+  s.moveTo(0, -0.22);
+  s.bezierCurveTo(-0.08, -0.14, -0.25, -0.05, -0.25, 0.08);
+  s.bezierCurveTo(-0.25, 0.2, -0.12, 0.26, -0.05, 0.21);
+  s.bezierCurveTo(-0.02, 0.19, 0, 0.16, 0, 0.14);
+  s.bezierCurveTo(0, 0.16, 0.02, 0.19, 0.05, 0.21);
+  s.bezierCurveTo(0.12, 0.26, 0.25, 0.2, 0.25, 0.08);
+  s.bezierCurveTo(0.25, -0.05, 0.08, -0.14, 0, -0.22);
+  const bev = 0.07;
+  const geo = new THREE.ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: true, bevelThickness: bev, bevelSize: 0.045, bevelSegments: 8, curveSegments: 28 });
+  geo.rotateX(-Math.PI / 2);                               // 押し出し方向 → 上, ハートのくぼみ → 奥 (-Z), 先端 → 手前 (+Z)
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox, sx = w / (bb.max.x - bb.min.x), sy = h / (bb.max.y - bb.min.y), sz = d / (bb.max.z - bb.min.z);
+  geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+  geo.scale(sx, sy, sz); geo.computeVertexNormals();
+  const body = new THREE.Mesh(geo, fab); body.castShadow = true; body.receiveShadow = true; body.userData.colorable = true; g.add(body);
+  // 縁のパイピング (高さ中央の輪郭に沿って)
+  // 輪郭を面取り幅ぶん外へずらした線 (時計回りの輪郭なので外向き法線 = (-ty, tx))
+  const sp = s.getSpacedPoints(80).slice(0, -1), n = sp.length, cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
+  const ring = sp.map((p, i) => {
+    const a = sp[(i + n - 1) % n], b = sp[(i + 1) % n], tx = b.x - a.x, ty = b.y - a.y, l = Math.hypot(tx, ty) || 1;
+    const ox = p.x + (-ty / l) * 0.045, oy = p.y + (tx / l) * 0.045;
+    return new THREE.Vector3((ox - cx) * sx, h / 2, (-oy - cz) * sz);
+  });
+  const pipe = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ring, true), 120, 0.006, 6, true), mat(shade(color, 0.85), 0.9));
+  pipe.castShadow = true; g.add(pipe);
   return g;
 }
 function buildBuildingBlocks({ color = '#ff9aa2', w = 0.3, d = 0.3, h = 0.3 } = {}) {
@@ -326,61 +353,76 @@ function buildDollhouse({ color = '#e6cfa3', w = 0.58, d = 0.22, h = 0.59 } = {}
   g.add(box(0.06, 0.05, 0.05, mat('#a9d8f0', 0.6), 0.16, t + 0.025, -0.05));
   return g;
 }
-function buildCake({ color = '#fff3ea', w = 0.32, d = 0.32, h = 0.2 } = {}) {
+// ホールケーキ (いちごのショートケーキ 6号 = 直径18cm): スポンジ2層 + クリーム + いちご + ろうそく
+function buildCake({ color = '#fff3ea', w = 0.2, d = 0.2, h = 0.16 } = {}) {
   const g = new THREE.Group();
-  const sponge = mat('#f3d9b8', 0.8), cream = mat(color, 0.7), berry = mat('#e2425a', 0.5);
-  g.add(cylAt(0.15, 0.15, 0.07, 28, sponge, 0, 0.035, 0));   // sponge
-  g.add(cylAt(0.155, 0.155, 0.035, 28, cream, 0, 0.09, 0));  // cream layer
-  const topCream = cylAt(0.15, 0.152, 0.05, 28, cream, 0, 0.13, 0); topCream.userData.colorable = true; g.add(topCream);
-  // strawberries around top
-  for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; g.add(new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.04, 8), berry).translateX(Math.cos(a) * 0.1).translateY(0.17).translateZ(Math.sin(a) * 0.1)); }
-  // candles
+  const sponge = mat('#f3d9b8', 0.8), cream = mat(color, 0.62), berry = mat('#d8263e', 0.45), board = mat('#e8d9b0', 0.4, 0.3);
+  const r = Math.min(w, d) / 2 - 0.01, bodyH = 0.08;
+  g.add(cylAt(r + 0.012, r + 0.012, 0.004, 32, board, 0, 0.002, 0));                                       // 金台紙
+  const body = cylAt(r, r, bodyH, 40, cream, 0, 0.004 + bodyH / 2, 0); body.userData.colorable = true; g.add(body);
+  [0.03, 0.058].forEach(y => g.add(cylAt(r + 0.0006, r + 0.0006, 0.004, 40, mat('#f3d9b8', 0.8), 0, y, 0)));   // 断面のスポンジ層(うっすら)
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; g.add(sph(0.008, cream, Math.cos(a) * (r - 0.012), 0.004 + bodyH + 0.005, Math.sin(a) * (r - 0.012), 8)); }   // 絞り
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + 0.2, bx = Math.cos(a) * (r - 0.028), bz = Math.sin(a) * (r - 0.028); const c = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.024, 10), berry); c.position.set(bx, 0.004 + bodyH + 0.014, bz); c.rotation.x = Math.PI; g.add(c); g.add(sph(0.006, mat('#3f8a3a', 0.6), bx, 0.004 + bodyH + 0.026, bz, 6)); }
   ['#ff9aa2', '#a9d8f0', '#ffd382'].forEach((c, i) => {
-    const cx = (i - 1) * 0.05; g.add(cylAt(0.006, 0.006, 0.08, 6, mat(c, 0.6), cx, 0.2, 0));
-    g.add(sph(0.012, mat('#ffcf6a', 0.2, 0.0, { emissive: '#ffb030', emissiveIntensity: 1.2 }), cx, 0.25, 0, 6));
+    const cx = (i - 1) * 0.025; g.add(cylAt(0.003, 0.003, 0.05, 6, mat(c, 0.6), cx, 0.004 + bodyH + 0.025, 0.005));
+    g.add(sph(0.006, mat('#ffcf6a', 0.2, 0.0, { emissive: '#ffb030', emissiveIntensity: 1.2 }), cx, 0.004 + bodyH + 0.056, 0.005, 6));
   });
   return g;
 }
-function buildCupcake({ color = '#ffb3c6', w = 0.14, d = 0.14, h = 0.16 } = {}) {
+// カップケーキ (直径約6.5cm・高さ約9cm): 紙カップ + 絞ったクリーム + さくらんぼ
+function buildCupcake({ color = '#ffb3c6', w = 0.07, d = 0.07, h = 0.09 } = {}) {
   const g = new THREE.Group();
-  const wrap = mat('#f2c14e', 0.6), cream = mat(color, 0.7);
-  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.038, 0.06, 16), wrap).translateY(0.03));
-  for (let i = 0; i < 3; i++) g.add(cylAt(0.05 - i * 0.012, 0.045 - i * 0.012, 0.03, 16, cream, 0, 0.075 + i * 0.025, 0));
-  const sw = cylAt(0.018, 0.0, 0.03, 12, cream, 0, 0.15, 0); sw.userData.colorable = true; g.add(sw);
-  g.add(sph(0.013, mat('#e2425a', 0.5), 0, 0.16, 0, 8)); // cherry
+  const wrap = mat('#f2c14e', 0.6), cream = mat(color, 0.6);
+  const r = Math.min(w, d) / 2;
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(r * 0.95, r * 0.72, 0.035, 20), wrap).translateY(0.0175));
+  for (let i = 0; i < 3; i++) { const c = cylAt(r * (0.95 - i * 0.22), r * (1.0 - i * 0.22), 0.014, 20, cream, 0, 0.042 + i * 0.013, 0); c.userData.colorable = true; g.add(c); }
+  const sw = cylAt(r * 0.25, 0.0, 0.012, 12, cream, 0, 0.083, 0); sw.userData.colorable = true; g.add(sw);
+  g.add(sph(0.007, mat('#d8263e', 0.4), 0.004, h - 0.006, 0, 8));
   return g;
 }
-function buildKidsBed({ color = '#fbe3ec', w = 1.05, d = 1.9, h = 1.7 } = {}) {
+// 天蓋付きベッド (ARTTOWN ハミング シングル: 幅約98×奥行約203×高さ約100cm, 天蓋装着時 約197cm): アイアンのパイプフレーム,
+// 渦巻き飾りのヘッド/フットボード, 床面高さ約33cm, 4本柱の天蓋フレームとシアーカーテン。ハート飾り・寝具はモデル上の表現。
+function buildKidsBed({ color = '#fbe3ec', w = 0.98, d = 2.03, h = 1.97 } = {}) {
   const g = new THREE.Group();
-  const frame = mat('#f4b9cf', 0.6), heartM = mat('#ff8fab', 0.55);
-  // ---- ベース (脚 + 台座) ----
-  [[-w/2+0.08,-d/2+0.1],[w/2-0.08,-d/2+0.1],[-w/2+0.08,d/2-0.1],[w/2-0.08,d/2-0.1]].forEach(([lx,lz]) => g.add(cylAt(0.035, 0.025, 0.18, 10, frame, lx, 0.09, lz)));
-  g.add(box(w-0.03, 0.13, d-0.03, frame, 0, 0.25, 0));
-  // ---- 寝具一式 (共通 bedding) ----
-  g.add(bedding(w-0.06, d-0.06, 0.42, { duvet: color, mattH: 0.14, accent: true, fold: true, throwFoot: false, pillowZ: 0.32 }));
-  // ---- ハート付きヘッドボード + フットボード ----
-  const hb = new THREE.Mesh(roundedBoxGeom(w, 0.52, 0.09, 0.08, 4), frame); hb.position.set(0, 0.56, -d/2 + 0.05); hb.castShadow = true; g.add(hb);
-  // ハート(2球+回転キューブ)
-  [-1, 1].forEach(sgn => g.add(new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), heartM).translateX(sgn*0.05).translateY(0.72).translateZ(-d/2 + 0.1)));
-  const hc = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.05), heartM); hc.position.set(0, 0.66, -d/2 + 0.1); hc.rotation.z = Math.PI/4; g.add(hc);
-  g.add(new THREE.Mesh(roundedBoxGeom(w, 0.26, 0.09, 0.06, 4), frame).translateY(0.34).translateZ(d/2 - 0.05)); // footboard
-  // ---- 天蓋 (4本柱 + コーン屋根 + シアーのドレープ) ----
-  [[-w/2+0.06,-d/2+0.06],[w/2-0.06,-d/2+0.06],[-w/2+0.06,d/2-0.06],[w/2-0.06,d/2-0.06]].forEach(([x,z]) => {
-    g.add(cylAt(0.028, 0.028, h, 12, frame, x, h/2, z));
-    g.add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 10), frame).translateX(x).translateY(h+0.02).translateZ(z));
+  const iron = mat('#f6f1f3', 0.4, 0.5, { env: 0.6 }), heartM = mat('#ff8fab', 0.55);
+  const pr = 0.016, x0 = w / 2 - pr, z0 = d / 2 - pr, deckY = 0.335;
+  const tube = (a, b, r = pr * 0.7) => { const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], len = Math.hypot(dx, dy, dz); const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), iron); m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize()); m.castShadow = true; g.add(m); };
+  const scroll = (x, y, z, r, rotY = 0) => { const c = new THREE.Mesh(new THREE.TorusGeometry(r, pr * 0.45, 6, 18, Math.PI * 1.6), iron); c.position.set(x, y, z); c.rotation.y = rotY; c.castShadow = true; g.add(c); };
+  // 4本柱 (天蓋の高さまで) + 柱頭の玉
+  const postTop = h - 0.03;                                         // 柱頭の玉の上端 = 天蓋装着時の高さ h
+  [[-x0, -z0], [x0, -z0], [-x0, z0], [x0, z0]].forEach(([x, z]) => { g.add(cylAt(pr, pr, postTop, 10, iron, x, postTop / 2, z)); g.add(sph(pr * 1.8, iron, x, h - pr * 1.8, z, 10)); g.add(cylAt(pr * 1.4, pr * 1.2, 0.03, 10, iron, x, 0.015, z)); });
+  // 床板フレーム (サイドレール) + スノコ
+  [-1, 1].forEach(s => tube([s * x0, deckY, -z0], [s * x0, deckY, z0], pr * 0.9));
+  [-1, 1].forEach(t => tube([-x0, deckY, t * z0], [x0, deckY, t * z0], pr * 0.9));
+  // ヘッドボード (頭側 -Z): アーチ形の笠木 + 縦桟 + 渦巻き
+  const hbTop = 1.0, arch = 0.08;
+  for (let i = 0; i <= 10; i++) { const t0 = i / 10, t1 = (i + 1) / 10; if (i === 10) break; const xa = -x0 + t0 * 2 * x0, xb = -x0 + t1 * 2 * x0; tube([xa, hbTop - 0.06 + Math.sin(t0 * Math.PI) * arch, -z0], [xb, hbTop - 0.06 + Math.sin(t1 * Math.PI) * arch, -z0]); }
+  tube([-x0, 0.62, -z0], [x0, 0.62, -z0]);
+  for (let i = 1; i < 6; i++) { const x = -x0 + i * 2 * x0 / 6; tube([x, 0.62, -z0], [x, hbTop - 0.06 + Math.sin(i / 6 * Math.PI) * arch, -z0], pr * 0.5); }
+  [-1, 1].forEach(s => { scroll(s * 0.22, 0.52, -z0, 0.06, 0); scroll(s * 0.1, 0.52, -z0, 0.04, 0); });
+  // ハートの飾り (ヘッドボード中央)
+  [-1, 1].forEach(sgn => g.add(new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), heartM).translateX(sgn * 0.032).translateY(0.84).translateZ(-z0 + 0.02)));
+  const hc = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.035), heartM); hc.position.set(0, 0.8, -z0 + 0.02); hc.rotation.z = Math.PI / 4; g.add(hc);
+  // フットボード (足側 +Z): 低めの笠木 + 縦桟 + 渦巻き
+  tube([-x0, 0.72, z0], [x0, 0.72, z0]); tube([-x0, 0.5, z0], [x0, 0.5, z0]);
+  for (let i = 1; i < 6; i++) { const x = -x0 + i * 2 * x0 / 6; tube([x, 0.5, z0], [x, 0.72, z0], pr * 0.5); }
+  [-1, 1].forEach(s => scroll(s * 0.18, 0.42, z0, 0.05, 0));
+  // 天蓋フレーム (上部の長方形) + 中央の王冠飾り
+  const topY = h - 0.07;
+  [-1, 1].forEach(s => tube([s * x0, topY, -z0], [s * x0, topY, z0]));
+  [-1, 1].forEach(t => tube([-x0, topY, t * z0], [x0, topY, t * z0]));
+  g.add(new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.01, 8, 14), mat('#ffd86a', 0.4, 0.3)).translateY(topY - 0.1).translateZ(-z0 + 0.025));   // 王冠飾り (バランスの前)
+  // シアーカーテン (天蓋から四隅へ垂らし, 柱でタイバック)
+  const sheer = fabricMat(color); sheer.transparent = true; sheer.opacity = 0.5; sheer.side = THREE.DoubleSide;
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([s, t]) => {
+    const cz = t * (z0 - 0.1);                                    // カーテンは柱の内側に垂らす (外形 w×d に収める)
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.05, topY - 1.1, 10, 1, true, 0, Math.PI), sheer); top.position.set(s * (x0 - 0.1), 1.1 + (topY - 1.1) / 2, cz); top.rotation.y = s > 0 ? Math.PI / 2 : -Math.PI / 2; g.add(top);
+    const low = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.08, 1.05, 10, 1, true, 0, Math.PI), sheer); low.position.set(s * (x0 - 0.09), 0.58, cz); low.rotation.y = s > 0 ? Math.PI / 2 : -Math.PI / 2; g.add(low);
+    g.add(new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.008, 6, 12), heartM).translateX(s * (x0 - 0.06)).translateY(1.1).translateZ(cz));
   });
-  const canopy = new THREE.Mesh(new THREE.ConeGeometry(w*0.82, 0.34, 16), fabricMat(shade(color, 1.05)));
-  canopy.position.set(0, h + 0.14, 0); canopy.castShadow = true; g.add(canopy);
-  g.add(new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.014, 8, 14), mat('#ffd86a', 0.4, 0.3)).translateY(h+0.32)); // 天蓋トップ飾り
-  // 四隅から流れるシアー (前2本のみ・透け感)
-  [[-1, d/2-0.06],[1, d/2-0.06]].forEach(([sgn, z]) => {
-    const dr = new THREE.Mesh(roundedBoxGeom(0.03, h*0.62, 0.42, 0.01, 2), fabricMat('#fff'));
-    dr.position.set(sgn*(w/2-0.07), h*0.55, z); dr.material.transparent = true; dr.material.opacity = 0.42; g.add(dr);
-  });
-  [[-1, -d/2+0.06],[1, -d/2+0.06]].forEach(([sgn, z]) => {
-    const dr = new THREE.Mesh(roundedBoxGeom(0.03, h*0.62, 0.42, 0.01, 2), fabricMat('#fff'));
-    dr.position.set(sgn*(w/2-0.07), h*0.55, z); dr.material.transparent = true; dr.material.opacity = 0.42; g.add(dr);
-  });
+  const valance = new THREE.Mesh(roundedBoxGeom(w - 0.06, 0.16, 0.01, 0.005, 2), sheer); valance.position.set(0, topY - 0.08, -z0 + 0.012); g.add(valance);
+  // 寝具 (マットレス厚18cm, 床面高さ33.5cm)
+  g.add(bedding(w - 0.06, d - 0.08, deckY + 0.18, { duvet: color, mattH: 0.18, accent: true, fold: true, throwFoot: false, pillowZ: 0.34 }));
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }

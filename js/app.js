@@ -1016,10 +1016,16 @@ function renderSpecPanel(def) {
   const p = def.product; if (!p) { sec.style.display = 'none'; tbl.innerHTML = ''; return; }
   sec.style.display = '';
   const mm = p.mm || { w: Math.round(def.w * 1000), d: Math.round(def.d * 1000), h: Math.round(def.h * 1000) };
+  const model = { w: Math.round(def.w * 1000), d: Math.round(def.d * 1000), h: Math.round(def.h * 1000) };
+  const differs = Math.abs(model.w - mm.w) > 2 || Math.abs(model.d - mm.d) > 2 || Math.abs(model.h - mm.h) > 2;
+  const nm = p.name || def.name, brandHead = p.brand.split(/[（(\s]/)[0];
+  const title = nm.startsWith(brandHead) ? nm : `${p.brand} ${nm}`;       // 「Dell Dell P2422H」のような二重表記を避ける
+  const isData = p.kind === 'data';                                         // 統計データ(人物の平均身長など)
   const rows = [
-    ['製品', `${p.brand} ${p.name || def.name}`],
-    ['型番', p.model || '—'],
-    ['採用寸法', `W ${mm.w} × D ${mm.d} × H ${mm.h} mm`],
+    [isData ? 'モデルデータ' : '製品', isData ? `${nm}（${p.brand}）` : title],
+    [isData ? '出典データ' : '型番', p.model || '—'],
+    [isData ? '採用値' : '採用寸法', `W ${mm.w} × D ${mm.d} × H ${mm.h} mm`],
+    differs ? ['モデル外形', `W ${model.w} × D ${model.d} × H ${model.h} mm（台・付属品などを含む）`] : null,
     p.weightKg ? ['質量', `${p.weightKg} kg`] : null,
     p.note ? ['備考', p.note] : null,
     ['出典', (p.sources || []).map(s => `<a href="${s.url}" target="_blank" rel="noopener">${s.label} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>`).join('<br>') || '—'],

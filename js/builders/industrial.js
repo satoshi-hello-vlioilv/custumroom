@@ -278,126 +278,95 @@ function buildIndustrialRobot({ color='#e8e0d0', w=0.65, d=0.65, h=1.65 } = {}) 
   return g;
 }
 
-function buildCNCMachine({ color='#3d6b7a', w=1.2, d=1.0, h=1.54 } = {}) {
+// DATRON neo (W800×D1300×H1900, 約700kg, 作業域 520×420×220mm, 24型タッチパネル, 24本工具マガジン):
+// 標準ドアを通れる幅80cmの縦長筐体。前面は 上: 24型タッチパネル(目線の高さでやや下向き) / 中: 大きな窓付き扉 / 下: 切粉トレイと電装扉。
+// 窓の奥に真空テーブル・高速スピンドル・工具マガジン。扉枠・ハンドル・パネルを含めて外形 w×d×h に収める。
+function buildCNCMachine({ color='#e8e2d6', w=0.8, d=1.3, h=1.9 } = {}) {
   const g = new THREE.Group();
-  const bM  = mat(color, 0.4, 0.25);
-  const dkM = mat('#2a3038', 0.5, 0.2);
-  const glM = new THREE.MeshStandardMaterial({
-    color: 0x88aacc, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.32
-  });
-
-  // Base chip/coolant tray (lowest plinth)
-  g.add(box(w + 0.04, 0.1, d + 0.04, dkM, 0, 0.05, 0));
-  [[-w/2+0.14,-d/2+0.14],[w/2-0.14,-d/2+0.14],[-w/2+0.14,d/2-0.14],[w/2-0.14,d/2-0.14]].forEach(([fx,fz]) => {
-    g.add(box(0.07, 0.04, 0.07, dkM, fx, 0.02, fz));
-  });
-
-  // Main enclosure body
-  const body = box(w, h - 0.1, d, bM, 0, (h - 0.1) / 2 + 0.05, 0);
-  body.userData.colorable = true; g.add(body);
-
-  // Top cover
-  g.add(box(w + 0.02, 0.09, d + 0.02, dkM, 0, h - 0.045, 0));
-
-  // Front door frame + glass window (left-center position, panel to right)
-  const dW = w * 0.58, dH = h * 0.5, dY = h * 0.44, dZ = d / 2 + 0.012;
-  const dX = -w * 0.08;
-  g.add(box(dW + 0.06, dH + 0.06, 0.028, mat('#2e3848', 0.4, 0.35), dX, dY, dZ));
-  g.add(box(dW, dH, 0.016, glM, dX, dY, dZ + 0.022));
-
-  // Inside: work table + spindle (visible through window)
-  g.add(box(0.5, 0.05, 0.38, mat('#4a5460', 0.45, 0.4), dX, 0.38, 0.06));
-  const sp = cyl(0.04, 0.06, 0.26, 12, mat('#aab4c0', 0.2, 0.72));
-  sp.position.set(dX, 1.0, 0.04); g.add(sp);
-  g.add(box(0.1, 0.18, 0.1, mat('#5a6474', 0.35, 0.5), dX, 1.15, 0.04));
-
-  // Control pendant (front-right, on machine face)
-  const pX = w * 0.32;
-  g.add(box(0.24, 0.48, 0.07, dkM, pX, dY, dZ + 0.005));
-  // Pendant screen
-  g.add(box(0.18, 0.2, 0.014, mat('#0a1420', 0.08, 0.1), pX, dY + 0.06, dZ + 0.044));
-  // Pendant buttons
-  [[0, -0.1], [-0.06, -0.02], [0.06, -0.02], [0, 0.1]].forEach(([bx, by]) => {
-    const col = by > 0.06 ? '#22c55e' : by < -0.06 ? '#ef4444' : '#3b82f6';
-    g.add(cylAt(0.015, 0.015, 0.018, 8, mat(col, 0.5, 0.1), pX + bx, dY + by, dZ + 0.05));
-  });
-  // Emergency stop (large red mushroom button)
-  g.add(cylAt(0.038, 0.038, 0.032, 12, mat('#ef4444', 0.38, 0.08), pX, dY - 0.2, dZ + 0.05));
-
-  // Status light bar (across top of door frame)
-  g.add(box(dW + 0.02, 0.028, 0.042, mat('#22c55e', 0.3, 0.1), dX, dY + dH / 2 + 0.04, dZ + 0.01));
-
-  // Coolant nozzle (lower-left front)
-  const cn = cyl(0.014, 0.02, 0.12, 8, mat('#7a8898', 0.3, 0.6));
-  cn.rotation.x = -Math.PI / 4; cn.position.set(-w / 2 + 0.12, 0.55, d / 2 - 0.04); g.add(cn);
-
+  const panel = mat(color, 0.42, 0.12, { env: 0.5 }), dark = mat('#23262a', 0.45, 0.3), black = mat('#141517', 0.5, 0.2);
+  const steel = mat('#a8b0b8', 0.25, 0.8, { env: 0.9 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x3a4a55, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.35 });
+  const bd = d - 0.05, bz = -0.025, fz = bz + bd / 2;          // 本体の奥行と前面 (前面から扉枠・ハンドル・パネルが最大 5cm 出る)
+  // 台座 + 本体 + 上部の帯
+  g.add(box(w - 0.04, 0.08, bd - 0.04, black, 0, 0.04, bz));
+  const body = box(w, h - 0.08, bd, panel, 0, 0.08 + (h - 0.08) / 2, bz); body.userData.colorable = true; g.add(body);
+  g.add(box(w, 0.05, bd, dark, 0, h - 0.1, bz));
+  // 状態表示ライン (前面最上部)
+  const ledM = new THREE.MeshStandardMaterial({ color: 0x4fb3ff, emissive: new THREE.Color('#2f8fe0'), emissiveIntensity: 0.9, roughness: 0.3 });
+  g.add(plainBox(w - 0.16, 0.012, 0.006, ledM, 0, h - 0.1, fz + 0.003));
+  // 24型タッチパネル (扉の上。中心高さ約1.6m、上端を手前に倒して操作者へ向ける)
+  const scM = new THREE.MeshStandardMaterial({ color: 0x0e1c2a, emissive: new THREE.Color('#1b4a72'), emissiveIntensity: 0.55, roughness: 0.2 });
+  g.add(box(0.14, 0.1, 0.02, dark, 0.07, 1.6, fz + 0.008));                                     // 取付ブラケット
+  const scr = new THREE.Group(); scr.position.set(0.07, 1.6, fz + 0.012); scr.rotation.x = 0.14; g.add(scr);
+  scr.add(box(0.57, 0.35, 0.03, black, 0, 0, 0));
+  scr.add(plainBox(0.53, 0.3, 0.004, scM, 0, 0, 0.016));
+  // UI の表示 (左に 3D ビュー、右にボタン列)
+  scr.add(plainBox(0.3, 0.2, 0.002, new THREE.MeshBasicMaterial({ color: 0x2c5f8a }), -0.08, 0.02, 0.019));
+  for (let i = 0; i < 4; i++) scr.add(plainBox(0.12, 0.035, 0.002, new THREE.MeshBasicMaterial({ color: i === 0 ? 0x3aa0ff : 0x7a8a98 }), 0.17, 0.09 - i * 0.055, 0.019));
+  // 窓付き扉 (枠 + 濃色ガラス + 縦ハンドル)
+  const dW = w - 0.14, dH = 0.62, dY = 1.1;
+  g.add(box(dW + 0.04, dH + 0.04, 0.03, dark, 0, dY, fz + 0.01));
+  g.add(plainBox(dW - 0.04, dH - 0.06, 0.008, glass, 0, dY + 0.01, fz + 0.026));
+  g.add(box(0.025, 0.24, 0.03, steel, dW / 2 - 0.05, dY, fz + 0.034));
+  // 内部 (窓から見える): 真空テーブル・加工中の板・Z軸ユニットとスピンドル・X軸ガントリー・工具マガジン(24本)
+  const inZ = fz - 0.45;
+  g.add(box(w - 0.24, 0.05, 0.5, mat('#5a6168', 0.4, 0.6), 0, dY - 0.25, inZ));
+  g.add(box(w - 0.3, 0.012, 0.44, mat('#8a9098', 0.3, 0.6), 0, dY - 0.219, inZ));             // 真空プレート
+  g.add(box(0.36, 0.01, 0.26, mat('#c9c2b4', 0.35, 0.7), -0.04, dY - 0.208, inZ + 0.04));       // 加工中のアルミ板
+  g.add(box(0.12, 0.26, 0.14, black, 0.05, dY + 0.1, inZ - 0.05));                              // Z軸ユニット
+  g.add(cylAt(0.035, 0.035, 0.14, 16, steel, 0.05, dY - 0.1, inZ - 0.02));                      // スピンドル (2kW / 40,000min⁻¹)
+  g.add(cylAt(0.004, 0.004, 0.04, 8, mat('#d4af37', 0.4, 0.6), 0.05, dY - 0.19, inZ - 0.02));
+  g.add(box(w - 0.24, 0.06, 0.08, mat('#3a3f45', 0.4, 0.4), 0, dY + 0.24, inZ - 0.2));          // X軸ガントリー
+  for (let r = 0; r < 2; r++) for (let i = 0; i < 12; i++) g.add(cylAt(0.01, 0.01, 0.045, 8, steel, -0.25 + i * 0.045, dY - 0.19, inZ - 0.23 - r * 0.04));
+  // 下部: 切粉トレイ(前面引出し) + 電装扉 2枚 + 左側面の通風スリット
+  g.add(box(w - 0.2, 0.08, 0.02, dark, 0, 0.72, fz + 0.006));
+  g.add(box(0.2, 0.02, 0.02, steel, 0, 0.72, fz + 0.022));
+  [-1, 1].forEach(s => { g.add(box(w / 2 - 0.05, 0.54, 0.012, mat(shade(color, 0.95), 0.45, 0.1), s * (w / 4 - 0.005), 0.39, fz + 0.004)); g.add(box(0.02, 0.12, 0.02, steel, s * 0.06, 0.46, fz + 0.018)); });
+  for (let i = 0; i < 8; i++) g.add(box(0.004, 0.014, 0.5, dark, -w / 2 - 0.001, 0.25 + i * 0.03, bz - 0.2));
   return g;
 }
 
-function buildPalletRack({ color='#e06010', w=1.7, d=0.5, h=2.46 } = {}) {
+// TRUSCO 重量パレットラック 1トン 1D-25B23-11-2 (有効間口2300×奥行1100×H2500, ビーム2段, ネオグレー):
+// 両端の支柱フレーム(前後2本の穴あき支柱 + 水平/斜めの筋かい) + 箱形ビーム(前後) + ベースプレート。
+// 床置き・1段目・2段目に T11 パレット(1100角)を 2 枚ずつ。w は支柱を含む外形。
+function buildPalletRack({ color='#a3aba6', w=2.45, d=1.1, h=2.5 } = {}) {
   const g = new THREE.Group();
-  const steelM = mat('#7a8898', 0.28, 0.68);
-  const beamM  = mat(color, 0.38, 0.45);
-
-  const upW = 0.07;
-  const lx  = w / 2 - upW / 2;   // ±X of left/right post pairs
-  const fz  = -d / 2 + upW / 2;  // front Z
-  const bz  =  d / 2 - upW / 2;  // back Z
-  const innerW = w - upW;         // clear span between post faces
-
-  // 4 upright posts (front+back on each side)
-  [[-lx, fz], [-lx, bz], [lx, fz], [lx, bz]].forEach(([x, z]) => {
-    g.add(box(upW, h, upW, steelM, x, h / 2, z));
-  });
-
-  // X-bracing within each side frame (left frame and right frame)
-  const frameD = bz - fz;
-  const nSect  = 3;
-  const sH     = h / nSect;
-  const diagLen = Math.sqrt(frameD * frameD + sH * sH);
-  const angle   = Math.atan2(frameD, sH);
-
-  [-lx, lx].forEach(x => {
-    for (let s = 0; s < nSect; s++) {
-      const cy = s * sH + sH / 2;
-      const b1 = box(0.022, diagLen, 0.022, steelM, x, cy, 0);
-      b1.rotation.x = angle; g.add(b1);
-      const b2 = box(0.022, diagLen, 0.022, steelM, x, cy, 0);
-      b2.rotation.x = -angle; g.add(b2);
-    }
-  });
-
-  // Horizontal top ties connecting left/right and front/back
-  [fz, bz].forEach(z => g.add(box(w - upW, 0.04, 0.04, steelM, 0, h - 0.02, z)));
-  [-lx, lx].forEach(x => g.add(box(0.04, 0.04, d - upW, steelM, x, h - 0.02, 0)));
-
-  // Step beams + wire decking at 3 storage levels
-  [0.45, 1.24, 2.02].forEach(sy => {
-    [fz, bz].forEach(z => {
-      // C-section step beam: web face + top lip
-      const bw = box(innerW, 0.1, 0.022, beamM, 0, sy + 0.05, z);
-      bw.userData.colorable = true; g.add(bw);
-      g.add(box(innerW, 0.018, 0.052, beamM, 0, sy + 0.1, z));
-      // Connector hook plates at each end
-      [-innerW / 2, innerW / 2].forEach(bx => {
-        g.add(box(0.028, 0.088, 0.026, mat('#4a5868', 0.3, 0.68), bx, sy + 0.044, z));
-      });
+  const steel = mat(color, 0.42, 0.35, { env: 0.5 }), steelD = mat(shade(color, 0.72), 0.5, 0.3), slotM = mat('#3a3e42', 0.7, 0.2);
+  const uw = 0.075, ud = 0.06, clear = w - 2 * uw;
+  const xs = [-(w / 2 - uw / 2), w / 2 - uw / 2], zs = [d / 2 - ud / 2, -(d / 2 - ud / 2)];
+  const tag = (m) => { m.userData.colorable = true; return m; };
+  xs.forEach(x => {
+    zs.forEach(z => {
+      g.add(tag(box(uw, h, ud, steel, x, h / 2, z)));
+      g.add(plainBox(0.012, h - 0.1, 0.004, slotM, x - Math.sign(x) * uw * 0.28, h / 2, z + Math.sign(z) * (ud / 2 + 0.001)));   // 前面の穴列
+      g.add(box(0.12, 0.008, 0.12, steelD, x, 0.004, z));                                                                 // ベースプレート
+      [-1, 1].forEach(s => g.add(cylAt(0.008, 0.008, 0.02, 8, steelD, x + s * 0.04, 0.012, z)));                             // アンカー
     });
-
-    // Wire deck (thin slab + longitudinal wires)
-    const deckY = sy + 0.108;
-    g.add(box(innerW, 0.01, d - upW, mat('#7a8898', 0.52, 0.42), 0, deckY, 0));
-    for (let wx = -innerW / 2 + 0.08; wx < innerW / 2; wx += 0.1) {
-      g.add(plainBox(0.007, 0.013, d - upW, mat('#5a6878', 0.45, 0.5), wx, deckY + 0.009, 0));
-    }
-    for (let wz = fz + 0.05; wz < bz; wz += 0.07) {
-      g.add(plainBox(innerW, 0.013, 0.007, mat('#5a6878', 0.45, 0.5), 0, deckY + 0.009, wz));
-    }
-
-    // Pallet suggestion (semi-transparent wood-colored block)
-    g.add(box(innerW - 0.08, 0.1, d - upW - 0.06, mat('#b89858', 0.82, 0), 0, deckY + 0.06, 0));
+    // 筋かい (フレーム面 = x 一定の面)
+    const zf = d / 2 - ud, zb = -(d / 2 - ud), ys = [0.18, 0.95, 1.72, 2.42];
+    ys.forEach(y => g.add(tag(box(0.03, 0.03, zf - zb, steel, x, y, 0))));
+    for (let i = 0; i < ys.length - 1; i++) g.add(tag(_bar([x, ys[i], i % 2 ? zb : zf], [x, ys[i + 1], i % 2 ? zf : zb], 0.026, steel)));
   });
-
+  // ビーム (前後, 上面高さ = 載荷面)
+  const beamTops = [1.25, 2.35];
+  beamTops.forEach(yt => {
+    zs.forEach(z => {
+      g.add(tag(box(clear, 0.1, 0.05, steel, 0, yt - 0.05, z)));
+      [-1, 1].forEach(s => g.add(box(0.012, 0.15, 0.05, steelD, s * (clear / 2 - 0.006), yt - 0.06, z)));   // ビーム受け金具
+    });
+  });
+  // パレット + 荷 (段ボール) を床・1段・2段に 2 枚ずつ
+  const woodM = mat('#c9a26a', 0.85), woodD = mat('#a8844f', 0.88), kraft = mat('#b98f5c', 0.9), tape = mat('#d9c29a', 0.7);
+  const pallet = (cx, y0, loadH) => {
+    [-0.5, 0, 0.5].forEach(sx => g.add(plainBox(0.07, 0.1, 1.1, woodD, cx + sx, y0 + 0.072, 0)));            // 桁
+    for (let i = 0; i < 9; i++) g.add(plainBox(1.1, 0.022, 0.1, woodM, cx, y0 + 0.133, -0.5 + i * 0.125));     // 上面デッキ
+    [-0.5, 0, 0.5].forEach(sz => g.add(plainBox(1.1, 0.022, 0.1, woodM, cx, y0 + 0.011, sz)));                 // 下面デッキ
+    if (loadH <= 0) return;
+    const lb = box(1.04, loadH, 1.04, kraft, cx, y0 + 0.144 + loadH / 2, 0); g.add(lb);
+    g.add(plainBox(1.045, 0.05, 1.045, tape, cx, y0 + 0.144 + loadH - 0.12, 0));
+  };
+  // 天井高(2.6m)に収まるよう 2段目は空パレット
+  [-(clear / 4), clear / 4].forEach(cx => { pallet(cx, 0, 0.95); pallet(cx, beamTops[0], 0.8); pallet(cx, beamTops[1], 0); });
   return g;
 }
 
@@ -464,7 +433,14 @@ function buildControlPanel({ color='#e8e2d6', w=0.8, d=0.5, h=1.8 } = {}) {
 
 // ブラザー SPEEDIO S500Xd1 (W1560×D2223×H2498) を基準にしたコンパクト立形マシニングセンタ。
 // 左右キャビネット幅・操作盤・工具マガジンは w に比例して収まるよう配置する。
+// 本体は奥行 d から前面の操作盤の張り出し分 (OP_OUT) を除いた寸法で組み、全体を後ろへずらして操作盤まで含めて奥行 d に収める。
+const OP_OUT = 0.19;
 function buildCNCMachiningCenter({ color='#e8e2d6', w=1.56, d=2.223, h=2.498 } = {}) {
+  const g = _cncCenterBody({ color, w, d: d - OP_OUT, h });
+  g.children.forEach(c => { c.position.z -= OP_OUT / 2; });
+  return g;
+}
+function _cncCenterBody({ color, w, d, h }) {
   const g = new THREE.Group();
   // ---- materials (off-white sheet-metal body + charcoal base) ----
   const cream  = mat(color, 0.5, 0.06, { env: 0.3 });               // body panels (colorable)
@@ -580,15 +556,15 @@ function buildCNCMachiningCenter({ color='#e8e2d6', w=1.56, d=2.223, h=2.498 } =
   }
   g.add(atc);
 
-  // ---- tri-color signal stack light on chrome pole (top-right) ----
+  // ---- tri-color signal stack light (top-right; 下から 緑・黄・赤。上端は機械高さ h 以内) ----
   const lx = w/2 - 0.28, lz = d/2 - 0.32;
-  g.add(cylAt(0.022, 0.022, 0.46, 12, chrome, lx, encTop + 0.23, lz));
-  let ly = encTop + 0.5;
-  [['#ef4444', 0.9], ['#f5b800', 0.85], ['#22c55e', 0.85]].forEach(([c, ei]) => {
+  g.add(cylAt(0.03, 0.03, 0.03, 12, chrome, lx, encTop + 0.015, lz));
+  let ly = encTop + 0.09;
+  [['#22c55e', 0.85], ['#f5b800', 0.85], ['#ef4444', 0.9]].forEach(([c, ei]) => {
     g.add(cylAt(0.05, 0.05, 0.12, 16, mat(c, 0.3, 0.1, { emissive: c, emissiveIntensity: ei }), lx, ly, lz));
     ly += 0.13;
   });
-  g.add(cylAt(0.04, 0.04, 0.04, 12, dark, lx, ly + 0.01, lz));        // top cap
+  g.add(cylAt(0.04, 0.04, 0.04, 12, dark, lx, ly - 0.045, lz));       // top cap
 
   // ---- CNC control panel (right side, angled toward operator; scaled to the right cabinet width) ----
   const pan = new THREE.Group(); pan.position.set(rightX - 0.03, encY + 0.06, fz + 0.05); pan.rotation.y = -0.16; g.add(pan);
@@ -736,7 +712,15 @@ function buildIndustrialRobotLg({ color='#e8e4dc', w=1.2, d=1.2, h=2.4 } = {}) {
   g.scale.set(w / 1.2, h / 2.4, d / 1.2);
   return g;
 }
+// 大型4柱油圧プレス (汎用): 右隣の制御盤 (幅0.76m) ・左側の圧力計パネル・上部の作業床と油圧ユニット (約0.96m) まで含めて
+// 外形 w×d×h に収まるよう、プレス本体は幅と高さを差し引いた寸法で組んでから左右位置を合わせる。
 function buildLargeHydraulicPress({ color='#c2c4be', w=3.2, d=2.6, h=5.5 } = {}) {
+  const SIDE_R = 0.78, SIDE_L = 0.07, TOP = 0.96;
+  const g = _largePressBody({ color, w: w - SIDE_R - SIDE_L, d, h: h - TOP });
+  g.children.forEach(c => { c.position.x -= (SIDE_R - SIDE_L) / 2; });
+  return g;
+}
+function _largePressBody({ color, w, d, h }) {
   const g = new THREE.Group();
   // 4-post hydraulic press (HP-3000 style): light grey cast frame, chrome tie rods,
   // 3 hydraulic cylinders, hazard striped slider/bolster, top platform with yellow railing,
@@ -845,7 +829,7 @@ function buildLargeHydraulicPress({ color='#c2c4be', w=3.2, d=2.6, h=5.5 } = {})
   g.add(cylAt(0.1, 0.1, 0.26, 14, mat('#3a3f45', 0.5), 0, h + 0.24, 0.52).rotateX(Math.PI/2));
 
   // ==== CONTROL CABINET (right side) ====
-  const cabX = w/2 + 0.82, cabH = 2.4;
+  const cabX = w/2 + 0.40, cabH = 2.4;                                 // 制御盤 (本体の右隣)
   g.add(box(0.76, cabH, 0.6, frame, cabX, cabH/2, 0));
   // screen
   const sCv = document.createElement('canvas'); sCv.width = 240; sCv.height = 180;
@@ -890,6 +874,8 @@ function buildLargeHydraulicPress({ color='#c2c4be', w=3.2, d=2.6, h=5.5 } = {})
   g.traverse(o => { if (o.isMesh && o.material === frame) o.userData.colorable = true; });
   return g;
 }
+// 工業炉 (汎用の箱型熱処理炉): 黒い炉体 + 前面の開口 (耐火れんが・赤熱) + 左ヒンジの炉扉 (クリックで開閉, 初期は開),
+// 上部の排気ダクトと煙突, 右側面の温度調節パネル, 左側面の冷却水配管。扉を閉じた状態で外形 w×d×h に収める。
 function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
   const g = new THREE.Group();
   const shell = mat(color, 0.55, 0.15);
@@ -897,46 +883,42 @@ function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
   const steel = mat('#8a9aa8', 0.3, 0.6);
   const glow  = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: new THREE.Color(0xff4400), emissiveIntensity: 0.8, roughness: 0.9 });
   const dark  = mat('#111316', 0.8, 0.1);
-  // outer shell
-  const outer = box(w, h, d, shell, 0, h/2, 0); outer.userData.colorable=true; g.add(outer);
-  // ---- front opening with VISIBLE glowing furnace interior ----
-  const openW = w * 0.62, openH = h * 0.5, openY = h * 0.4;
-  // recessed steel frame around the opening
-  g.add(box(openW + 0.1, openH + 0.1, 0.05, dark, 0, openY, d/2 - 0.005));
-  // refractory-lined throat (orange brick) receding into the body
-  g.add(box(openW + 0.02, openH + 0.02, d * 0.5, insul, 0, openY, d * 0.18));
-  // glowing chamber face flush at the opening (this is what reads as "the fire")
-  const chamberFace = box(openW, openH, 0.05, glow, 0, openY, d/2 - 0.04); g.add(chamberFace);
-  // glowing molten depth behind the face
-  const chamber = box(openW * 0.88, openH * 0.88, d * 0.45, glow, 0, openY, d * 0.12); g.add(chamber);
-  // ---- door swung open on a left-side hinge, revealing the glow ----
+  const sw = w - 0.12, sd = d - 0.1, sz = -0.05, fz = sz + sd / 2, bodyH = h - 0.5;   // 炉体 (側面の配管・パネル, 前面の扉ぶんを差し引く)
+  const outer = box(sw, bodyH, sd, shell, 0, bodyH / 2, sz); outer.userData.colorable = true; g.add(outer);
+  // ---- 前面開口: 鋼製の枠 (4辺) + 耐火れんがの内張り (4辺) + 赤熱した炉内 ----
+  const openW = sw * 0.62, openH = bodyH * 0.55, openY = bodyH * 0.45, fo = 0.05, li = 0.06;
+  [[openW + 2 * fo, fo, 0, openH / 2 + fo / 2], [openW + 2 * fo, fo, 0, -openH / 2 - fo / 2], [fo, openH, -openW / 2 - fo / 2, 0], [fo, openH, openW / 2 + fo / 2, 0]]
+    .forEach(([bw, bh, x, y]) => g.add(box(bw, bh, 0.05, dark, x, openY + y, fz + 0.01)));
+  [[openW, li, 0, openH / 2 - li / 2], [openW, li, 0, -openH / 2 + li / 2], [li, openH - 2 * li, -openW / 2 + li / 2, 0], [li, openH - 2 * li, openW / 2 - li / 2, 0]]
+    .forEach(([bw, bh, x, y]) => g.add(plainBox(bw, bh, 0.02, insul, x, openY + y, fz + 0.012)));
+  g.add(plainBox(openW - 2 * li, openH - 2 * li, 0.01, glow, 0, openY, fz + 0.006));
+  g.add(plainBox(openW - 2 * li, 0.03, 0.02, mat('#ffb040', 0.6), 0, openY - openH / 2 + li + 0.02, fz + 0.012));   // 炉床で熱せられた材料
+  // ---- 炉扉 (左ヒンジ, 外開き) ----
   const doorGroup = new THREE.Group();
-  doorGroup.position.set(-openW/2 - 0.05, openY, d/2 + 0.04);
-  const doorPanel = box(openW, openH + 0.08, 0.07, mat('#1a1a1a',0.6,0.2), openW/2, 0, 0); doorGroup.add(doorPanel);
-  // refractory lining on the door's inner face (faces the chamber when shut)
-  doorGroup.add(box(openW * 0.9, openH * 0.86, 0.035, insul, openW/2, 0, -0.05));
-  // door handle on the outer face
-  doorGroup.add(box(0.04, 0.04, 0.16, steel, openW - 0.05, 0, 0.07));
-  doorGroup.rotation.y = -0.95; // swung outward ~54°
+  doorGroup.position.set(-openW / 2 - 0.05, openY, fz + 0.04);
+  doorGroup.add(box(openW, openH + 0.08, 0.07, mat('#1a1a1a', 0.6, 0.2), openW / 2, 0, 0));
+  doorGroup.add(box(openW * 0.9, openH * 0.86, 0.035, insul, openW / 2, 0, -0.05));
+  doorGroup.add(box(0.04, 0.04, 0.03, steel, openW - 0.05, 0, 0.05));
+  doorGroup.rotation.y = -0.95;
   g.add(doorGroup);
-  // exhaust duct on top
-  g.add(box(0.3, 0.55, 0.22, dark, w*0.35, h + 0.27, 0));
-  const chimney = cyl(0.1, 0.1, 0.4, 14, dark); chimney.position.set(w*0.35, h+0.58, 0); g.add(chimney);
-  // thermocouple port (right side, upper zone)
-  g.add(cylAt(0.016,0.016,0.1,8,steel,w/2,h*0.72,0.18).rotateZ(Math.PI/2));
-  // gas/electric inlet fitting (rear lower)
-  g.add(cylAt(0.020,0.020,0.09,10,steel,0.2,h*0.22,-d/2).rotateX(Math.PI/2));
-  // temperature controller panel (right side)
-  const ctrl = box(0.35, 0.65, 0.06, dark, w/2 - 0.02, h*0.68, -0.3); g.add(ctrl);
-  g.add(box(0.26, 0.3, 0.04, mat('#0d1520',0.3), w/2-0.02, h*0.75, -0.26));
-  ['#ef4444','#f59e0b','#22c55e'].forEach((cl,i)=>g.add(cylAt(0.015,0.015,0.025,8,mat(cl,0.2),w/2-0.02,h*0.6-i*0.05,-0.24).rotateX(Math.PI/2)));
-  // cooling water pipes
+  // ---- 排気ダクト + 煙突 (上端 = h) ----
+  g.add(box(0.3, 0.3, 0.22, dark, sw * 0.35, bodyH + 0.15, sz));
+  g.add(cylAt(0.1, 0.1, 0.2, 14, dark, sw * 0.35, bodyH + 0.4, sz));
+  g.add(cylAt(0.12, 0.12, 0.02, 14, steel, sw * 0.35, h - 0.01, sz));
+  // ---- 右側面: 熱電対ポート + 温度調節パネル (表示器・ランプ) ----
+  g.add(cylAt(0.016, 0.016, 0.06, 8, steel, sw / 2 + 0.03, bodyH * 0.72, sz + 0.23).rotateZ(Math.PI / 2));
+  g.add(box(0.05, 0.65, 0.36, dark, sw / 2 + 0.025, bodyH * 0.68, sz - 0.25));
+  g.add(plainBox(0.01, 0.28, 0.26, mat('#0d1520', 0.3), w / 2 - 0.005, bodyH * 0.74, sz - 0.25));
+  ['#ef4444', '#f59e0b', '#22c55e'].forEach((cl, i) => g.add(cylAt(0.015, 0.015, 0.012, 8, mat(cl, 0.2), w / 2 - 0.006, bodyH * 0.56 - i * 0.05, sz - 0.25).rotateZ(Math.PI / 2)));
+  // ---- 背面のガス/電源の取入口 ----
+  g.add(cylAt(0.02, 0.02, 0.05, 10, steel, 0.2, bodyH * 0.22, sz - sd / 2 - 0.02).rotateX(Math.PI / 2));
+  // ---- 左側面: 冷却水配管 (縦管 + 炉体へ入る曲がり) ----
   [-0.3, 0.3].forEach(z => {
-    g.add(cylAt(0.025,0.025,h-0.1,12,steel, -w/2-0.02, (h-0.1)/2, z).rotateX(0));
-    g.add(cylAt(0.025,0.025,0.25,8,steel,-w/2-0.02,h-0.18,z).rotateZ(Math.PI/2));
+    g.add(cylAt(0.025, 0.025, bodyH - 0.1, 12, steel, -sw / 2 - 0.03, (bodyH - 0.1) / 2, sz + z));
+    g.add(cylAt(0.025, 0.025, 0.1, 8, steel, -sw / 2 + 0.01, bodyH - 0.12, sz + z).rotateZ(Math.PI / 2));
   });
-  // base frame / legs
-  [[-w/2+0.12,d/2-0.1],[w/2-0.12,d/2-0.1],[-w/2+0.12,-d/2+0.1],[w/2-0.12,-d/2+0.1]].forEach(([x,z])=>g.add(box(0.1,0.12,0.1,dark,x,0.06,z)));
+  // ---- 脚 ----
+  [[-sw / 2 + 0.12, fz - 0.1], [sw / 2 - 0.12, fz - 0.1], [-sw / 2 + 0.12, sz - sd / 2 + 0.1], [sw / 2 - 0.12, sz - sd / 2 + 0.1]].forEach(([x, z]) => g.add(box(0.1, 0.12, 0.1, dark, x, 0.06, z)));
   g.userData.parts = { door: doorGroup };
   return g;
 }
@@ -1274,7 +1256,7 @@ function buildAluminumCoil({ color='#c8c8cc', w=1.0, d=0.8, h=0.8 } = {}) {
   coil.rotation.x = Math.PI / 2; coil.position.set(0, coilR, 0); coil.castShadow = true; coil.receiveShadow = true; coil.userData.colorable = true; g.add(coil);
 
   // inner steel core tube — open-ended and double-sided so the hollow bore is visible
-  const coreR = coilR * 0.28;
+  const coreR = Math.min(0.254, coilR * 0.7);   // 内径 508mm (20インチ) = アルミ板コイルの標準スリーブ径
   const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, d + 0.02, 16, 1, true), core_m);
   core.rotation.x = Math.PI / 2; core.position.set(0, coilR, 0); g.add(core);
 
@@ -1293,48 +1275,37 @@ function buildAluminumCoil({ color='#c8c8cc', w=1.0, d=0.8, h=0.8 } = {}) {
   return g;
 }
 
-function buildTensileTestMachine({ color='#d8d8d8', w=0.8, d=0.7, h=2.0 } = {}) {
+// 島津 オートグラフ AGX-V2 50kN 床置形 (W975×D579×H1708, 410kg): チャコールの基台と上部ヨーク, 白いコラムカバー2本,
+// 移動クロスヘッド + ロードセル + ウェッジ形つかみ具 + 試験片, 右コラムにスマートコントローラ。操作PCは別。
+function buildTensileTestMachine({ color='#ecebe8', w=0.975, d=0.579, h=1.708 } = {}) {
   const g = new THREE.Group();
-  const frame_m = mat(color, 0.45, 0.1), metal = mat('#888', 0.25, 0.6, { env: 0.6 }), dark = mat('#1a1a1a', 0.7), accent = mat('#2255aa', 0.4, 0.1);
-
-  // base plate
-  const base = new THREE.Mesh(roundedBoxGeom(w, 0.07, d, 0.02, 4), frame_m); base.position.set(0, 0.035, 0); base.castShadow = true; base.userData.colorable = true; g.add(base);
-
-  // two vertical columns
-  const colW = 0.07;
-  [- w / 2 + colW / 2 + 0.04, w / 2 - colW / 2 - 0.04].forEach(cx => {
-    const col = new THREE.Mesh(roundedBoxGeom(colW, h - 0.07, colW, 0.02, 4), frame_m); col.position.set(cx, 0.07 + (h - 0.07) / 2, 0); col.castShadow = true; g.add(col);
-  });
-
-  // top crosshead (fixed)
-  const topCross = new THREE.Mesh(roundedBoxGeom(w, 0.1, d * 0.6, 0.02, 4), frame_m); topCross.position.set(0, h - 0.05, 0); topCross.castShadow = true; g.add(topCross);
-
-  // movable crosshead (about 60% up)
-  const movCross = new THREE.Mesh(roundedBoxGeom(w - 0.02, 0.08, d * 0.55, 0.02, 4), metal); movCross.position.set(0, h * 0.58, 0); movCross.castShadow = true; g.add(movCross);
-
-  // load cell (cylinder between crossheads)
-  const loadCell = cylAt(0.04, 0.04, 0.14, 14, mat('#aaa', 0.2, 0.7, { env: 0.8 }), 0, h - 0.18, 0); g.add(loadCell);
-
-  // upper grip (hangs directly under the load cell)
-  const upGrip = new THREE.Mesh(roundedBoxGeom(0.06, 0.18, 0.06, 0.015, 4), metal); upGrip.position.set(0, h * 0.82, 0); g.add(upGrip);
-
-  // lower grip (rises from the movable crosshead)
-  const loGrip = new THREE.Mesh(roundedBoxGeom(0.06, 0.18, 0.06, 0.015, 4), metal); loGrip.position.set(0, h * 0.62, 0); g.add(loGrip);
-
-  // test specimen (thin strip clamped between the two grips)
-  const specimen = new THREE.Mesh(new THREE.BoxGeometry(0.018, h * 0.11, 0.012), mat('#c8c8a0', 0.5, 0.3)); specimen.position.set(0, h * 0.72, 0); g.add(specimen);
-
-  // control panel (side)
-  const panel = new THREE.Mesh(roundedBoxGeom(0.32, 0.44, 0.22, 0.02, 4), dark); panel.position.set(w / 2 + 0.16 + 0.11, h * 0.55, 0); panel.castShadow = true; g.add(panel);
-  const screen = plainBox(0.22, 0.28, 0.01, mat('#001020', 0.7, 0, { emissive: '#1a5a8a', emissiveIntensity: 0.6 }), w / 2 + 0.28, h * 0.58, d * 0.08); g.add(screen);
-  const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.018, 12), mat('#e0c060', 0.3, 0.6)); dial.rotation.x = Math.PI / 2; dial.position.set(w / 2 + 0.28, h * 0.44, d * 0.09); g.add(dial);
-
-  // lead screw (vertical rod in frame center)
-  const screw = cylAt(0.016, 0.016, h * 0.6, 8, mat('#bbb', 0.2, 0.8, { env: 0.8 }), 0, h * 0.42, 0); g.add(screw);
-
-  // strain gauge strip on specimen
-  const gauge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 0.005), accent); gauge.position.set(0, h * 0.72, 0.012); g.add(gauge);
-
+  const charc = mat('#2d3136', 0.45, 0.25, { env: 0.5 }), cover = mat(color, 0.4, 0.08, { env: 0.5 }), steel = mat('#b6bec6', 0.25, 0.8, { env: 0.9 }), dark = mat('#17191c', 0.5, 0.3);
+  const baseH = 0.42, yokeH = 0.16, colW = 0.15, colD = 0.24, cx = w / 2 - colW / 2;
+  // 基台 (前面に白い化粧パネル + 状態表示ライン)
+  g.add(box(w, baseH, d, charc, 0, baseH / 2, 0));
+  g.add(box(w - 0.08, baseH - 0.1, 0.01, cover, 0, baseH / 2, d / 2 + 0.002));
+  const lamp = new THREE.MeshStandardMaterial({ color: 0x5fd07a, emissive: new THREE.Color('#2fae55'), emissiveIntensity: 0.7 });
+  g.add(plainBox(w - 0.2, 0.01, 0.004, lamp, 0, baseH - 0.03, d / 2 + 0.008));
+  [-1, 1].forEach(s => [-1, 1].forEach(t => g.add(cylAt(0.03, 0.035, 0.02, 12, dark, s * (w / 2 - 0.06), 0.01, t * (d / 2 - 0.06)))));
+  // テーブル (試験空間の床) + 下つかみ具
+  g.add(box(w - 2 * colW - 0.02, 0.05, colD, steel, 0, baseH + 0.025, 0));
+  // コラム (白カバー) 2 本
+  const colH = h - baseH - yokeH;
+  [-1, 1].forEach(s => { const c = box(colW, colH, colD, cover, s * cx, baseH + colH / 2, 0); c.userData.colorable = true; g.add(c); g.add(plainBox(0.006, colH - 0.1, 0.004, lamp, s * (cx - colW / 2 + 0.02), baseH + colH / 2, colD / 2 + 0.002)); });
+  // 上部ヨーク (チャコール) + ロゴ板
+  g.add(box(w, yokeH, colD + 0.02, charc, 0, h - yokeH / 2, 0));
+  g.add(plainBox(0.24, 0.04, 0.004, mat('#d8dde2', 0.4, 0.3), 0, h - yokeH / 2, colD / 2 + 0.012));
+  // 移動クロスヘッド + ロードセル + 上つかみ具
+  const chY = baseH + colH * 0.62;
+  g.add(box(w - 2 * colW, 0.1, colD - 0.03, steel, 0, chY, 0));
+  g.add(cylAt(0.045, 0.045, 0.08, 20, mat('#8a929a', 0.3, 0.7), 0, chY - 0.09, 0));
+  const grip = (y, up) => { g.add(box(0.1, 0.13, 0.09, dark, 0, y, 0)); g.add(box(0.03, 0.06, 0.1, steel, 0.06, y + (up ? -0.02 : 0.02), 0)); };
+  grip(chY - 0.2, true);
+  grip(baseH + 0.12, false);
+  g.add(box(0.012, 0.18, 0.004, mat('#c8c8b8', 0.5, 0.4), 0, (chY - 0.2 + baseH + 0.12) / 2, 0));   // 試験片 (ダンベル形の平板)
+  // スマートコントローラ (右コラム前面)
+  g.add(box(0.1, 0.16, 0.04, dark, cx, baseH + 0.62, colD / 2 + 0.02));
+  g.add(plainBox(0.07, 0.05, 0.004, mat('#0d2a3a', 0.3, 0.1), cx, baseH + 0.67, colD / 2 + 0.042));
   return g;
 }
 
@@ -1405,16 +1376,18 @@ function buildScrapBucket({ color='#4a4f54', w=1.0, d=1.0, h=0.7 } = {}) {
   return g;
 }
 
-function buildSteelPallet({ color='#8a8a92', w=1.1, d=1.1, h=0.15 } = {}) {
+// ITC スチールパレット 片面四方差し 亜鉛メッキ (1100×1100×150, 静荷重1t): リブ付きのプレス鋼板デッキ + 補強チャンネル + 9 本の脚。
+// 差込口: 間口側 W408×H127 / 奥行側 W407×H109 (チャンネルのぶん低い)
+function buildSteelPallet({ color='#c3c9cd', w=1.1, d=1.1, h=0.15 } = {}) {
   const g = new THREE.Group();
-  const m  = mat(color, 0.6, 0.5);
-  const m2 = mat(shade(color, 0.82), 0.6, 0.5);
-  // top deck
-  const deck = box(w, 0.02, d, m, 0, h - 0.01, 0); deck.userData.colorable = true; g.add(deck);
-  // three cross-stringers under deck (proportional to depth)
-  [-(d/2 - 0.11), 0, d/2 - 0.11].forEach(z => g.add(box(w, 0.04, 0.07, m2, 0, h - 0.04, z)));
-  // three bottom skid runners (proportional to width)
-  [-(w/2 - 0.11), 0, w/2 - 0.11].forEach(x => g.add(box(0.09, 0.06, d, m2, x, 0.03, 0)));
+  const zinc = mat(color, 0.35, 0.8, { env: 0.8 }), zincD = mat(shade(color, 0.85), 0.4, 0.75);
+  const deckT = 0.004, leg = 0.095;
+  const deck = plainBox(w, deckT, d, zinc, 0, h - deckT / 2, 0); deck.userData.colorable = true; g.add(deck);
+  for (let i = -4; i <= 4; i++) { g.add(plainBox(w - 0.02, 0.006, 0.02, zinc, 0, h - deckT - 0.003, i * 0.12)); }                // デッキ裏のリブ
+  [-(d / 2 - leg / 2), 0, d / 2 - leg / 2].forEach(z => g.add(plainBox(w, 0.018, leg, zincD, 0, h - deckT - 0.009, z)));       // 補強チャンネル (X方向)
+  const xs = [-(w / 2 - leg / 2), 0, w / 2 - leg / 2], zs = [-(d / 2 - leg / 2), 0, d / 2 - leg / 2];
+  xs.forEach(x => zs.forEach(z => { const lg = plainBox(leg, h - deckT - 0.018, leg, zinc, x, (h - deckT - 0.018) / 2, z); lg.userData.colorable = true; g.add(lg); }));
+  g.add(plainBox(w, 0.006, 0.03, zincD, 0, h - 0.003, d / 2 - 0.015)); g.add(plainBox(w, 0.006, 0.03, zincD, 0, h - 0.003, -d / 2 + 0.015));   // 縁の折り返し
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
@@ -1435,134 +1408,91 @@ function buildResinPallet({ color='#1a3f7a', w=1.1, d=1.1, h=0.15 } = {}) {
   return g;
 }
 
-function buildWoodPallet({ color='#c9a26a', w=1.1, d=1.1, h=0.145 } = {}) {
-  // Standard wooden block pallet (ISPM-15 / HT marked), matching the reference photo:
-  // 6 top deck boards (run along depth), 3 bottom boards, 9 blocks (3×3) with
-  // 4-way fork entry. Fork openings line up with the 3.5t forklift's 0.59 m forks.
+// JPR 木製11型パレット (JIS T11: 1100×1100×144, 両面使用・2方差し, 積載1t): 上面デッキボード + 3 本の桁 + 下面デッキボード
+function buildWoodPallet({ color='#c9a26a', w=1.1, d=1.1, h=0.144 } = {}) {
   const g = new THREE.Group();
-  const wt = woodTex.clone(); wt.wrapS = wt.wrapT = THREE.RepeatWrapping; wt.repeat.set(1.2, 1.2); wt.needsUpdate = true;
-  const woodM = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.8, metalness: 0.0, map: wt });
-  const woodD = new THREE.MeshStandardMaterial({ color: new THREE.Color(shade(color, 0.88)), roughness: 0.82, metalness: 0.0, map: wt });
-  const blockM = new THREE.MeshStandardMaterial({ color: new THREE.Color(shade(color, 0.74)), roughness: 0.85, metalness: 0.0 });
-
-  const deckT  = 0.022;            // deck-board thickness
-  const blockH = h - deckT * 2;    // block height between top & bottom decks
-  const blockY = deckT + blockH / 2;
-  const blockS = 0.135;            // block footprint
-
-  // ---- 9 blocks (3×3), 4-way entry ----
-  const bx = w / 2 - blockS / 2 - 0.012, bz = d / 2 - blockS / 2 - 0.012;
-  [-bx, 0, bx].forEach(px => [-bz, 0, bz].forEach(pz =>
-    g.add(box(blockS, blockH, blockS, blockM, px, blockY, pz))));
-
-  // ---- bottom deck: 3 boards running across the width ----
-  const botY = deckT / 2;
-  [-bz, 0, bz].forEach(pz => g.add(box(w, deckT, 0.16, woodD, 0, botY, pz)));
-
-  // ---- top deck: 6 boards running along the depth, with gaps ----
-  const topY = h - deckT / 2;
-  const nBoards = 6, bw = 0.135, gap = (w - nBoards * bw) / (nBoards - 1);
-  for (let i = 0; i < nBoards; i++) {
-    const px = -w / 2 + bw / 2 + i * (bw + gap);
-    g.add(box(bw, deckT, d, woodM, px, topY, 0));
-  }
-
-  // ---- ISPM-15 burn stamp (wheat + HT / JP) on the front-centre block ----
-  const sc = document.createElement('canvas'); sc.width = 128; sc.height = 96;
-  const sx = sc.getContext('2d');
-  sx.clearRect(0, 0, 128, 96);
-  sx.strokeStyle = '#3a2410'; sx.lineWidth = 4; sx.strokeRect(8, 8, 112, 80);
-  sx.strokeStyle = '#4a3018'; sx.lineWidth = 3;
-  // wheat sheaf glyph
-  sx.beginPath(); sx.moveTo(34, 78); sx.lineTo(34, 40); sx.stroke();
-  for (let k = 0; k < 4; k++) { const yy = 44 + k * 9; sx.beginPath(); sx.moveTo(34, yy); sx.lineTo(26, yy - 6); sx.moveTo(34, yy); sx.lineTo(42, yy - 6); sx.stroke(); }
-  sx.fillStyle = '#3a2410'; sx.font = "700 26px 'Arial'"; sx.textBaseline = 'middle';
-  sx.fillText('HT', 58, 36); sx.font = "700 18px 'Arial'"; sx.fillText('JP-000', 52, 66);
-  const stampTex = new THREE.CanvasTexture(sc); stampTex.colorSpace = THREE.SRGBColorSpace;
-  const stampMat = new THREE.MeshStandardMaterial({ map: stampTex, transparent: true, roughness: 0.9 });
-  const stamp = new THREE.Mesh(new THREE.PlaneGeometry(blockS * 0.82, blockS * 0.62), stampMat);
-  stamp.position.set(0, blockY + 0.005, d / 2 - 0.012 + blockS / 2 + 0.001); g.add(stamp);
-
+  const wt = woodTex.clone(); wt.wrapS = wt.wrapT = THREE.RepeatWrapping; wt.repeat.set(1.2, 0.3); wt.needsUpdate = true;
+  const woodM = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.82, metalness: 0.0, map: wt });
+  const woodD = new THREE.MeshStandardMaterial({ color: new THREE.Color(shade(color, 0.84)), roughness: 0.85, metalness: 0.0, map: wt });
+  const t = 0.022, sh = h - 2 * t, sw = 0.075;
+  // 桁 (けた) 3 本 — Z 方向 (フォークは ±Z から差し込む)
+  [-(w / 2 - sw / 2), 0, w / 2 - sw / 2].forEach(x => g.add(plainBox(sw, sh, d, woodD, x, t + sh / 2, 0)));
+  // 上面デッキボード 9 枚 (両端は幅広)
+  const nTop = 9, bwE = 0.13, bw = 0.1, gap = (d - 2 * bwE - (nTop - 2) * bw) / (nTop - 1);
+  let z = -d / 2;
+  for (let i = 0; i < nTop; i++) { const ww = (i === 0 || i === nTop - 1) ? bwE : bw; const b = plainBox(w, t, ww, woodM, 0, h - t / 2, z + ww / 2); b.userData.colorable = true; g.add(b); z += ww + gap; }
+  // 下面デッキボード 5 枚
+  [-(d / 2 - bwE / 2), -0.24, 0, 0.24, d / 2 - bwE / 2].forEach(zz => { const b = plainBox(w, t, Math.abs(zz) > 0.4 ? bwE : bw, woodM, 0, t / 2, zz); b.userData.colorable = true; g.add(b); });
+  // 釘頭
+  const nail = mat('#6a6a6a', 0.4, 0.7);
+  [-(w / 2 - sw / 2), 0, w / 2 - sw / 2].forEach(x => [-0.49, 0.49].forEach(zz => g.add(cylAt(0.004, 0.004, 0.002, 6, nail, x, h + 0.001, zz))));
   g.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
-  g.traverse(c => { if (c.isMesh && (c.material === woodM || c.material === woodD)) c.userData.colorable = true; });
   return g;
 }
 
-function buildDrum({ color='#1a4a9a', w=0.58, d=0.58, h=0.88 } = {}) {
+// JFE 鋼製ドラム缶 クローズタイプ 200L KD-200ST (φ580×H890, 21.5kg, JIS): 胴 + 天地の巻締め(チャイム) + 2 本の輪帯 + 天板の大栓/小栓
+function buildDrum({ color='#1a4a9a', w=0.58, d=0.58, h=0.89 } = {}) {
   const g = new THREE.Group();
-  const r = Math.min(w, d) / 2;
-  const bodyM = mat(color, 0.45, 0.35);
-  const capM  = mat(shade(color, 1.15), 0.4, 0.55);
-  const ribM  = mat(shade(color, 0.75), 0.5, 0.6);
-  // body
-  const drumBody = cylAt(r, r, h - 0.04, 24, bodyM, 0, h / 2, 0); drumBody.userData.colorable = true; g.add(drumBody);
-  // top/bottom caps
-  g.add(cylAt(r, r, 0.022, 24, capM, 0, h - 0.011, 0));
-  g.add(cylAt(r, r, 0.022, 24, capM, 0, 0.011, 0));
-  // rolling ribs (symmetric about mid-height, per standard steel drum)
-  [0.24, 0.5, 0.76].forEach(t => g.add(cylAt(r + 0.016, r + 0.016, 0.032, 24, ribM, 0, h * t, 0)));
-  // bung plug on top
-  g.add(cylAt(0.028, 0.028, 0.03, 12, mat('#787878', 0.4, 0.7), r * 0.5, h - 0.005, 0));
-  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  const R = Math.min(w, d) / 2, rb = R - 0.004;
+  const bodyM = mat(color, 0.4, 0.35), rimM = mat(shade(color, 0.85), 0.45, 0.45), capM = mat('#b8bcc0', 0.35, 0.75);
+  const body = cylAt(rb, rb, h - 0.03, 40, bodyM, 0, h / 2, 0); body.userData.colorable = true; g.add(body);
+  [0.012, h - 0.012].forEach(y => { const ch = new THREE.Mesh(new THREE.TorusGeometry(R - 0.006, 0.008, 8, 48), rimM); ch.rotation.x = Math.PI / 2; ch.position.y = y; g.add(ch); });
+  const top = cylAt(rb - 0.008, rb - 0.008, 0.004, 40, bodyM, 0, h - 0.018, 0); top.userData.colorable = true; g.add(top);
+  // 輪帯 (転がし用のビード) 2 本: 高さの約1/3と2/3
+  [h * 0.345, h * 0.655].forEach(y => { const hoop = new THREE.Mesh(new THREE.TorusGeometry(rb, 0.006, 8, 48), rimM); hoop.rotation.x = Math.PI / 2; hoop.position.y = y; g.add(hoop); });
+  // 天板の栓: 大栓 (2B) と 小栓 (3/4B)
+  g.add(cylAt(0.032, 0.032, 0.012, 20, capM, R * 0.6, h - 0.012, 0));
+  g.add(cylAt(0.016, 0.016, 0.012, 16, capM, -R * 0.64, h - 0.012, 0.02));
   return g;
 }
 
-function buildJibCrane({ color='#e8b820', w=2.2, d=0.5, h=4.2 } = {}) {
+// キトー ピラー形ジブクレーンパッケージ JP7L形 (定格0.25t, 全高3.5m, アーム3m, 有効高さ約2.86m) + 電気チェーンブロック EQSP形:
+// ベースプレート(アンカー・リブ) + 鋼管ピラー + 旋回部 + I形鋼ジブ(方杖付き) + トロリ + チェーンブロック + 押しボタン。
+// ピラーはフットプリントの -X 寄り, ジブは +X へ伸びる (w = ベース端〜アーム先端)。
+function buildJibCrane({ color='#f5c020', w=3.3, d=0.6, h=3.5 } = {}) {
   const g = new THREE.Group();
-  const yellow = mat(color, 0.5, 0.12);
-  const dark   = mat('#1e2228', 0.7, 0.3);
-  const silver = mat('#a8b0b8', 0.3, 0.65);
-  const base_m = mat('#3a3f48', 0.6, 0.35);
-  const armLen = w * 0.92;
-  // Base plate (octagonal)
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.37, 0.42, 0.12, 8), base_m);
-  base.position.set(0, 0.06, 0); base.receiveShadow = true; g.add(base);
-  // Anchor bolts
-  for (let i = 0; i < 4; i++) {
-    const a = i / 4 * Math.PI * 2;
-    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.14, 6), silver);
-    bolt.position.set(Math.cos(a)*0.29, 0.07, Math.sin(a)*0.29); g.add(bolt);
-  }
-  // Vertical mast
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, h * 0.92, 10), yellow);
-  mast.position.set(0, h * 0.46 + 0.12, 0); mast.userData.colorable = true; g.add(mast);
-  // Jib arm (+x direction)
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(armLen, 0.09, 0.09), yellow);
-  arm.position.set(armLen / 2, h * 0.91 + 0.12, 0); arm.userData.colorable = true; g.add(arm);
-  // Counter-jib arm (-x side, shorter)
-  const cjLen = 0.36;
-  g.add(box(cjLen, 0.09, 0.09, yellow, -cjLen/2 - 0.04, h * 0.91 + 0.12, 0));
-  // Counterweight
-  g.add(box(0.22, 0.18, 0.14, mat('#2a2e38', 0.65, 0.2), -cjLen - 0.11, h * 0.91 + 0.03, 0));
-  // King post (short vertical post above the arm at the mast) — anchors the tie rod
-  const armY = h * 0.91 + 0.12;
-  const kpH = h * 0.20;
-  g.add(box(0.06, kpH, 0.06, yellow, 0, armY + kpH/2, 0));
-  // Diagonal tie rod: king-post top → arm at ~60% (gives a ~32° brace, not a flat bar)
-  const brX = armLen * 0.6, brY = kpH;
-  const brLen = Math.hypot(brX, brY);
-  const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, brLen, 6), silver);
-  brace.position.set(brX/2, armY + kpH - brY/2, 0);
-  brace.rotation.z = -Math.atan2(brY, brX); g.add(brace);
-  // Trolley on arm
-  g.add(box(0.20, 0.11, 0.16, mat('#3a4250', 0.5, 0.3), armLen * 0.72, h * 0.895 + 0.12, 0));
-  // Hoist rope
-  const ropeH = h * 0.40;
-  const rope = cyl(0.013, 0.013, ropeH, 4, dark);
-  rope.position.set(armLen * 0.72, h * 0.895 + 0.12 - ropeH/2 - 0.06, 0); g.add(rope);
-  // Hook block
-  g.add(box(0.12, 0.11, 0.09, silver, armLen * 0.72, h * 0.895 + 0.12 - ropeH - 0.11, 0));
-  // Hook (half-torus)
-  const hook = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.018, 6, 10, Math.PI), silver);
-  hook.rotation.z = Math.PI/2;
-  hook.position.set(armLen * 0.72 + 0.02, h * 0.895 + 0.12 - ropeH - 0.20, 0); g.add(hook);
-  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  const paint = mat(color, 0.45, 0.15), dark = mat('#1e2226', 0.6, 0.3), steel = mat('#9aa2aa', 0.3, 0.7), bolt = mat('#c0c6cc', 0.3, 0.8);
+  const orange = mat('#e87a1a', 0.45, 0.15), chainM = mat('#5b6168', 0.35, 0.75);
+  const px = -w / 2 + d / 2, pr = 0.1335, armL = w - d / 2, beamTop = h - 0.01, bh = 0.2, bw = 0.1;
+  // ベースプレート + リブ + アンカー
+  g.add(box(d, 0.03, d, dark, px, 0.015, 0));
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; const rib = box(0.012, 0.16, 0.14, paint, px + Math.cos(a) * (pr + 0.07), 0.11, Math.sin(a) * (pr + 0.07)); rib.rotation.y = -a; g.add(rib); }
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + Math.PI / 8; g.add(cylAt(0.014, 0.014, 0.05, 8, bolt, px + Math.cos(a) * (d / 2 - 0.05), 0.045, Math.sin(a) * (d / 2 - 0.05))); }
+  // ピラー (鋼管 φ267) + 旋回部
+  const pTop = beamTop - bh - 0.12;
+  const pillar = cylAt(pr, pr, pTop - 0.03, 24, paint, px, (pTop + 0.03) / 2, 0); pillar.userData.colorable = true; g.add(pillar);
+  g.add(cylAt(pr + 0.03, pr + 0.03, 0.12, 24, dark, px, beamTop - bh - 0.06, 0));
+  g.add(cylAt(pr * 0.8, pr * 0.8, bh + 0.04, 20, paint, px, beamTop - bh / 2, 0));
+  // I形鋼ジブ (上下フランジ + ウェブ)
+  const ax = px + (armL - 0.05) / 2;
+  [beamTop - 0.006, beamTop - bh + 0.006].forEach(y => { const f = box(armL + 0.05, 0.012, bw, paint, ax, y, 0); f.userData.colorable = true; g.add(f); });
+  const web = box(armL + 0.05, bh - 0.024, 0.008, paint, ax, beamTop - bh / 2, 0); web.userData.colorable = true; g.add(web);
+  g.add(box(0.012, bh, bw, paint, px + armL - 0.006, beamTop - bh / 2, 0));                             // 端部ストッパー
+  // 方杖 (ピラー → ジブ下面)
+  g.add(_bar([px + pr, beamTop - bh - 0.75, 0], [px + 0.95, beamTop - bh - 0.005, 0], 0.07, paint));
+  // トロリ (下フランジ走行) + 電気チェーンブロック EQSP
+  const tx = px + armL * 0.68, ty = beamTop - bh;
+  g.add(box(0.2, 0.05, 0.16, dark, tx, ty - 0.03, 0));
+  [-1, 1].forEach(s => [-1, 1].forEach(t => g.add(cylAt(0.028, 0.028, 0.02, 12, steel, tx + s * 0.07, ty + 0.01, t * 0.06).rotateX(Math.PI / 2))));
+  const hb = new THREE.Group(); hb.position.set(tx, ty - 0.2, 0); g.add(hb);
+  hb.add(box(0.28, 0.2, 0.2, orange, 0, 0, 0));                                                        // 本体
+  hb.add(cylAt(0.075, 0.075, 0.16, 18, dark, -0.17, 0, 0).rotateZ(Math.PI / 2));                       // モーター
+  hb.add(box(0.12, 0.14, 0.12, dark, 0.13, -0.08, 0.05));                                               // チェーンバケット
+  const hookY = 1.55, chainTop = ty - 0.3;
+  g.add(cylAt(0.005, 0.005, chainTop - hookY - 0.1, 6, chainM, tx - 0.03, (chainTop + hookY + 0.1) / 2, 0));
+  g.add(box(0.08, 0.1, 0.06, orange, tx - 0.03, hookY + 0.05, 0));                                     // フックブロック
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.012, 8, 14, Math.PI * 1.3), steel); hook.rotation.z = Math.PI * 1.15; hook.position.set(tx - 0.03, hookY - 0.03, 0); g.add(hook);
+  // 押しボタンスイッチ (ペンダント)
+  g.add(cylAt(0.004, 0.004, chainTop - 1.25, 6, dark, tx + 0.12, (chainTop + 1.25) / 2, 0.05));
+  g.add(box(0.07, 0.2, 0.055, mat('#f2c230', 0.5), tx + 0.12, 1.15, 0.05));
+  [1.2, 1.12].forEach((y, i) => g.add(cylAt(0.012, 0.012, 0.01, 10, dark, tx + 0.12, y, 0.08).rotateX(Math.PI / 2)));
   return g;
 }
 
-function buildFireExtinguisher({ color='#cc1818', w=0.2, d=0.2, h=0.65 } = {}) {
+// ヤマトプロテック YA-10NX (10型 蓄圧式 ABC, 高さ490×幅180×奥行126mm): 胴径は奥行(約126mm), 幅はホース・ノズル込み
+function buildFireExtinguisher({ color='#cc1818', w=0.18, d=0.126, h=0.49 } = {}) {
   const g = new THREE.Group();
-  const r      = Math.min(w, d) / 2 * 0.88;
+  const r      = Math.min(w, d) / 2 * 0.98;
   const redM   = mat(color, 0.48, 0.08);
   const silverM= mat('#b0b8c0', 0.3, 0.65);
   const blackM = mat('#181818', 0.7, 0.1);
@@ -1591,8 +1521,8 @@ function buildFireExtinguisher({ color='#cc1818', w=0.2, d=0.2, h=0.65 } = {}) {
   const hosePts = [], hN = 7;
   for (let i = 0; i < hN; i++) {
     const t = i / (hN - 1);
-    const hx = -r * 0.28 - r * 1.05 * Math.pow(t, 1.4);
-    const hy = (h * 0.84 - (h * 0.84 - h * 0.44) * t) + 0.04;
+    const hx = -r * 0.28 - (r * 0.74 + 0.018) * Math.pow(t, 0.7);
+    const hy = (h * 0.84 - (h * 0.84 - h * 0.39) * t) + 0.04;
     hosePts.push({ x: hx, y: hy });
   }
   for (let i = 0; i < hN - 1; i++) {
@@ -1602,80 +1532,82 @@ function buildFireExtinguisher({ color='#cc1818', w=0.2, d=0.2, h=0.65 } = {}) {
     s.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, 0);
     s.rotation.z = Math.atan2(dy, dx) - Math.PI / 2; g.add(s);
   }
-  // Nozzle
-  const nz = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.015, 0.12, 8), blackM);
-  nz.rotation.z = Math.PI/2; nz.position.set(-r * 1.38, h * 0.38 + 0.04, 0); g.add(nz);
+  // Nozzle (胴の側面に縦向きで掛ける)
+  const nz = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.013, 0.1, 10), blackM);
+  nz.position.set(-(r + 0.018), h * 0.33, 0.012); g.add(nz);
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 
-function buildBandedAlumCoil({ color='#c8c8cc', w=1.0, d=0.8, h=0.8 } = {}) {
+function buildBandedAlumCoil({ color='#c8c8cc', w=0.8, d=0.8, h=0.8 } = {}) {
   const g = new THREE.Group();
   const alum  = mat(color, 0.2, 0.85, { env: 0.9 }); alum.side = THREE.DoubleSide;
   const core_m= mat('#888', 0.4, 0.5); core_m.side = THREE.DoubleSide;
   const bandM = mat('#6a7080', 0.35, 0.55);
   const claspM= mat('#8a9098', 0.3, 0.65);
-  const coilR = Math.min(w, h) / 2, coreR = coilR * 0.28;
+  const BT = 0.034, coilR = Math.min(w, h) / 2 - BT, coreR = Math.min(0.254, coilR * 0.7), cy = coilR + BT;   // 内径 508mm。バンドの厚みぶん持ち上げて床に接地
   // 本体コイル(軸=Z, 開口端なので中空のボアが見える)
   const coil = new THREE.Mesh(new THREE.CylinderGeometry(coilR, coilR, d, 32, 1, true), alum);
-  coil.rotation.x = Math.PI/2; coil.position.set(0, coilR, 0);
+  coil.rotation.x = Math.PI/2; coil.position.set(0, cy, 0);
   coil.castShadow = true; coil.receiveShadow = true; coil.userData.colorable = true; g.add(coil);
   // 内側スチールコア(開口端)
   const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, d + 0.02, 16, 1, true), core_m);
-  core.rotation.x = Math.PI/2; core.position.set(0, coilR, 0); g.add(core);
+  core.rotation.x = Math.PI/2; core.position.set(0, cy, 0); g.add(core);
   // 端面(±Z) — 軸=コイル軸=Z に揃えた同心の巻きリング + 環状断面(回転なし)
   [-(d/2), d/2].forEach(fz => {
     for (let r = coreR + 0.03; r < coilR - 0.01; r += 0.06) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 4, 28), alum);
-      ring.position.set(0, coilR, fz); g.add(ring);
+      ring.position.set(0, cy, fz); g.add(ring);
     }
     const face = new THREE.Mesh(new THREE.RingGeometry(coreR, coilR, 32), alum);
-    face.position.set(0, coilR, fz + (fz < 0 ? -0.005 : 0.005));
+    face.position.set(0, cy, fz + (fz < 0 ? -0.005 : 0.005));
     if (fz < 0) face.rotation.y = Math.PI; g.add(face);
   });
   // Steel strapping bands (3 circumferential rings on OD)
   [-0.21, 0, 0.21].map(t => t * d).forEach(bz => {
     const band = new THREE.Mesh(new THREE.TorusGeometry(coilR + 0.016, 0.018, 6, 32), bandM);
-    band.position.set(0, coilR, bz); g.add(band);
-    // Buckle/clasp block
-    g.add(box(0.07, 0.05, 0.04, claspM, coilR + 0.032, coilR, bz));
+    band.position.set(0, cy, bz); g.add(band);
+    // Buckle/clasp block (バンド上の斜め上 45°)
+    const bk = box(0.07, 0.04, 0.04, claspM, Math.SQRT1_2 * (coilR + 0.03), cy + Math.SQRT1_2 * (coilR + 0.03), bz); bk.rotation.z = -Math.PI / 4; g.add(bk);
   });
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 
-function buildPackagedAlumCoil({ color='#b4a478', w=1.0, d=0.8, h=0.8 } = {}) {
+function buildPackagedAlumCoil({ color='#b4a478', w=0.8, d=0.8, h=0.8 } = {}) {
   const g = new THREE.Group();
-  const coilR = Math.min(w, h) / 2, coreR = coilR * 0.28;
+  const coilR = Math.min(w, h) / 2 - 0.04, coreR = Math.min(0.254, coilR * 0.7);    // 内径 508mm (外形は包装紙 12mm + バンド 28mm)
+  const L = d - 0.04;                        // コイル幅 (d は端面の保護材を含む)
+  const cy = coilR + 0.04;                   // 軸心高さ (バンドの外面が床に接する)
   const packM = mat(color, 0.9, 0.0);      // kraft/VCI paper
   const edgeM = mat('#d0c8a0', 0.85);      // edge protector
   const bandM = mat('#4a5058', 0.35, 0.55); // steel strap
   const alumM = mat('#c8c8cc', 0.2, 0.85, { env: 0.9 });
   // Paper wrapping (full outer cylinder)
-  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(coilR + 0.012, coilR + 0.012, d + 0.02, 28), packM);
-  wrap.rotation.x = Math.PI/2; wrap.position.set(0, coilR, 0);
+  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(coilR + 0.012, coilR + 0.012, L + 0.02, 28), packM);
+  wrap.rotation.x = Math.PI/2; wrap.position.set(0, cy, 0);
   wrap.castShadow = true; wrap.receiveShadow = true; wrap.userData.colorable = true; g.add(wrap);
   // アイ(露出した中心穴) — ±Z 端面に正立(軸=Z)
-  [-(d/2 + 0.02), (d/2 + 0.02)].forEach(fz => {
-    const eye = new THREE.Mesh(new THREE.RingGeometry(coreR, coilR * 0.42, 24), alumM);
-    eye.position.set(0, coilR, fz);
+  [-(L/2 + 0.012), (L/2 + 0.012)].forEach(fz => {
+    const eye = new THREE.Mesh(new THREE.RingGeometry(coreR, coreR + 0.05, 32), alumM);
+    eye.position.set(0, cy, fz);
     if (fz < 0) eye.rotation.y = Math.PI; g.add(eye);
     // ボア(中心の穴)
     const hole = new THREE.Mesh(new THREE.CircleGeometry(coreR, 18), mat('#363639', 0.6));
-    hole.position.set(0, coilR, fz + (fz < 0 ? -0.004 : 0.004)); if (fz < 0) hole.rotation.y = Math.PI; g.add(hole);
+    hole.position.set(0, cy, fz + (fz < 0 ? -0.004 : 0.004)); if (fz < 0) hole.rotation.y = Math.PI; g.add(hole);
     // エッジプロテクター
-    const ep = new THREE.Mesh(new THREE.TorusGeometry(coilR * 0.72, 0.025, 6, 24), edgeM);
-    ep.position.set(0, coilR, fz); g.add(ep);
+    const ep = new THREE.Mesh(new THREE.TorusGeometry(coilR - 0.03, 0.025, 6, 32), edgeM);
+    ep.position.set(0, cy, fz); g.add(ep);
   });
   // Steel strapping bands × 2
-  [-0.18, 0.18].map(t => t * d).forEach(bz => {
+  [-0.18, 0.18].map(t => t * L).forEach(bz => {
     const band = new THREE.Mesh(new THREE.TorusGeometry(coilR + 0.022, 0.018, 6, 32), bandM);
-    band.position.set(0, coilR, bz); g.add(band);
-    g.add(box(0.07, 0.04, 0.03, mat('#5a6068', 0.4, 0.5), coilR + 0.038, coilR, bz));
+    band.position.set(0, cy, bz); g.add(band);
+    const bk = box(0.07, 0.04, 0.03, mat('#5a6068', 0.4, 0.5), Math.SQRT1_2 * (coilR + 0.036), cy + Math.SQRT1_2 * (coilR + 0.036), bz); bk.rotation.z = -Math.PI / 4; g.add(bk);
   });
   // Shipping label
   const lbl = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.01), mat('#f8f4e8', 0.88));
-  lbl.position.set(coilR + 0.014, coilR, 0); lbl.rotation.y = Math.PI/2; g.add(lbl);
+  lbl.position.set(coilR + 0.014, cy, 0); lbl.rotation.y = Math.PI/2; g.add(lbl);
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
@@ -1721,9 +1653,10 @@ function buildExportAlumCoil({ color='#c0a870', w=1.2, d=1.2, h=1.0 } = {}) {
   // コイルのアイは天面(上向き=Eye-to-Sky)に — 軸=鉛直で梱包
   const eyeTopY = 0.11 + ph + 0.004;
   const mkTop = (mesh) => { mesh.rotation.x = -Math.PI/2; mesh.position.set(0, eyeTopY, 0); return mesh; };
-  g.add(mkTop(new THREE.Mesh(new THREE.RingGeometry(coilR*0.26, coilR*0.56, 24), alumM)));
-  for (let r = coilR*0.32; r < coilR*0.55; r += 0.055) g.add(mkTop(new THREE.Mesh(new THREE.TorusGeometry(r, 0.01, 4, 24), alumM)));
-  { const hole = new THREE.Mesh(new THREE.CircleGeometry(coilR*0.26, 18), mat('#363639', 0.6)); hole.rotation.x = -Math.PI/2; hole.position.set(0, eyeTopY - 0.004, 0); g.add(hole); }
+  const eyeR = 0.254;   // 内径 508mm
+  g.add(mkTop(new THREE.Mesh(new THREE.RingGeometry(eyeR, eyeR + 0.12, 32), alumM)));
+  for (let r = eyeR + 0.03; r < eyeR + 0.12; r += 0.04) g.add(mkTop(new THREE.Mesh(new THREE.TorusGeometry(r, 0.008, 4, 32), alumM)));
+  { const hole = new THREE.Mesh(new THREE.CircleGeometry(eyeR, 32), mat('#363639', 0.6)); hole.rotation.x = -Math.PI/2; hole.position.set(0, eyeTopY - 0.004, 0); g.add(hole); }
   // Steel strapping bands (2 bands at 1/3 and 2/3 height)
   [-0.2, 0.2].forEach(t => {
     const by = 0.11 + ph * (0.5 + t * 0.85);
@@ -1741,51 +1674,51 @@ function buildExportAlumCoil({ color='#c0a870', w=1.2, d=1.2, h=1.0 } = {}) {
   return g;
 }
 
-function buildAlumCoilSide({ color='#c8c8cc', w=0.8, d=1.0, h=0.8 } = {}) {
+function buildAlumCoilSide({ color='#c8c8cc', w=1.0, d=0.8, h=0.8 } = {}) {
   const g = new THREE.Group();
   const alum   = mat(color, 0.2, 0.85, { env: 0.9 }); alum.side = THREE.DoubleSide;
   const core_m = mat('#888', 0.4, 0.5); core_m.side = THREE.DoubleSide;
   const cradleM= mat('#5a5048', 0.7, 0.1);
   const bandM  = mat('#6a7080', 0.35, 0.55);
   // 横倒し: コイル軸は水平 = X 方向。端面(アイ)は ±X を向く。
-  const coilR = h / 2, coreR = coilR * 0.28, coilDepth = d;
+  const BT = 0.034, coilR = Math.min(h, d) / 2 - BT, coreR = Math.min(0.254, coilR * 0.7), coilDepth = w, cy = coilR + BT;   // 内径 508mm, コイル幅 = w (軸 = X)。バンドぶん持ち上げ, 輪止めに載せる
   // 本体コイル(軸=X, 湾曲面を下に接地, 開口端)
   const coil = new THREE.Mesh(new THREE.CylinderGeometry(coilR, coilR, coilDepth, 32, 1, true), alum);
-  coil.rotation.z = Math.PI/2; coil.position.set(0, coilR, 0);
+  coil.rotation.z = Math.PI/2; coil.position.set(0, cy, 0);
   coil.castShadow = true; coil.receiveShadow = true; coil.userData.colorable = true; g.add(coil);
   // 内側コア(開口端)
   const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, coilDepth + 0.02, 16, 1, true), core_m);
-  core.rotation.z = Math.PI/2; core.position.set(0, coilR, 0); g.add(core);
+  core.rotation.z = Math.PI/2; core.position.set(0, cy, 0); g.add(core);
   // 端面(±X) — 軸=コイル軸=X に揃えた同心の巻きリング + 環状断面(rotation.y)
   [-(coilDepth/2), coilDepth/2].forEach(fx => {
     for (let r = coreR + 0.03; r < coilR - 0.01; r += 0.06) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 4, 28), alum);
-      ring.rotation.y = Math.PI/2; ring.position.set(fx, coilR, 0); g.add(ring);
+      ring.rotation.y = Math.PI/2; ring.position.set(fx, cy, 0); g.add(ring);
     }
     const face = new THREE.Mesh(new THREE.RingGeometry(coreR, coilR, 32), alum);
-    face.rotation.y = (fx < 0 ? -Math.PI/2 : Math.PI/2); face.position.set(fx + (fx < 0 ? -0.005 : 0.005), coilR, 0); g.add(face);
+    face.rotation.y = (fx < 0 ? -Math.PI/2 : Math.PI/2); face.position.set(fx + (fx < 0 ? -0.005 : 0.005), cy, 0); g.add(face);
   });
   // スチールバンド(2本, X軸まわりにOD外周を締める → rotation.y)
   [-0.18, 0.18].map(t => t * coilDepth).forEach(bx => {
     const band = new THREE.Mesh(new THREE.TorusGeometry(coilR + 0.016, 0.018, 6, 32), bandM);
-    band.rotation.y = Math.PI/2; band.position.set(bx, coilR, 0); g.add(band);
-    g.add(box(0.04, 0.05, 0.07, mat('#8a9098', 0.3, 0.65), bx, coilR * 1.62, 0));
+    band.rotation.y = Math.PI/2; band.position.set(bx, cy, 0); g.add(band);
+    const bk = box(0.04, 0.04, 0.07, mat('#8a9098', 0.3, 0.65), bx, cy + Math.SQRT1_2 * (coilR + 0.03), Math.SQRT1_2 * (coilR + 0.03)); bk.rotation.x = Math.PI / 4; g.add(bk);
   });
   // Cradle chocks (prevent rolling)
   [-0.32, 0.32].map(t => t * coilDepth).forEach(bx => {
-    const chock = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, coilR * 1.1), cradleM);
-    chock.position.set(bx, 0.05, -coilR * 0.55); g.add(chock);
-    const chock2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, coilR * 1.1), cradleM);
-    chock2.position.set(bx, 0.05, coilR * 0.55); g.add(chock2);
+    const chock = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, coilR * 0.8), cradleM);
+    chock.position.set(bx, 0.05, -coilR * 0.5); g.add(chock);
+    const chock2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, coilR * 0.8), cradleM);
+    chock2.position.set(bx, 0.05, coilR * 0.5); g.add(chock2);
   });
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 
-// 作業員 — 高品質な人物ベース(buildPerson)に作業着装備を載せる。
+// 作業員 — 高品質な人物ベース(buildPerson)に作業着装備を載せる。身長は成人男性(30代)の平均171.5cm。
 // 白ヘルメット+顎紐 / 開襟ジャケット(胸ポケット・ファスナー) / カーゴ作業ズボン(上下同色) / 白軍手 / 安全靴。
 // color はカラーピッカー対応(作業着の上下が連動して色替え)。既定はライトブルーグレー。
-function buildWorker({ color, w=0.5, d=0.5, h=1.8 } = {}) {
+function buildWorker({ color, w=0.5, d=0.5, h=1.715 } = {}) {
   return buildPerson({
     h, adult: true, style: 'short',
     skin: '#e7b48a', hair: '#1b1410', eye: '#3a2c22',
@@ -1795,5 +1728,14 @@ function buildWorker({ color, w=0.5, d=0.5, h=1.8 } = {}) {
   });
 }
 
+
+// 2点を結ぶ角材/丸棒 (筋かい・方杖・チェーン等)。a/b = [x,y,z]
+function _bar(a, b, t, material, round = false) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], len = Math.hypot(dx, dy, dz);
+  const m = round ? new THREE.Mesh(new THREE.CylinderGeometry(t / 2, t / 2, len, 8), material) : new THREE.Mesh(new THREE.BoxGeometry(t, len, t), material);
+  m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize());
+  m.castShadow = true; m.receiveShadow = true; return m;
+}
 
 export { buildAlumCoilSide, buildAluminumCoil, buildBandedAlumCoil, buildCNCMachine, buildCNCMachiningCenter, buildControlPanel, buildConveyor, buildDrum, buildExportAlumCoil, buildFireExtinguisher, buildForklift, buildIndustrialFurnace, buildIndustrialRobot, buildIndustrialRobotLg, buildInjectionMolder, buildJibCrane, buildLargeHydraulicPress, buildPackagedAlumCoil, buildPalletRack, buildResinPallet, buildScrapBucket, buildSteelPallet, buildTensileTestMachine, buildToolCabinet, buildWoodPallet, buildWorkbench, buildWorker };

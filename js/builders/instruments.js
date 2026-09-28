@@ -3,66 +3,127 @@ import { clamp, shade } from '../core/util.js';
 import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost } from '../core/helpers.js';
 import { makeWoodTexture, makeWallTexture, makeNoiseTexture, makeRugTexture, makeConcreteTexture, makeTileTexture, makeMarbleTexture, makeCarpetTexture, makeTatamiTexture, makeBrickTexture, makePanelTexture, makeGenkanTexture, makeDirtTexture, makeGrassTexture, makeLawnTexture, makeParquetTexture, makeDarkWoodTexture, makeRubberTexture, makeCheckerPlateTexture, makeEpoxyTexture, makeTerracottaTexture, makeStoneTexture, woodTex, concreteTex, wallTexSrc, noiseTex, tileTex, marbleTex, carpetTex, tatamiTex, brickTex, panelTex, genkanTex, dirtTex, grassTex, lawnTex, parquetTex, darkWoodTex, rubberTex, checkerTex, epoxyTex, terracottaTex, stoneTex, FLOOR_TYPES, WALL_TYPES } from '../core/textures.js';
 
-function buildHPLC({ color='#e8e8e8', w=0.5, d=0.55, h=1.6 } = {}) {
+// Agilent 1260 Infinity II LC (ポンプ180/バイアルサンプラ320/カラム恒温槽160/DAD140mm, 幅396・奥行436〜468mm) を
+// 汎用ラボカート (天板高さ約60cm, キャスター) に積み, 最上段に溶媒キャビネット(ボトル4本)。各モジュール前面は濃灰のカバー+状態LED。
+function buildHPLC({ color='#e8e2d6', w=0.6, d=0.6, h=1.72 } = {}) {
   const g = new THREE.Group();
-  const body = mat(color, 0.5, 0.05), module_m = mat(shade(color, 0.88), 0.5, 0.05), accent = mat('#2255aa', 0.4, 0.1);
-  const numModules = 5;
-  const modH = (h - 0.06) / numModules;
-  for (let i = 0; i < numModules; i++) {
-    const m = new THREE.Mesh(roundedBoxGeom(w, modH - 0.01, d, 0.02, 4), i % 2 === 0 ? body : module_m); m.position.set(0, modH / 2 + i * modH + 0.01, 0); m.castShadow = true; m.userData.colorable = (i === 0); g.add(m);
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, 0.012, 0.01), accent); strip.position.set(0, modH / 2 + i * modH + 0.01 + modH * 0.35, d / 2 + 0.001); g.add(strip);
-  }
-  const screen = plainBox(w * 0.5, modH * 0.55, 0.01, mat('#0a1a3a', 0.6, 0, { emissive: '#1a5a8a', emissiveIntensity: 0.5 }), -w * 0.1, modH * 0.5 + (numModules - 1) * modH * 0.4, d / 2 + 0.008); g.add(screen);
-  const tubeColors = ['#c8c800', '#00c8c8', '#c80000'];
-  tubeColors.forEach((tc, i) => {
-    const tube = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.006, 6, 14, Math.PI * 0.7), mat(tc, 0.5)); tube.position.set(-w * 0.35 + i * 0.06, h * 0.55, d * 0.38); tube.rotation.y = 0.5; g.add(tube);
+  const cartM = mat('#5b6168', 0.5, 0.4), shell = mat('#eceeee', 0.4, 0.06, { env: 0.5 }), front = mat('#3c4046', 0.45, 0.15), rub = mat('#161616', 0.85);
+  const led = new THREE.MeshStandardMaterial({ color: 0x0a2a10, emissive: new THREE.Color('#2fd060'), emissiveIntensity: 0.9 });
+  // カート (天板 + 下棚 + 4本脚 + キャスター)
+  const cartH = 0.6;
+  g.add(box(w, 0.03, d, cartM, 0, cartH - 0.015, 0));
+  g.add(box(w - 0.04, 0.02, d - 0.04, cartM, 0, 0.18, 0));
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([s, t]) => { g.add(box(0.03, cartH - 0.1, 0.03, cartM, s * (w / 2 - 0.03), 0.07 + (cartH - 0.1) / 2, t * (d / 2 - 0.03))); const c = cyl(0.03, 0.03, 0.025, 12, rub); c.rotation.z = Math.PI / 2; c.position.set(s * (w / 2 - 0.03), 0.03, t * (d / 2 - 0.03)); g.add(c); });
+  // モジュール (下から ポンプ → バイアルサンプラ → カラム恒温槽 → DAD)
+  const mods = [
+    { n: 'pump', H: 0.18, W: 0.396, D: 0.436 },
+    { n: 'als', H: 0.32, W: 0.396, D: 0.468 },
+    { n: 'mct', H: 0.16, W: 0.435, D: 0.436 },
+    { n: 'dad', H: 0.14, W: 0.396, D: 0.436 },
+  ];
+  let y = cartH;
+  const fz = d / 2 - 0.06;
+  mods.forEach(m => {
+    const b = box(m.W, m.H - 0.004, m.D, shell, 0, y + m.H / 2, fz - m.D / 2); b.userData.colorable = true; g.add(b);
+    const fp = new THREE.Mesh(roundedBoxGeom(m.W - 0.02, m.H - 0.02, 0.02, 0.01, 3), front); fp.position.set(0, y + m.H / 2, fz + 0.005); g.add(fp);
+    g.add(plainBox(0.018, 0.006, 0.003, led, -m.W / 2 + 0.03, y + m.H - 0.025, fz + 0.016));
+    if (m.n === 'pump') { g.add(cylAt(0.02, 0.02, 0.02, 14, mat('#d0d4d8', 0.3, 0.7), m.W / 2 - 0.08, y + m.H / 2, fz + 0.022).rotateX(Math.PI / 2)); }
+    if (m.n === 'als') { g.add(plainBox(m.W - 0.12, m.H - 0.12, 0.004, new THREE.MeshStandardMaterial({ color: 0x1a2a38, roughness: 0.05, transparent: true, opacity: 0.6 }), 0, y + m.H / 2, fz + 0.017));
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 8; c++) g.add(cylAt(0.006, 0.006, 0.03, 8, mat('#8fa0b0', 0.3, 0.1), -0.12 + c * 0.034, y + 0.08 + r * 0.05, fz - 0.05 - r * 0.02)); }
+    if (m.n === 'mct') g.add(box(m.W - 0.1, 0.012, 0.01, mat('#9aa2aa', 0.4, 0.5), 0, y + m.H / 2, fz + 0.018));
+    y += m.H;
+  });
+  // 溶媒キャビネット + 溶媒ボトル4本 (褐色/透明) + テフロンチューブ
+  g.add(box(0.396, 0.08, 0.436, shell, 0, y + 0.04, fz - 0.218));
+  y += 0.08;
+  [-0.12, -0.04, 0.04, 0.12].forEach((x, i) => {
+    g.add(cylAt(0.034, 0.034, 0.16, 16, mat(i % 2 ? '#e8eef0' : '#7a4a22', 0.15, 0.05), x, y + 0.08, fz - 0.2));
+    g.add(cylAt(0.018, 0.018, 0.03, 12, mat('#2f6ac0', 0.4), x, y + 0.175, fz - 0.2));
+    g.add(cylAt(0.002, 0.002, 0.5, 6, mat('#e8e2d0', 0.6), x + 0.01, y - 0.1, fz - 0.22));
   });
   return g;
 }
-function buildSpectrophotometer({ color='#d8d8d8', w=0.55, d=0.4, h=0.35 } = {}) {
+// 島津 紫外可視分光光度計 UV-1900i (幅450×奥行501×高さ244, 16.6kg): 明るいグレーの筐体, 左手前に傾いたカラー液晶, 右側に試料室の上開き蓋
+function buildSpectrophotometer({ color='#e8e2d6', w=0.45, d=0.501, h=0.244 } = {}) {
   const g = new THREE.Group();
-  const body = mat(color, 0.5, 0.05), dark = mat('#1a1a1a', 0.7);
-  const base = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.025, 4), body); base.position.set(0, h / 2, 0); base.castShadow = true; base.userData.colorable = true; g.add(base);
-  const samplePort = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.06, 14), dark); samplePort.position.set(0, h * 0.75, 0); samplePort.castShadow = true; g.add(samplePort);
-  const lid = new THREE.Mesh(roundedBoxGeom(0.12, 0.04, 0.12, 0.01, 4), mat('#888', 0.4, 0.2)); lid.position.set(0, h * 0.8, 0); g.add(lid);
-  const screen = plainBox(0.18, 0.1, 0.01, mat('#0a1a3a', 0.6, 0, { emissive: '#22aa55', emissiveIntensity: 0.6 }), w * 0.2, h * 0.6, d / 2 + 0.008); g.add(screen);
-  const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.025, 12), mat('#666', 0.4, 0.3)); knob.rotation.x = Math.PI / 2; knob.position.set(-w * 0.3, h * 0.55, d / 2 + 0.012); g.add(knob);
+  const shell = mat('#e7e9e8', 0.4, 0.05, { env: 0.5 }), shellD = mat('#c9cdcf', 0.45, 0.05), dark = mat('#26292d', 0.45, 0.2);
+  const base = new THREE.Mesh(roundedBoxGeom(w, h - 0.02, d, 0.02, 3), shell); base.position.set(0, (h - 0.02) / 2, 0); base.castShadow = true; base.userData.colorable = true; g.add(base);
+  g.add(box(w - 0.004, 0.03, d - 0.004, shellD, 0, 0.015, 0));                                       // 下部の帯
+  // 試料室の蓋 (右側・上開き, 少し高い)
+  const lid = new THREE.Mesh(roundedBoxGeom(0.19, 0.03, 0.3, 0.012, 3), shellD); lid.position.set(w / 2 - 0.115, h - 0.01, 0.02); lid.castShadow = true; g.add(lid);
+  g.add(box(0.08, 0.01, 0.02, dark, w / 2 - 0.115, h - 0.02, 0.18));                                   // 蓋の取っ手
+  // 左手前のカラー液晶 (チルト)
+  const pnl = new THREE.Group(); pnl.position.set(-w / 2 + 0.13, h - 0.035, d / 2 - 0.1); pnl.rotation.x = -0.9; g.add(pnl);
+  pnl.add(box(0.2, 0.14, 0.016, dark, 0, 0, 0));
+  pnl.add(plainBox(0.17, 0.105, 0.004, new THREE.MeshStandardMaterial({ color: 0x0b1726, emissive: new THREE.Color('#2a6aa0'), emissiveIntensity: 0.55 }), 0, 0, 0.009));
+  // 前面: 電源スイッチ・USB
+  g.add(box(0.02, 0.02, 0.006, dark, w / 2 - 0.05, 0.06, d / 2 + 0.002));
+  g.add(box(0.014, 0.006, 0.004, dark, -w / 2 + 0.06, 0.06, d / 2 + 0.002));
   return g;
 }
-function buildLabOven({ color='#c8c8c0', w=0.6, d=0.5, h=0.6 } = {}) {
+// ヤマト科学 定温乾燥器 DX302 (幅400×奥行440×高さ630, 自然対流): 白い本体, 前面の扉(右側に取っ手), 扉下の操作パネル(デジタル表示), 天面の排気口
+function buildLabOven({ color='#e8e2d6', w=0.4, d=0.44, h=0.63 } = {}) {
   const g = new THREE.Group();
-  const outer = mat(color, 0.45, 0.1), inner = mat('#cccccc', 0.35, 0.2), glass_m = new THREE.MeshStandardMaterial({ color: 0xd8e8f0, transparent: true, opacity: 0.3, roughness: 0.05 });
-  const body = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.02, 4), outer); body.position.set(0, h / 2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
-  const doorFrame = new THREE.Mesh(roundedBoxGeom(w * 0.6, h * 0.72, 0.03, 0.01, 4), mat('#999', 0.3, 0.4)); doorFrame.position.set(0, h * 0.5, d / 2 + 0.005); g.add(doorFrame);
-  const doorGlass = plainBox(w * 0.5, h * 0.6, 0.015, glass_m, 0, h * 0.5, d / 2 + 0.018); g.add(doorGlass);
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, w * 0.35, 8), mat('#888', 0.25, 0.7)); handle.rotation.z = Math.PI / 2; handle.position.set(0, h * 0.28, d / 2 + 0.04); g.add(handle);
-  const panel = plainBox(w * 0.38, h * 0.18, 0.01, mat('#1a1a1a', 0.7), w * 0.26, h * 0.88, d / 2 + 0.005); g.add(panel);
-  const display = plainBox(0.12, 0.07, 0.01, mat('#001a00', 0.7, 0, { emissive: '#00cc44', emissiveIntensity: 0.7 }), w * 0.22, h * 0.88, d / 2 + 0.01); g.add(display);
+  const shell = mat('#f0f0ec', 0.42, 0.05, { env: 0.4 }), door = mat('#f6f6f2', 0.4, 0.04), dark = mat('#26292d', 0.45, 0.2), steel = mat('#b8c0c6', 0.3, 0.75);
+  const body = new THREE.Mesh(roundedBoxGeom(w, h - 0.02, d - 0.03, 0.012, 3), shell); body.position.set(0, 0.02 + (h - 0.02) / 2, -0.015); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([s, t]) => g.add(cylAt(0.015, 0.017, 0.02, 10, dark, s * (w / 2 - 0.05), 0.01, t * (d / 2 - 0.06))));
+  // 操作パネル (下部)
+  const pH = 0.13;
+  g.add(box(w - 0.02, pH, 0.012, mat('#dfe2e4', 0.45), 0, 0.03 + pH / 2, d / 2 - 0.02));
+  g.add(plainBox(0.12, 0.035, 0.004, new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: new THREE.Color('#e03a2a'), emissiveIntensity: 0.8 }), -0.07, 0.03 + pH * 0.62, d / 2 - 0.012));
+  for (let i = 0; i < 4; i++) g.add(box(0.022, 0.016, 0.006, dark, 0.03 + i * 0.03, 0.03 + pH * 0.35, d / 2 - 0.011));
+  g.add(box(0.03, 0.02, 0.008, mat('#2a9d4a', 0.4), w / 2 - 0.04, 0.03 + pH * 0.62, d / 2 - 0.011));   // 電源
+  // 扉 + 取っ手 + パッキン
+  const dY0 = 0.03 + pH + 0.008, dH = h - dY0 - 0.02;
+  const dr = new THREE.Mesh(roundedBoxGeom(w - 0.02, dH, 0.03, 0.01, 3), door); dr.position.set(0, dY0 + dH / 2, d / 2 - 0.015); dr.castShadow = true; g.add(dr);
+  g.add(box(0.03, 0.12, 0.03, steel, w / 2 - 0.045, dY0 + dH / 2, d / 2 + 0.012));
+  // 天面の排気口 (ダンパー)
+  g.add(cylAt(0.018, 0.018, 0.04, 12, steel, 0, h + 0.01, -0.08));
+  g.add(cylAt(0.028, 0.028, 0.008, 12, steel, 0, h + 0.03, -0.08));
   return g;
 }
-function buildIncubator({ color='#e0e0d8', w=0.7, d=0.65, h=0.85 } = {}) {
+// PHC CO2インキュベーター MCO-170AICUV (幅620×奥行730×高さ905, 165L): 白い本体, 操作パネル(タッチLCD)付きの外扉(右吊り), 左端の縦ハンドル, 脚
+function buildIncubator({ color='#e8e2d6', w=0.62, d=0.73, h=0.905 } = {}) {
   const g = new THREE.Group();
-  const outer = mat(color, 0.45, 0.05), glass_m = new THREE.MeshStandardMaterial({ color: 0xd0eaf8, transparent: true, opacity: 0.2, roughness: 0.05 });
-  const body = new THREE.Mesh(roundedBoxGeom(w, h, d, 0.025, 4), outer); body.position.set(0, h / 2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
-  const doorL = plainBox((w - 0.06) / 2, h * 0.76, 0.015, glass_m, -w / 4 - 0.01, h * 0.48, d / 2 + 0.004); g.add(doorL);
-  const doorR = plainBox((w - 0.06) / 2, h * 0.76, 0.015, glass_m, w / 4 + 0.01, h * 0.48, d / 2 + 0.004); g.add(doorR);
-  const divider = new THREE.Mesh(roundedBoxGeom(0.025, h * 0.78, 0.02, 0.005, 4), mat('#bbb', 0.4, 0.2)); divider.position.set(0, h * 0.48, d / 2 + 0.007); g.add(divider);
-  [h * 0.28, h * 0.52, h * 0.68].forEach(sy => {
-    const shelf = new THREE.Mesh(roundedBoxGeom(w - 0.08, 0.015, d - 0.08, 0.004, 4), mat('#bbb', 0.3, 0.4)); shelf.position.set(0, sy, 0); g.add(shelf);
-  });
-  const panel = plainBox(w * 0.5, h * 0.12, 0.01, mat('#111', 0.7), 0, h * 0.94, d / 2 + 0.005); g.add(panel);
-  const display = plainBox(0.14, 0.07, 0.01, mat('#001a00', 0.7, 0, { emissive: '#00cc44', emissiveIntensity: 0.7 }), -0.08, h * 0.94, d / 2 + 0.01); g.add(display);
+  const shell = mat('#f2f2ef', 0.4, 0.05, { env: 0.5 }), door = mat('#f7f7f4', 0.38, 0.04), dark = mat('#2a2e33', 0.45, 0.2), steel = mat('#b8c0c6', 0.3, 0.75);
+  const footH = 0.04, bodyH = h - footH - 0.012, fz = d / 2 - 0.03;                               // 扉の前面 (ハンドル・パネルを含めて奥行 d に収める)
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([s, t]) => g.add(cylAt(0.02, 0.022, footH, 10, dark, s * (w / 2 - 0.06), footH / 2, t * (d / 2 - 0.06))));
+  const body = new THREE.Mesh(roundedBoxGeom(w, bodyH, d - 0.07, 0.02, 3), shell); body.position.set(0, footH + bodyH / 2, -0.035); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  // 外扉 (前面いっぱい, 右ヒンジ) + 周囲のパッキン線
+  const dr = new THREE.Mesh(roundedBoxGeom(w - 0.01, bodyH - 0.01, 0.04, 0.015, 3), door); dr.position.set(0, footH + bodyH / 2, fz - 0.02); dr.castShadow = true; g.add(dr);
+  g.add(box(w - 0.02, 0.004, 0.004, mat('#c8ccd0', 0.6), 0, footH + 0.01, fz + 0.001));
+  // 操作パネル (扉上部: タッチLCD + キー)
+  const pY = footH + bodyH - 0.1;
+  g.add(box(0.3, 0.11, 0.012, dark, 0.04, pY, fz + 0.006));
+  g.add(plainBox(0.14, 0.08, 0.004, new THREE.MeshStandardMaterial({ color: 0x0b1a26, emissive: new THREE.Color('#1c5a8a'), emissiveIntensity: 0.6 }), -0.03, pY, fz + 0.013));
+  for (let i = 0; i < 3; i++) g.add(box(0.03, 0.02, 0.006, mat('#d9dde0', 0.5), 0.1 + (i % 2) * 0.04, pY + 0.02 - Math.floor(i / 2) * 0.04, fz + 0.014));
+  // 縦ハンドル (左端) + ヒンジ (右)
+  g.add(box(0.025, 0.3, 0.03, steel, -w / 2 + 0.04, footH + bodyH / 2, fz + 0.015));
+  [0.2, bodyH - 0.2].forEach(yy => g.add(box(0.02, 0.06, 0.03, steel, w / 2 - 0.012, footH + yy, fz - 0.01)));
+  // 天面後部の CO2 ガス接続口・アクセスポート
+  g.add(cylAt(0.02, 0.02, 0.012, 12, steel, -0.15, h - 0.006, -d / 2 + 0.1));
+  g.add(cylAt(0.03, 0.03, 0.01, 14, mat('#dfe2e4', 0.4), 0.15, h - 0.007, -d / 2 + 0.12));
   return g;
 }
-function buildUltrasonicCleaner({ color='#c0c8cc', w=0.35, d=0.28, h=0.28 } = {}) {
+// アズワン 超音波洗浄器 ASU-6 (380×247×340): ステンレスの本体・槽, 前面の操作部(タイマー・ヒーター), 取っ手付きの蓋, 側面の排水コック
+function buildUltrasonicCleaner({ color='#c0c8cc', w=0.38, d=0.247, h=0.34 } = {}) {
   const g = new THREE.Group();
-  const body = mat(color, 0.35, 0.3, { env: 0.5 }), tank_m = mat('#d0d8dc', 0.25, 0.4, { env: 0.6 }), water_m = new THREE.MeshStandardMaterial({ color: 0xb0d0e8, transparent: true, opacity: 0.45, roughness: 0.05 });
-  const outer = new THREE.Mesh(roundedBoxGeom(w, h * 0.72, d, 0.02, 4), body); outer.position.set(0, h * 0.36, 0); outer.castShadow = true; outer.userData.colorable = true; g.add(outer);
-  const tankInner = new THREE.Mesh(roundedBoxGeom(w - 0.06, h * 0.52, d - 0.06, 0.01, 4), tank_m); tankInner.position.set(0, h * 0.3, 0); g.add(tankInner);
-  const waterSurf = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.08, d - 0.08), water_m); waterSurf.rotation.x = -Math.PI / 2; waterSurf.position.set(0, h * 0.52, 0); g.add(waterSurf);
-  const lid = new THREE.Mesh(roundedBoxGeom(w, 0.025, d, 0.01, 4), mat(shade(color, 0.9), 0.35, 0.3)); lid.position.set(0, h * 0.73, 0); g.add(lid);
-  const ctrlBox = new THREE.Mesh(roundedBoxGeom(w * 0.55, h * 0.25, d * 0.3, 0.01, 4), mat('#2a2a2a', 0.7)); ctrlBox.position.set(w * 0.2, h * 0.88, 0); ctrlBox.castShadow = true; g.add(ctrlBox);
-  const display = plainBox(0.08, 0.04, 0.008, mat('#001800', 0.7, 0, { emissive: '#00cc44', emissiveIntensity: 0.7 }), w * 0.18, h * 0.9, d * 0.15 + 0.005); g.add(display);
+  const sus = mat('#cdd2d6', 0.28, 0.85, { env: 0.9 }), susD = mat('#aeb4b9', 0.35, 0.8), dark = mat('#26292d', 0.45, 0.2);
+  const water = new THREE.MeshStandardMaterial({ color: 0xb0d0e8, transparent: true, opacity: 0.45, roughness: 0.05 });
+  const bodyH = h - 0.07, bw = w - 0.036, bxc = -0.018;                                           // 本体 (右側面の排水コックを含めて幅 w)
+  const body = new THREE.Mesh(roundedBoxGeom(bw, bodyH, d, 0.012, 3), sus); body.position.set(bxc, bodyH / 2, 0); body.castShadow = true; body.userData.colorable = true; g.add(body);
+  // 前面の操作パネル (黒) + タイマーノブ + スイッチ + ランプ
+  g.add(box(bw - 0.06, bodyH * 0.35, 0.006, dark, bxc, bodyH * 0.25, d / 2 - 0.002));
+  g.add(cylAt(0.018, 0.018, 0.012, 16, mat('#d8dce0', 0.4, 0.5), bxc - 0.08, bodyH * 0.25, d / 2 + 0.004).rotateX(Math.PI / 2));
+  [0.03, 0.08].forEach((x, i) => { g.add(box(0.025, 0.018, 0.008, mat(i ? '#e8b020' : '#e8e8e8', 0.5), bxc + x, bodyH * 0.25, d / 2 + 0.002)); });
+  g.add(cylAt(0.005, 0.005, 0.006, 10, mat('#2fd060', 0.3), bxc + 0.13, bodyH * 0.25, d / 2 + 0.001).rotateX(Math.PI / 2));
+  // 蓋 (ステンレス, 中央の取っ手) + 槽の水面 (蓋の隙間から少し見える)
+  const lid = new THREE.Mesh(roundedBoxGeom(bw - 0.01, 0.02, d - 0.01, 0.008, 3), susD); lid.position.set(bxc, bodyH + 0.01, 0); lid.castShadow = true; g.add(lid);
+  const hd = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.007, 8, 16, Math.PI), sus); hd.position.set(bxc, bodyH + 0.02, 0); g.add(hd);
+  g.add(plainBox(bw - 0.08, 0.002, d - 0.08, water, bxc, bodyH - 0.03, 0));
+  // 排水コック (右側面)
+  g.add(cylAt(0.008, 0.008, 0.03, 10, susD, bxc + bw / 2 + 0.015, 0.03, 0).rotateZ(Math.PI / 2));
+  g.add(box(0.012, 0.03, 0.01, mat('#2f6ac0', 0.4), w / 2 - 0.006, 0.045, 0));
   return g;
 }
 // ULVAC GLD-137CC (油回転真空ポンプ 直結型, W170×D488×H250): モーター(後)+ポンプ部(前)を奥行方向に直結。
