@@ -410,7 +410,7 @@ function shade(hex, f) {
 // ===== js/core/version.js =====
 // アプリのバージョン番号。リリースのたびに更新し, CHANGELOG.md に対応するエントリを追記する。
 // セマンティックバージョニング(MAJOR.MINOR.PATCH): 破壊的変更/大規模刷新=MAJOR, 機能追加=MINOR, 修正=PATCH
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 
 
 // ===== js/core/orient.js =====
@@ -2019,7 +2019,9 @@ const COLORS = [
   // 工作機械の塗装色 (淡いマシングリーン) — index 23
   '#7a9486',
   // IKEA STOENSE のライトオリーブグリーン — index 24
-  '#a4a67c'
+  '#a4a67c',
+  // 工業炉の筐体 (ライトグレー) — index 25
+  '#cfd3d0'
 ];
 
 function roundedBoxGeom(w, h, d, radius = 0.03, seg = 3) {
@@ -4329,214 +4331,344 @@ function buildIndustrialRobotLg({ color='#e8e4dc', w=1.2, d=1.2, h=2.4 } = {}) {
   g.scale.set(w / 1.2, h / 2.4, d / 1.2);
   return g;
 }
-// 大型4柱油圧プレス (汎用): 右隣の制御盤 (幅0.76m) ・左側の圧力計パネル・上部の作業床と油圧ユニット (約0.96m) まで含めて
-// 外形 w×d×h に収まるよう、プレス本体は幅と高さを差し引いた寸法で組んでから左右位置を合わせる。
-function buildLargeHydraulicPress({ color='#c2c4be', w=3.2, d=2.6, h=5.5 } = {}) {
-  const SIDE_R = 0.78, SIDE_L = 0.07, TOP = 0.96;
-  const g = _largePressBody({ color, w: w - SIDE_R - SIDE_L, d, h: h - TOP });
-  g.children.forEach(c => { c.position.x -= (SIDE_R - SIDE_L) / 2; });
-  return g;
+// 黄黒の斜めストライプ (危険表示)。rep = 横方向の繰り返し数
+function _hazardMat(rep) {
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#f2c200'; c.fillRect(0, 0, 128, 32);
+  c.fillStyle = '#1a1a1a';
+  for (let x = -32; x < 160; x += 32) { c.beginPath(); c.moveTo(x, 32); c.lineTo(x + 16, 32); c.lineTo(x + 48, 0); c.lineTo(x + 32, 0); c.closePath(); c.fill(); }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.repeat.set(rep, 1); t.anisotropy = 4;
+  return new THREE.MeshStandardMaterial({ map: t, roughness: 0.6 });
 }
-function _largePressBody({ color, w, d, h }) {
+// 大型油圧プレス: Nantong Yijie Machinery Y32-315 (三梁四柱, 公称力3150kN)。公表外形 左右4200×前後4200×地上高5600mm,
+// 開口高さ1250・ストローク800mm。本体 (下梁・スライド・上梁を4本のクロム柱で結ぶ) を中央やや左奥に置き、
+// 右奥に油圧ユニット (タンク+モーターポンプ2組+バルブブロック, 上梁へ立ち上がる配管)、左奥に制御盤、右手前に操作盤、
+// 前方に金型交換用ムービングボルスタのランアウトレール、上梁の上に主シリンダ・プレフィルタンク・点検用手すり、
+// 左側面に昇降はしごを置いて公表外形に収める。作図は 4.2×4.2×5.6m で行い、w/d/h が異なるときは全体を拡縮する。
+function buildLargeHydraulicPress({ color='#c2b6a3', w=4.2, d=4.2, h=5.6 } = {}) {
   const g = new THREE.Group();
-  // 4-post hydraulic press (HP-3000 style): light grey cast frame, chrome tie rods,
-  // 3 hydraulic cylinders, hazard striped slider/bolster, top platform with yellow railing,
-  // HPU tanks on top, separate control cabinet beside.
-  const frame  = mat(color, 0.5, 0.12, { env: 0.3 });
-  const frameD = mat(shade(color, 0.88), 0.5, 0.12);
-  const chrome = mat('#c8d0d8', 0.12, 0.92, { env: 1.2 });
-  const steel  = mat('#8a9aaa', 0.3, 0.65, { env: 0.8 });
-  const dark   = mat('#22262a', 0.6, 0.2);
+  const frame  = mat(color, 0.5, 0.15, { env: 0.35 });                 // 本体・油圧タンクの塗装 (色変更対象)
+  const frameD = mat(shade(color, 0.82), 0.55, 0.15);                  // リブ・支柱
+  const chrome = mat('#d4dae0', 0.1, 0.95, { env: 1.3 });              // 柱・ラム
+  const steel  = mat('#8d969e', 0.35, 0.7, { env: 0.8 });              // ボルスタ・レール
+  const dieM   = mat('#5d666e', 0.4, 0.65, { env: 0.7 });              // 金型
+  const dark   = mat('#23272b', 0.6, 0.3);
   const yellow = mat('#f2c200', 0.5, 0.1);
+  const cabM   = mat('#d9dbd7', 0.5, 0.1);                             // 制御盤・操作盤 (ライトグレー)
+  const pipeM  = mat('#737d86', 0.35, 0.7, { env: 0.7 });
+  const motorM = mat('#44607a', 0.45, 0.35);
 
-  const colW = 0.38, colD = 0.38;
-  const boltY = h * 0.14;
-  const sliderY = h * 0.48;
-  const crossH = 0.55, topY = h - crossH / 2;
+  // ---- 本体の基準寸法 ----
+  const FX = -0.25, FZ = -0.35;                 // 本体 (柱4本) の中心
+  const BW = 2.3, BD = 1.7;                     // 下梁・上梁の平面寸法
+  const BED = 0.95, TT = 1.05;                  // 下梁上面・ボルスタ上面
+  const SB = TT + 1.25, ST = SB + 0.55;         // スライド下面 (上死点: 開口高さ1250) ・上面
+  const CB = 3.05, CT = 4.25;                   // 上梁の下面・上面
+  const CX = [FX - 0.85, FX + 0.85], CZ = [FZ - 0.55, FZ + 0.55], CR = 0.12;   // 柱 φ240
+  const FF = FZ + BD / 2;                       // 下梁・上梁の前面 z
 
-  // ==== BASE BED ====
-  g.add(box(w, 0.72, d, frame, 0, 0.36, 0));
-  for (let tx = -w/2+0.28; tx < w/2-0.18; tx += 0.26) g.add(box(0.04, 0.04, d-0.42, dark, tx, 0.75, 0));
-  g.add(box(w-0.46, 0.20, d-0.46, steel, 0, boltY, 0));
-  for (let tx = -w/2+0.38; tx < w/2-0.28; tx += 0.28) g.add(box(0.04, 0.06, d-0.6, dark, tx, boltY+0.13, 0));
+  // ==== 下梁 (ベッド) ====
+  g.add(plainBox(BW - 0.04, 0.08, BD - 0.04, dark, FX, 0.04, FZ));                   // 据付けベース (床下のピットへ続く)
+  g.add(box(BW, BED - 0.08, BD, frame, FX, 0.08 + (BED - 0.08) / 2, FZ));
+  [-0.95, 0.95].forEach(dx => g.add(box(0.14, 0.66, 0.04, frameD, FX + dx, 0.12 + 0.33, FF + 0.01)));   // 前面リブ
+  g.add(plainBox(BW - 0.1, 0.08, 0.004, _hazardMat(9), FX, BED - 0.07, FF + 0.002));   // 前縁の危険表示
 
-  // hazard canvas stripe
-  const hzCv = document.createElement('canvas'); hzCv.width = 256; hzCv.height = 32;
-  const hzC = hzCv.getContext('2d');
-  for (let xi = 0; xi < 16; xi++) { hzC.fillStyle = xi%2===0 ? '#f2c200' : '#1a1a1a'; hzC.fillRect(xi*16, 0, 16, 32); }
-  const hzTex = new THREE.CanvasTexture(hzCv); hzTex.repeat.set(6, 1); hzTex.wrapS = THREE.RepeatWrapping; hzTex.anisotropy = 4;
-  const hzMat = new THREE.MeshStandardMaterial({ map: hzTex, roughness: 0.6 });
-  [d/2-0.01, -(d/2-0.01)].forEach(fz => g.add(plainBox(w-0.52, 0.06, 0.01, hzMat, 0, boltY+0.22, fz)));
+  // ==== ボルスタ (1300×1200, T溝) — 前方のランアウトレールへ引き出せるムービングボルスタ ====
+  g.add(plainBox(1.3, TT - BED, 1.2, steel, FX, (BED + TT) / 2, FZ));
+  [-0.4, 0, 0.4].forEach(dz => g.add(plainBox(1.3, 0.004, 0.036, dark, FX, TT + 0.002, FZ + dz)));
 
-  // gusset ribs on base bed front/rear
-  [-d/2+0.025, d/2-0.025].forEach(fz =>
-    [-w/2+0.62, 0, w/2-0.62].forEach(bx => g.add(box(0.26, 0.58, 0.04, frameD, bx, 0.30, fz))));
+  // ==== ランアウトレール (下梁前面 → 前端): 上面 = 下梁上面 ====
+  const RZ0 = FF, RZ1 = 2.08;
+  [-0.5, 0.5].forEach(dx => {
+    const rx = FX + dx;
+    g.add(plainBox(0.1, 0.1, RZ1 - RZ0, steel, rx, BED - 0.05, (RZ0 + RZ1) / 2));
+    [RZ0 + 0.55, RZ1 - 0.12].forEach(lz => g.add(plainBox(0.12, BED - 0.1, 0.12, frameD, rx, (BED - 0.1) / 2, lz)));
+    g.add(box(0.16, 0.16, 0.08, yellow, rx, BED + 0.08, RZ1 - 0.04));                 // 端末ストッパ
+  });
+  g.add(plainBox(0.9, 0.08, 0.08, frameD, FX, 0.3, RZ1 - 0.12));                      // 支柱のつなぎ
+  g.add(plainBox(0.9, 0.08, 0.08, frameD, FX, 0.3, RZ0 + 0.55));
 
-  // ==== FOUR CORNER COLUMNS ====
-  const colXs = [-w/2+colW/2, w/2-colW/2];
-  const colZs = [-d/2+colD/2, d/2-colD/2];
-  colXs.forEach(cx => colZs.forEach(cz => {
-    const col = box(colW, h, colD, frame, cx, h/2, cz); col.userData.colorable = true; g.add(col);
-    g.add(box(0.07, h*0.78, 0.055, frameD, cx + Math.sign(cx) * (-colW/2 + 0.025), h/2, cz));
-    g.add(box(0.055, h*0.78, 0.07, frameD, cx, h/2, cz + Math.sign(cz) * (-colD/2 + 0.025)));
+  // ==== 4本の柱 (クロム) + 上下のロックナット ====
+  CX.forEach(x => CZ.forEach(z => {
+    g.add(cylAt(CR, CR, CT + 0.19 - BED, 20, chrome, x, (BED + CT + 0.19) / 2, z));
+    [BED + 0.08, CB - 0.08, CT + 0.08].forEach(y => g.add(cylAt(0.2, 0.2, 0.16, 6, dark, x, y, z)));
+    g.add(cylAt(0.09, 0.12, 0.06, 16, chrome, x, CT + 0.19, z));                      // 柱頭
   }));
 
-  // ==== NAMEPLATE ====
+  // ==== 金型 (鍛造型: 下型をボルスタ、上型をスライドに青いクランプで固定) ====
+  const clampM = mat('#2f5fa8', 0.45, 0.3);
+  g.add(box(0.9, 0.26, 0.75, dieM, FX, TT + 0.13, FZ));
+  g.add(box(0.9, 0.26, 0.75, dieM, FX, SB - 0.13, FZ));
+  g.add(plainBox(0.44, 0.012, 0.3, dark, FX, TT + 0.262, FZ));                       // 下型の彫り込み
+  [-1, 1].forEach(s => [TT + 0.2, SB - 0.2].forEach(cy => g.add(box(0.12, 0.08, 0.2, clampM, FX + s * 0.52, cy, FZ))));
+
+  // ==== スライド (上死点) + 柱ガイドのボス + 金型取付面 ====
+  g.add(plainBox(1.3, 0.05, 1.2, steel, FX, SB + 0.025, FZ));
+  g.add(box(2.1, ST - SB - 0.05, 1.5, frame, FX, (SB + 0.05 + ST) / 2, FZ));
+  CX.forEach(x => CZ.forEach(z => g.add(cylAt(0.2, 0.2, ST - SB + 0.06, 20, frameD, x, (SB + ST) / 2 + 0.005, z))));
+  g.add(plainBox(1.62, 0.1, 0.004, _hazardMat(7), FX, SB + 0.12, FZ + 0.752));
+
+  // ==== 主ラム (φ440) ・シリンダ下部のグランド ====
+  g.add(cylAt(0.22, 0.22, CB - ST + 0.02, 24, chrome, FX, (ST + CB) / 2, FZ));
+  g.add(cylAt(0.3, 0.3, 0.06, 24, dark, FX, CB - 0.03, FZ));
+
+  // ==== 上梁 (クラウン) + 銘板 + 圧力計 ====
+  g.add(box(BW, CT - CB, BD, frame, FX, (CB + CT) / 2, FZ));
+  [-0.95, 0.95].forEach(dx => g.add(box(0.12, CT - CB - 0.2, 0.04, frameD, FX + dx, (CB + CT) / 2, FF + 0.01)));
   const npCv = document.createElement('canvas'); npCv.width = 512; npCv.height = 192;
   const np = npCv.getContext('2d');
-  np.fillStyle = '#23262a'; np.fillRect(0, 0, 512, 192);
-  np.fillStyle = '#dde0dc'; np.font = 'bold 88px Arial'; np.fillText('HP-3000', 24, 96);
-  np.fillStyle = '#a0a4a0'; np.font = '30px Arial'; np.fillText('HYDRAULIC PRESS', 24, 140);
+  np.fillStyle = '#e9ecef'; np.fillRect(0, 0, 512, 192);
+  np.fillStyle = '#1f3f7a'; np.fillRect(0, 0, 512, 14); np.fillRect(0, 178, 512, 14);
+  np.fillStyle = '#1b1f24'; np.font = 'bold 96px Arial'; np.fillText('Y32-315', 24, 112);
+  np.font = 'bold 30px Arial'; np.fillText('HYDRAULIC PRESS   3150 kN', 26, 158);
   const npTex = new THREE.CanvasTexture(npCv); npTex.anisotropy = 4;
-  const npPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.42), new THREE.MeshBasicMaterial({ map: npTex }));
-  npPlane.position.set(0, h * 0.65, d/2 + 0.01); g.add(npPlane);
+  const npPl = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.41), new THREE.MeshStandardMaterial({ map: npTex, roughness: 0.5, metalness: 0.2 }));
+  npPl.position.set(FX, (CB + CT) / 2 + 0.12, FF + 0.012); g.add(npPl);
+  const gx = FX + 0.72, gy = CB + 0.32;
+  g.add(cylAt(0.1, 0.1, 0.03, 24, dark, gx, gy, FF + 0.015).rotateX(Math.PI / 2));
+  g.add(cylAt(0.085, 0.085, 0.005, 24, mat('#f4f4f0', 0.3), gx, gy, FF + 0.032).rotateX(Math.PI / 2));
+  const ndl = plainBox(0.006, 0.07, 0.003, mat('#c0392b', 0.4), gx + 0.012, gy + 0.03, FF + 0.036); ndl.rotation.z = -0.5; g.add(ndl);
 
-  // ==== TOP CROSSHEAD ====
-  g.add(box(w, crossH, d, frame, 0, topY, 0));
-  g.add(box(w-0.86, crossH*0.6, 0.035, frameD, 0, topY, d/2 - 0.018));
+  // ==== 主シリンダ上部 + プレフィル弁 + プレフィルタンク (エアブリーザの上端 = 5.6m) ====
+  g.add(cylAt(0.42, 0.42, 0.08, 28, frameD, FX, CT + 0.04, FZ));                      // 取付フランジ
+  g.add(cylAt(0.31, 0.31, 0.55, 28, dark, FX, CT + 0.08 + 0.275, FZ));                // シリンダ
+  g.add(cylAt(0.35, 0.35, 0.07, 28, frameD, FX, CT + 0.66, FZ));                      // ヘッドカバー
+  g.add(cylAt(0.14, 0.16, 0.2, 18, steel, FX, CT + 0.79, FZ));                        // プレフィル弁
+  const TB = 5.05, TH = 0.5, TZ = FZ - 0.1;                                           // タンク下面・高さ・中心z
+  g.add(box(1.4, TH, 0.85, frame, FX, TB + TH / 2, TZ));
+  [[-0.62, -0.32], [0.62, -0.32], [-0.62, 0.32], [0.62, 0.32]].forEach(([dx, dz]) =>
+    g.add(plainBox(0.07, TB - CT, 0.07, frameD, FX + dx, (CT + TB) / 2, TZ + dz)));
+  g.add(plainBox(0.035, 0.3, 0.02, mat('#6a5510', 0.2, 0.1), FX + 0.45, TB + 0.25, TZ + 0.43));   // 油面計
+  g.add(cylAt(0.06, 0.06, 0.05, 14, dark, FX - 0.45, TB + TH + 0.025, TZ - 0.15));   // エアブリーザ
 
-  // ==== 4 CHROME TIE RODS ====
-  const rodR = 0.07, rodH = h * 0.72, rodY = boltY + rodH / 2 + 0.18;
-  colXs.forEach(cx => colZs.forEach(cz => {
-    g.add(cylAt(rodR, rodR, rodH, 16, chrome, cx * 0.55, rodY, cz * 0.55));
-    [boltY+0.25, boltY+0.33].forEach(sy => g.add(cylAt(rodR+0.022, rodR+0.022, 0.028, 14, dark, cx*0.55, sy, cz*0.55)));
-  }));
+  // ==== 上梁上の点検用手すり (黄) — 左側 (はしご側) は中央を開ける ====
+  const hx = BW / 2 - 0.05, hz = BD / 2 - 0.05, RH = 1.05;
+  [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]].forEach(([dx, dz]) => g.add(cylAt(0.024, 0.024, RH, 8, yellow, FX + dx, CT + RH / 2, FZ + dz)));
+  [0.5, RH].forEach(ry => {
+    g.add(cylAt(0.02, 0.02, 2 * hx, 8, yellow, FX, CT + ry, FZ - hz).rotateZ(Math.PI / 2));
+    g.add(cylAt(0.02, 0.02, 2 * hx, 8, yellow, FX, CT + ry, FZ + hz).rotateZ(Math.PI / 2));
+    g.add(cylAt(0.02, 0.02, 2 * hz, 8, yellow, FX + hx, CT + ry, FZ).rotateX(Math.PI / 2));
+    [-1, 1].forEach(s => g.add(cylAt(0.02, 0.02, hz - 0.25, 8, yellow, FX - hx, CT + ry, FZ + s * (0.25 + (hz - 0.25) / 2)).rotateX(Math.PI / 2)));
+  });
+  g.add(plainBox(2 * hx, 0.1, 0.012, yellow, FX, CT + 0.05, FZ + hz));                // 幅木 (手前)
 
-  // ==== 3 HYDRAULIC CYLINDERS (black barrels + chrome piston rods) ====
-  const cylBase = topY - crossH / 2;
-  [[0, 0, 0.20, 0.72], [-0.65, 0, 0.14, 0.52], [0.65, 0, 0.14, 0.52]].forEach(([cx, cz, cR, cH]) => {
-    g.add(cylAt(cR, cR, cH, 20, dark, cx, cylBase - cH/2, cz));
-    g.add(cylAt(cR+0.04, cR+0.04, 0.08, 18, frame, cx, cylBase - 0.04, cz));
-    g.add(cylAt(cR*0.65, cR*0.65, cH*1.1, 14, chrome, cx, cylBase - cH - cH*0.55 + 0.06, cz));
+  // ==== 昇降はしご (左側面: 床 → 上梁上面 +1.0m) ====
+  const LX = FX - BW / 2 - 0.13, LT = CT + 1.0;
+  [-0.21, 0.21].forEach(dz => g.add(plainBox(0.05, LT, 0.06, yellow, LX, LT / 2, FZ + dz)));
+  for (let ry = 0.3; ry < CT; ry += 0.3) g.add(cylAt(0.016, 0.016, 0.42, 6, pipeM, LX, ry, FZ).rotateX(Math.PI / 2));
+  [0.55, CB + 0.3, CT - 0.3].forEach(by => [-0.21, 0.21].forEach(dz => g.add(plainBox(0.12, 0.04, 0.04, frameD, LX + 0.075, by, FZ + dz))));
+
+  // ==== 光線式安全装置 (前側の柱に取り付けた投光器・受光器) ====
+  const lcz = CZ[1] + 0.24, lcy0 = TT + 0.08, lcy1 = SB - 0.05;
+  [[CX[0] + 0.14, 1], [CX[1] - 0.14, -1]].forEach(([x, s]) => {
+    g.add(plainBox(0.045, lcy1 - lcy0, 0.045, yellow, x, (lcy0 + lcy1) / 2, lcz));
+    g.add(plainBox(0.004, lcy1 - lcy0 - 0.08, 0.026, dark, x + s * 0.024, (lcy0 + lcy1) / 2, lcz));
+    [lcy0 + 0.12, lcy1 - 0.12].forEach(by => g.add(plainBox(0.05, 0.04, 0.22, dark, x - s * 0.03, by, lcz - 0.12)));
   });
 
-  // ==== SLIDER / RAM HEAD ====
-  g.add(box(w-0.48, 0.22, d-0.5, steel, 0, sliderY, 0));
-  [d/2-0.25, -(d/2-0.25)].forEach(fz => g.add(plainBox(w-0.54, 0.06, 0.01, hzMat, 0, sliderY+0.13, fz)));
-  colXs.forEach(cx => colZs.forEach(cz => g.add(cylAt(rodR+0.016, rodR+0.016, 0.24, 14, frameD, cx*0.55, sliderY, cz*0.55))));
-
-  // ==== HYDRAULIC HOSES ====
-  const hoseMat = mat('#141618', 0.8, 0.1);
-  [[0.3,1.0,0.1],[-0.3,0.95,-0.05],[0.0,0.85,0.12],[0.55,0.78,-0.08],[-0.55,0.72,0.06]].forEach(([hr,hl,ha]) => {
-    const ho = cyl(0.038, 0.038, hl, 8, hoseMat); ho.rotation.z = 0.4 + ha; ho.position.set(hr, topY - 0.28, 0.18); g.add(ho);
+  // ==== 制御盤 (左奥・扉は左 (-X) 向き) + 信号灯 ====
+  const KX0 = -2.075, KX1 = -1.55, KZ0 = -2.1, KZ1 = -0.95, KH = 2.0;
+  const kx = (KX0 + KX1) / 2, kz = (KZ0 + KZ1) / 2, kw = KZ1 - KZ0;
+  g.add(plainBox(KX1 - KX0 - 0.02, 0.1, kw - 0.02, dark, kx, 0.05, kz));             // 台座
+  g.add(box(KX1 - KX0, KH, kw, cabM, kx, 0.1 + KH / 2, kz));
+  g.add(plainBox(0.006, KH - 0.1, 0.012, dark, KX0 - 0.002, 0.1 + KH / 2, kz));      // 扉の合わせ目
+  [-1, 1].forEach(s => {
+    g.add(plainBox(0.02, 0.2, 0.03, dark, KX0 - 0.004, 1.15, kz + s * 0.08));         // ハンドル
+    for (let i = 0; i < 5; i++) g.add(plainBox(0.004, 0.012, 0.3, dark, KX0 - 0.002, 0.3 + i * 0.04, kz + s * 0.28));   // ルーバー
+  });
+  g.add(plainBox(0.01, 0.13, 0.13, yellow, KX0 - 0.002, 1.62, kz - 0.28));           // 主電源ハンドルの台座
+  g.add(plainBox(0.02, 0.025, 0.1, mat('#c0392b', 0.4), KX0 - 0.012, 1.62, kz - 0.28));
+  const lx = kx, lz = kz + 0.3;                                                       // 信号灯
+  g.add(cylAt(0.018, 0.018, 0.2, 10, chrome, lx, 0.1 + KH + 0.1, lz));
+  let sy = 0.1 + KH + 0.24;
+  [['#ef4444', 0.9], ['#f5b800', 0.85], ['#22c55e', 0.85]].forEach(([c, e]) => {
+    g.add(cylAt(0.04, 0.04, 0.08, 14, mat(c, 0.3, 0.1, { emissive: c, emissiveIntensity: e }), lx, sy, lz)); sy += 0.09;
   });
 
-  // ==== TOP PLATFORM ====
-  g.add(box(w, 0.06, d, mat(shade(color, 0.82), 0.6, 0.3), 0, h + 0.03, 0));
-  const railY = h + 0.06;
-  // corner posts
-  [[-w/2+0.14,-d/2+0.14],[w/2-0.14,-d/2+0.14],[-w/2+0.14,d/2-0.14],[w/2-0.14,d/2-0.14]].forEach(([rx,rz]) => {
-    g.add(cylAt(0.032, 0.032, 0.9, 8, yellow, rx, railY + 0.45, rz));
+  // ==== 油圧ユニット (右奥): タンク + モーターポンプ2組 + バルブブロック + 圧力計 ====
+  const UX0 = 1.1, UX1 = 2.1, UZ0 = -2.1, UZ1 = -0.4, UH = 0.8;
+  const ux = (UX0 + UX1) / 2, uz = (UZ0 + UZ1) / 2, UT = 0.1 + UH;
+  [UZ0 + 0.15, UZ1 - 0.15].forEach(z => g.add(plainBox(UX1 - UX0, 0.1, 0.12, dark, ux, 0.05, z)));   // スキッド
+  g.add(box(UX1 - UX0, UH, UZ1 - UZ0, frame, ux, 0.1 + UH / 2, uz));
+  g.add(plainBox(0.04, 0.34, 0.012, mat('#6a5510', 0.2, 0.1), UX1 - 0.18, 0.55, UZ1 + 0.006));   // 油面計
+  [UX0 + 0.27, UX1 - 0.27].forEach(mx => {
+    g.add(plainBox(0.3, 0.08, 0.84, frameD, mx, UT + 0.04, UZ0 + 0.58));
+    g.add(cylAt(0.16, 0.16, 0.5, 20, motorM, mx, UT + 0.25, UZ0 + 0.42).rotateX(Math.PI / 2));   // モーター
+    g.add(cylAt(0.15, 0.15, 0.04, 20, dark, mx, UT + 0.25, UZ0 + 0.15).rotateX(Math.PI / 2));    // ファンカバー
+    g.add(box(0.14, 0.1, 0.14, motorM, mx, UT + 0.44, UZ0 + 0.42));                             // 端子箱
+    g.add(cylAt(0.12, 0.12, 0.16, 16, frameD, mx, UT + 0.25, UZ0 + 0.75).rotateX(Math.PI / 2));  // ベルハウジング
+    g.add(cylAt(0.09, 0.09, 0.16, 14, steel, mx, UT + 0.25, UZ0 + 0.91).rotateX(Math.PI / 2));   // ポンプ
+    g.add(cylAt(0.03, 0.03, 0.4, 8, pipeM, mx, UT + 0.12, UZ0 + 1.18).rotateX(Math.PI / 2));     // 吐出配管
   });
-  // horizontal rails
-  [0.3, 0.7].forEach(rh => {
-    g.add(box(w-0.28, 0.028, 0.028, yellow, 0, railY + rh, -d/2+0.14));
-    g.add(box(w-0.28, 0.028, 0.028, yellow, 0, railY + rh,  d/2-0.14));
-    g.add(box(0.028, 0.028, d-0.28, yellow, -w/2+0.14, railY + rh, 0));
-    g.add(box(0.028, 0.028, d-0.28, yellow,  w/2-0.14, railY + rh, 0));
+  g.add(box(0.6, 0.35, 0.28, steel, ux, UT + 0.175, UZ1 - 0.2));                      // バルブブロック
+  for (let i = 0; i < 4; i++) g.add(plainBox(0.07, 0.07, 0.1, dark, ux - 0.21 + i * 0.14, UT + 0.2, UZ1 - 0.02));   // 電磁弁コイル
+  [ux + 0.05, ux + 0.22].forEach(px => {                                               // 圧力計
+    g.add(cylAt(0.018, 0.018, 0.1, 8, steel, px, UT + 0.4, UZ1 - 0.2));
+    g.add(cylAt(0.065, 0.065, 0.025, 20, dark, px, UT + 0.5, UZ1 - 0.2).rotateX(Math.PI / 2));
+    g.add(cylAt(0.055, 0.055, 0.004, 20, mat('#f4f4f0', 0.3), px, UT + 0.5, UZ1 - 0.186).rotateX(Math.PI / 2));
   });
-  // HPU tanks
-  [-0.62, 0.62].forEach(tx => {
-    g.add(cylAt(0.3, 0.3, 0.82, 20, steel, tx, h + 0.47, -0.18));
-    g.add(cylAt(0.28, 0.28, 0.06, 16, frameD, tx, h + 0.9, -0.18));
-    g.add(cylAt(0.04, 0.04, 0.2, 10, dark, tx + 0.26, h + 0.55, -0.18).rotateZ(Math.PI/2));
-    g.add(cylAt(0.03, 0.03, 0.14, 8, dark, tx, h + 0.9, 0.1).rotateX(Math.PI/2));
+  // 上梁への配管 (バルブブロック上面 → 右側を立ち上がり → 上梁の右側面) + 支柱と配管クランプ
+  const RX = FX + BW / 2, PZ = UZ1 - 0.2;
+  [[1.34, 3.55], [1.44, 3.75], [1.54, 3.95]].forEach(([px, py]) => {
+    g.add(cylAt(0.032, 0.032, py - (UT + 0.35), 10, pipeM, px, (UT + 0.35 + py) / 2, PZ));
+    const el = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), pipeM); el.position.set(px, py, PZ); g.add(el);
+    g.add(cylAt(0.032, 0.032, px - RX, 10, pipeM, (px + RX) / 2, py, PZ).rotateZ(Math.PI / 2));
+    g.add(cylAt(0.055, 0.055, 0.03, 12, dark, RX + 0.015, py, PZ).rotateZ(Math.PI / 2));   // フランジ
   });
-  g.add(box(0.38, 0.32, 0.32, dark, 0, h + 0.22, 0.52));
-  g.add(cylAt(0.1, 0.1, 0.26, 14, mat('#3a3f45', 0.5), 0, h + 0.24, 0.52).rotateX(Math.PI/2));
+  g.add(plainBox(0.05, 3.1, 0.05, frameD, 1.44, UT + 1.55, PZ - 0.08));                 // 配管の支柱
+  [1.7, 2.6, 3.35].forEach(cy => g.add(plainBox(0.3, 0.035, 0.12, dark, 1.44, cy, PZ - 0.03)));   // 配管クランプ
 
-  // ==== CONTROL CABINET (right side) ====
-  const cabX = w/2 + 0.40, cabH = 2.4;                                 // 制御盤 (本体の右隣)
-  g.add(box(0.76, cabH, 0.6, frame, cabX, cabH/2, 0));
-  // screen
-  const sCv = document.createElement('canvas'); sCv.width = 240; sCv.height = 180;
-  const sc = sCv.getContext('2d');
-  sc.fillStyle = '#d0d4d0'; sc.fillRect(0, 0, 240, 180);
-  sc.fillStyle = '#1d3a60'; sc.fillRect(0, 0, 240, 24);
-  sc.fillStyle = '#fff'; sc.font = '14px Arial'; sc.fillText('HP-3000 CONTROL', 8, 18);
-  sc.fillStyle = '#2a6aaa';
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) sc.fillRect(8 + c*76, 32 + r*44, 68, 36);
-  sc.fillStyle = '#fff'; sc.font = 'bold 11px Arial';
-  ['CYCLE','SPEED','FORCE','POS','PRES','MODE','START','STOP','RESET'].forEach((t, i) =>
-    sc.fillText(t, 12 + (i%3)*76, 56 + Math.floor(i/3)*44));
-  const scTex = new THREE.CanvasTexture(sCv); scTex.anisotropy = 4;
-  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.38), new THREE.MeshBasicMaterial({ map: scTex }));
-  scr.position.set(cabX, cabH * 0.72, 0.31); g.add(scr);
-  g.add(box(0.54, 0.42, 0.02, mat('#0c1218', 0.4), cabX, cabH * 0.72, 0.305));
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++)
-    g.add(box(0.05, 0.04, 0.016, mat('#ccc', 0.6), cabX - 0.16 + c*0.11, cabH*0.52 - r*0.06, 0.31));
-  g.add(cylAt(0.044, 0.044, 0.03, 16, mat('#ef4444', 0.4, 0.1, { emissive: '#aa0000', emissiveIntensity: 0.5 }), cabX + 0.18, cabH*0.37, 0.32).rotateX(Math.PI/2));
-  ['#22c55e','#f59e0b'].forEach((c, i) => g.add(cylAt(0.028, 0.028, 0.025, 12, mat(c, 0.4), cabX - 0.06 + i*0.1, cabH*0.3, 0.32).rotateX(Math.PI/2)));
-  // HPU/pump cluster on cabinet top
-  g.add(box(0.62, 0.58, 0.52, frameD, cabX, cabH + 0.31, 0));
-  g.add(cylAt(0.1, 0.1, 0.28, 14, mat('#3a3f45', 0.5), cabX + 0.06, cabH + 0.42, 0.16).rotateX(Math.PI/2));
-  g.add(cylAt(0.1, 0.1, 0.14, 14, mat('#3a3f45', 0.5), cabX, cabH + 0.48, 0.06));
-  // signal tower
-  const lx = cabX + 0.34, lz = 0.04, lly = cabH + 0.1;
-  g.add(cylAt(0.018, 0.018, 0.22, 10, chrome, lx, lly, lz));
-  let sly2 = lly + 0.16;
-  [['#ef4444',0.9],['#f5b800',0.85],['#22c55e',0.85]].forEach(([c, e]) => {
-    g.add(cylAt(0.04, 0.04, 0.09, 14, mat(c, 0.3, 0.1, { emissive: c, emissiveIntensity: e }), lx, sly2, lz));
-    sly2 += 0.1;
+  // ==== 操作盤 (右手前: タッチパネル・両手押しボタン・非常停止) ====
+  const OX = 1.45, OZ = 0.95;
+  g.add(plainBox(0.36, 0.06, 0.3, dark, OX, 0.03, OZ));
+  g.add(box(0.1, 0.9, 0.1, cabM, OX, 0.51, OZ));
+  const op = new THREE.Group(); op.position.set(OX, 1.12, OZ); op.rotation.x = -0.45;
+  op.add(box(0.62, 0.34, 0.2, cabM, 0, 0, 0));
+  const hCv = document.createElement('canvas'); hCv.width = 256; hCv.height = 176;
+  const hc = hCv.getContext('2d');
+  hc.fillStyle = '#0e2238'; hc.fillRect(0, 0, 256, 176);
+  hc.fillStyle = '#e8f0f8'; hc.font = 'bold 18px Arial'; hc.fillText('Y32-315   AUTO', 10, 26);
+  hc.fillStyle = '#5ad1ff'; hc.font = 'bold 36px Arial'; hc.fillText('2450 kN', 10, 74);
+  hc.fillStyle = '#9fb3c8'; hc.font = '17px Arial'; hc.fillText('POS   412.5 mm', 10, 106); hc.fillText('PRES  19.4 MPa', 10, 130);
+  hc.fillStyle = '#3fbf5f'; hc.fillRect(10, 144, 72, 24); hc.fillStyle = '#c0392b'; hc.fillRect(92, 144, 72, 24);
+  const hTex = new THREE.CanvasTexture(hCv); hTex.anisotropy = 4;
+  const hmi = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.165), new THREE.MeshBasicMaterial({ map: hTex }));
+  hmi.position.set(0, 0.04, 0.101); op.add(hmi);
+  op.add(plainBox(0.27, 0.19, 0.004, dark, 0, 0.04, 0.099));
+  [-0.23, 0.23].forEach(bx => {                                                        // 両手押しボタン (緑)
+    op.add(cylAt(0.045, 0.045, 0.02, 16, dark, bx, -0.06, 0.105).rotateX(Math.PI / 2));
+    op.add(cylAt(0.036, 0.036, 0.03, 16, mat('#1f9d4a', 0.35, 0.1), bx, -0.06, 0.12).rotateX(Math.PI / 2));
   });
-
-  // ==== LEFT-SIDE OPERATOR PANEL (gauges) ====
-  g.add(box(0.06, 0.82, 0.56, frameD, -w/2 - 0.04, 2.1, 0));
-  [0, 1, 2].forEach(i => {
-    const pg = cyl(0.07, 0.07, 0.025, 16, mat('#ddd', 0.2, 0.1));
-    pg.rotation.x = Math.PI/2; pg.position.set(-w/2 - 0.04, 2.42 - i*0.26, 0.26); g.add(pg);
-    g.add(cylAt(0.04, 0.04, 0.02, 12, dark, -w/2 - 0.04, 2.42 - i*0.26, 0.274).rotateX(Math.PI/2));
-  });
+  op.add(plainBox(0.1, 0.1, 0.01, yellow, 0.23, 0.09, 0.104));                         // 非常停止 (黄台座+赤キノコ)
+  op.add(cylAt(0.035, 0.03, 0.04, 16, mat('#d0211c', 0.35, 0.1), 0.23, 0.09, 0.125).rotateX(Math.PI / 2));
+  g.add(op);
 
   g.traverse(o => { if (o.isMesh && o.material === frame) o.userData.colorable = true; });
+  g.scale.set(w / 4.2, h / 5.6, d / 4.2);
   return g;
 }
-// 工業炉 (汎用の箱型熱処理炉): 黒い炉体 + 前面の開口 (耐火れんが・赤熱) + 左ヒンジの炉扉 (クリックで開閉, 初期は開),
-// 上部の排気ダクトと煙突, 右側面の温度調節パネル, 左側面の冷却水配管。扉を閉じた状態で外形 w×d×h に収める。
-function buildIndustrialFurnace({ color='#2a2a2a', w=2.0, d=1.5, h=2.2 } = {}) {
+// 工業炉: Nabertherm NA 500/65 (電気加熱の強制対流式チャンバー炉, 最高650℃, 炉内 幅750×奥行1000×高さ750mm = 500L)。
+// 公表外形 幅1290×奥行1890×高さ1825mm。スイッチギアを収めた架台 (ルーバー・主電源スイッチ) の上に炉体、
+// 前面に右ヒンジの断熱扉 (クリックで開閉, 初期は閉) と右側の操作部 (コントローラ B500・ランプ・キースイッチ)、
+// 背面に循環ファンのモーターカバーと端子箱、上面に排気口・給気フラップ・熱電対。扉を開けると
+// ステンレスの内張り・左右の整流板・棚板2段と予熱中のアルミビレットが見える。作図は外形寸法で行い、w/d/h に合わせて拡縮する。
+function buildIndustrialFurnace({ color='#cfd3d0', w=1.29, d=1.89, h=1.825 } = {}) {
   const g = new THREE.Group();
-  const shell = mat(color, 0.55, 0.15);
-  const insul = mat('#c86820', 0.9, 0.0);  // refractory brick orange-red
-  const steel = mat('#8a9aa8', 0.3, 0.6);
-  const glow  = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: new THREE.Color(0xff4400), emissiveIntensity: 0.8, roughness: 0.9 });
-  const dark  = mat('#111316', 0.8, 0.1);
-  const sw = w - 0.12, sd = d - 0.1, sz = -0.05, fz = sz + sd / 2, bodyH = h - 0.5;   // 炉体 (側面の配管・パネル, 前面の扉ぶんを差し引く)
-  const outer = box(sw, bodyH, sd, shell, 0, bodyH / 2, sz); outer.userData.colorable = true; g.add(outer);
-  // ---- 前面開口: 鋼製の枠 (4辺) + 耐火れんがの内張り (4辺) + 赤熱した炉内 ----
-  const openW = sw * 0.62, openH = bodyH * 0.55, openY = bodyH * 0.45, fo = 0.05, li = 0.06;
-  [[openW + 2 * fo, fo, 0, openH / 2 + fo / 2], [openW + 2 * fo, fo, 0, -openH / 2 - fo / 2], [fo, openH, -openW / 2 - fo / 2, 0], [fo, openH, openW / 2 + fo / 2, 0]]
-    .forEach(([bw, bh, x, y]) => g.add(box(bw, bh, 0.05, dark, x, openY + y, fz + 0.01)));
-  [[openW, li, 0, openH / 2 - li / 2], [openW, li, 0, -openH / 2 + li / 2], [li, openH - 2 * li, -openW / 2 + li / 2, 0], [li, openH - 2 * li, openW / 2 - li / 2, 0]]
-    .forEach(([bw, bh, x, y]) => g.add(plainBox(bw, bh, 0.02, insul, x, openY + y, fz + 0.012)));
-  g.add(plainBox(openW - 2 * li, openH - 2 * li, 0.01, glow, 0, openY, fz + 0.006));
-  g.add(plainBox(openW - 2 * li, 0.03, 0.02, mat('#ffb040', 0.6), 0, openY - openH / 2 + li + 0.02, fz + 0.012));   // 炉床で熱せられた材料
-  // ---- 炉扉 (左ヒンジ, 外開き) ----
-  const doorGroup = new THREE.Group();
-  doorGroup.position.set(-openW / 2 - 0.05, openY, fz + 0.04);
-  doorGroup.add(box(openW, openH + 0.08, 0.07, mat('#1a1a1a', 0.6, 0.2), openW / 2, 0, 0));
-  doorGroup.add(box(openW * 0.9, openH * 0.86, 0.035, insul, openW / 2, 0, -0.05));
-  doorGroup.add(box(0.04, 0.04, 0.03, steel, openW - 0.05, 0, 0.05));
-  doorGroup.rotation.y = -0.95;
-  g.add(doorGroup);
-  // ---- 排気ダクト + 煙突 (上端 = h) ----
-  g.add(box(0.3, 0.3, 0.22, dark, sw * 0.35, bodyH + 0.15, sz));
-  g.add(cylAt(0.1, 0.1, 0.2, 14, dark, sw * 0.35, bodyH + 0.4, sz));
-  g.add(cylAt(0.12, 0.12, 0.02, 14, steel, sw * 0.35, h - 0.01, sz));
-  // ---- 右側面: 熱電対ポート + 温度調節パネル (表示器・ランプ) ----
-  g.add(cylAt(0.016, 0.016, 0.06, 8, steel, sw / 2 + 0.03, bodyH * 0.72, sz + 0.23).rotateZ(Math.PI / 2));
-  g.add(box(0.05, 0.65, 0.36, dark, sw / 2 + 0.025, bodyH * 0.68, sz - 0.25));
-  g.add(plainBox(0.01, 0.28, 0.26, mat('#0d1520', 0.3), w / 2 - 0.005, bodyH * 0.74, sz - 0.25));
-  ['#ef4444', '#f59e0b', '#22c55e'].forEach((cl, i) => g.add(cylAt(0.015, 0.015, 0.012, 8, mat(cl, 0.2), w / 2 - 0.006, bodyH * 0.56 - i * 0.05, sz - 0.25).rotateZ(Math.PI / 2)));
-  // ---- 背面のガス/電源の取入口 ----
-  g.add(cylAt(0.02, 0.02, 0.05, 10, steel, 0.2, bodyH * 0.22, sz - sd / 2 - 0.02).rotateX(Math.PI / 2));
-  // ---- 左側面: 冷却水配管 (縦管 + 炉体へ入る曲がり) ----
-  [-0.3, 0.3].forEach(z => {
-    g.add(cylAt(0.025, 0.025, bodyH - 0.1, 12, steel, -sw / 2 - 0.03, (bodyH - 0.1) / 2, sz + z));
-    g.add(cylAt(0.025, 0.025, 0.1, 8, steel, -sw / 2 + 0.01, bodyH - 0.12, sz + z).rotateZ(Math.PI / 2));
+  const body  = mat(color, 0.5, 0.2, { env: 0.45 });              // 炉体・扉 (色変更対象)
+  const bodyD = mat(shade(color, 0.84), 0.55, 0.2);
+  const base  = mat('#3b4046', 0.55, 0.3);                        // 架台 (アンスラサイト)
+  const dark  = mat('#1c1f23', 0.6, 0.3);
+  const steel = mat('#a9b1b8', 0.3, 0.8, { env: 0.9 });
+  const hot   = { emissive: new THREE.Color(0xff6a10), emissiveIntensity: 0.07 };   // 加熱中のほのかな赤熱
+  const liner = new THREE.MeshStandardMaterial({ color: 0xb9bdc0, roughness: 0.45, metalness: 0.7, ...hot });   // 炉内 (ステンレス・加熱中)
+  const insul = mat('#e9dfc9', 0.95, 0);                          // 扉裏の断熱材 (セラミックファイバー)
+  const alu   = new THREE.MeshStandardMaterial({ color: 0xd2d5d9, roughness: 0.3, metalness: 0.85, emissive: new THREE.Color(0xff5a00), emissiveIntensity: 0.035 });
+
+  const H0 = 1.825, HW = 0.645, ZB = -0.62, ZF = 0.72;                        // 炉体: 半幅・背面 (モーターカバーの前) ・前面 (扉の後ろ)
+  const Y0 = 0.6, Y1 = 1.74;                                      // 架台上面・炉体上面
+  const OX0 = -0.505, OX1 = 0.245, OY0 = 0.82, OY1 = 1.57, OZB = ZF - 1.0;   // 炉室 (幅750×高さ750×奥行1000)
+  const cx = (OX0 + OX1) / 2, cy = (OY0 + OY1) / 2, CW = OX1 - OX0, CH = OY1 - OY0, CD = ZF - OZB, cz = (OZB + ZF) / 2;
+
+  // ---- 架台 (スイッチギア内蔵): アジャスタ・ルーバー・主電源スイッチ ----
+  const BZ0 = -0.6, BZ1 = 0.68;
+  g.add(box(2 * HW - 0.04, Y0 - 0.05, BZ1 - BZ0, base, 0, 0.05 + (Y0 - 0.05) / 2, (BZ0 + BZ1) / 2));
+  [[-HW + 0.08, BZ0 + 0.08], [HW - 0.08, BZ0 + 0.08], [-HW + 0.08, BZ1 - 0.08], [HW - 0.08, BZ1 - 0.08]].forEach(([x, z]) => g.add(cylAt(0.035, 0.04, 0.05, 10, dark, x, 0.025, z)));
+  for (let i = 0; i < 6; i++) g.add(plainBox(0.5, 0.014, 0.008, dark, -0.22, 0.2 + i * 0.05, BZ1 + 0.004));
+  g.add(plainBox(0.12, 0.12, 0.01, mat('#f2c200', 0.5, 0.1), 0.42, 0.42, BZ1 + 0.005));
+  g.add(plainBox(0.09, 0.024, 0.035, mat('#c0392b', 0.4), 0.42, 0.42, BZ1 + 0.02));
+
+  // ---- 炉体 (炉室の開口を囲む5ブロック) ----
+  [[-HW, HW, Y0, Y1, ZB, OZB], [-HW, OX0, Y0, Y1, OZB, ZF], [OX1, HW, Y0, Y1, OZB, ZF], [OX0, OX1, Y0, OY0, OZB, ZF], [OX0, OX1, OY1, Y1, OZB, ZF]]
+    .forEach(([x0, x1, y0, y1, z0, z1]) => g.add(plainBox(x1 - x0, y1 - y0, z1 - z0, body, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)));
+
+  // ---- 炉室: ステンレス内張り・左右の整流板 (スリット)・ファン吸込口・棚板2段・アルミビレット ----
+  g.add(plainBox(CW, CH, 0.01, liner, cx, cy, OZB + 0.005));
+  g.add(plainBox(CW, 0.01, CD, liner, cx, OY0 + 0.005, cz));
+  g.add(plainBox(CW, 0.01, CD, liner, cx, OY1 - 0.005, cz));
+  [OX0 + 0.005, OX1 - 0.005].forEach(x => g.add(plainBox(0.01, CH, CD, liner, x, cy, cz)));
+  const slCv = document.createElement('canvas'); slCv.width = 256; slCv.height = 128;
+  const sl = slCv.getContext('2d');
+  sl.fillStyle = '#b9bdc0'; sl.fillRect(0, 0, 256, 128);
+  sl.fillStyle = '#2a1a14';
+  for (let c = 0; c < 8; c++) for (let r = 0; r < 3; r++) sl.fillRect(14 + c * 30, 10 + r * 40, 8, 30);
+  const slTex = new THREE.CanvasTexture(slCv); slTex.anisotropy = 4;
+  const baffle = new THREE.MeshStandardMaterial({ color: 0xffffff, map: slTex, roughness: 0.45, metalness: 0.6, ...hot });
+  [OX0 + 0.04, OX1 - 0.04].forEach(x => g.add(plainBox(0.012, CH - 0.08, CD - 0.14, baffle, x, cy, cz - 0.03)));
+  g.add(cylAt(0.17, 0.17, 0.012, 28, dark, cx, cy, OZB + 0.016).rotateX(Math.PI / 2));
+  g.add(cylAt(0.12, 0.12, 0.014, 28, liner, cx, cy, OZB + 0.018).rotateX(Math.PI / 2));
+  [OY0 + 0.2, OY0 + 0.47].forEach(syy => {
+    g.add(plainBox(CW - 0.1, 0.012, CD - 0.16, steel, cx, syy, cz - 0.03));
+    for (let i = 0; i < 7; i++) g.add(plainBox(CW - 0.1, 0.008, 0.012, dark, cx, syy + 0.01, OZB + 0.12 + i * (CD - 0.3) / 6));
+    [OX0 + 0.06, OX1 - 0.06].forEach(x => g.add(plainBox(0.03, 0.02, CD - 0.16, steel, x, syy - 0.016, cz - 0.03)));
   });
-  // ---- 脚 ----
-  [[-sw / 2 + 0.12, fz - 0.1], [sw / 2 - 0.12, fz - 0.1], [-sw / 2 + 0.12, sz - sd / 2 + 0.1], [sw / 2 - 0.12, sz - sd / 2 + 0.1]].forEach(([x, z]) => g.add(box(0.1, 0.12, 0.1, dark, x, 0.06, z)));
-  g.userData.parts = { door: doorGroup };
+  for (let i = 0; i < 5; i++) g.add(cylAt(0.055, 0.055, 0.62, 18, alu, cx - 0.26 + i * 0.13, OY0 + 0.2 + 0.061, cz - 0.05).rotateX(Math.PI / 2));
+  [0, 1, 2].forEach(i => g.add(plainBox(0.5, 0.02, 0.62, alu, cx, OY0 + 0.47 + 0.017 + i * 0.021, cz - 0.05)));
+
+  // ---- 断熱扉 (右ヒンジ・外開き): 回転軸 = 扉前面の右端。取っ手の前端 = 外形の前端 ----
+  const DX0 = -0.62, DX1 = 0.36, DY0 = 0.66, DY1 = 1.70, DT = 0.195;
+  const dw = DX1 - DX0, dh = DY1 - DY0, dy = (DY0 + DY1) / 2;
+  const door = new THREE.Group(); door.position.set(DX1, dy, ZF + DT);
+  door.add(box(dw, dh, DT, body, -dw / 2, 0, -DT / 2));
+  door.add(plainBox(dw - 0.14, dh - 0.14, 0.006, bodyD, -dw / 2, 0, 0.002));
+  door.add(plainBox(CW - 0.02, CH - 0.02, 0.06, insul, cx - DX1, cy - dy, -DT - 0.03));   // 扉裏のプラグ (断熱材)
+  const gsk = mat('#f4f1ea', 0.9);                                                       // ガスケット
+  [[CW + 0.06, 0.03, 0, (CH + 0.03) / 2], [CW + 0.06, 0.03, 0, -(CH + 0.03) / 2], [0.03, CH, (CW + 0.03) / 2, 0], [0.03, CH, -(CW + 0.03) / 2, 0]]
+    .forEach(([bw, bh, ox, oy]) => door.add(plainBox(bw, bh, 0.02, gsk, cx - DX1 + ox, cy - dy + oy, -DT - 0.01)));
+  const hx = -dw + 0.07;                                                                  // 取っ手 (左端)
+  [-0.15, 0.15].forEach(oy => door.add(cylAt(0.01, 0.01, 0.016, 8, steel, hx, oy, 0.008).rotateX(Math.PI / 2)));
+  door.add(cylAt(0.014, 0.014, 0.36, 12, steel, hx, 0, 0.016));
+  door.add(plainBox(0.12, 0.03, 0.02, steel, hx + 0.08, 0.26, 0.01));                    // クイックロックのレバー
+  [-0.35, 0.35].forEach(oy => door.add(cylAt(0.022, 0.022, 0.14, 12, steel, 0, oy, 0)));  // ヒンジ
+  const mpCv = document.createElement('canvas'); mpCv.width = 256; mpCv.height = 64;
+  const mp = mpCv.getContext('2d');
+  mp.fillStyle = '#e4e7ea'; mp.fillRect(0, 0, 256, 64);
+  mp.fillStyle = '#1d3f73'; mp.font = 'bold 34px Arial'; mp.fillText('NA 500/65', 18, 44);
+  const mpTex = new THREE.CanvasTexture(mpCv); mpTex.anisotropy = 4;
+  const mpl = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.065), new THREE.MeshStandardMaterial({ map: mpTex, roughness: 0.4, metalness: 0.3 }));
+  mpl.position.set(-dw / 2, dh / 2 - 0.12, 0.007); door.add(mpl);
+  const wnCv = document.createElement('canvas'); wnCv.width = 128; wnCv.height = 128;
+  const wn = wnCv.getContext('2d');
+  wn.fillStyle = '#f2c200'; wn.beginPath(); wn.moveTo(64, 8); wn.lineTo(122, 116); wn.lineTo(6, 116); wn.closePath(); wn.fill();
+  wn.strokeStyle = '#111'; wn.lineWidth = 8; wn.stroke();
+  wn.fillStyle = '#111'; wn.font = 'bold 30px Arial'; wn.fillText('高温', 34, 98);
+  const wnTex = new THREE.CanvasTexture(wnCv); wnTex.anisotropy = 4;
+  const wnl = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.12), new THREE.MeshBasicMaterial({ map: wnTex, transparent: true }));
+  wnl.position.set(-dw + 0.2, dh / 2 - 0.14, 0.007); door.add(wnl);
+  g.add(door);
+
+  // ---- 操作部 (右): コントローラ B500 + ランプ + キースイッチ ----
+  const PX = (DX1 + HW) / 2 + 0.01;
+  g.add(plainBox(0.2, 0.3, 0.035, dark, PX, 1.4, ZF + 0.0175));
+  const cCv = document.createElement('canvas'); cCv.width = 192; cCv.height = 144;
+  const cc = cCv.getContext('2d');
+  cc.fillStyle = '#0b1622'; cc.fillRect(0, 0, 192, 144);
+  cc.fillStyle = '#e8eef5'; cc.font = 'bold 44px Arial'; cc.fillText('500°C', 14, 62);
+  cc.fillStyle = '#7fc4ff'; cc.font = '16px Arial'; cc.fillText('SP 520°C   SEG 2/4', 14, 92);
+  cc.strokeStyle = '#ff8a3d'; cc.lineWidth = 3; cc.beginPath(); cc.moveTo(14, 132); cc.lineTo(70, 108); cc.lineTo(120, 108); cc.lineTo(178, 104); cc.stroke();
+  const cTex = new THREE.CanvasTexture(cCv); cTex.anisotropy = 4;
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.12), new THREE.MeshBasicMaterial({ map: cTex }));
+  scr.position.set(PX, 1.44, ZF + 0.0355); g.add(scr);
+  for (let i = 0; i < 3; i++) g.add(plainBox(0.035, 0.022, 0.01, mat('#5b6570', 0.5), PX - 0.05 + i * 0.05, 1.32, ZF + 0.04));
+  [['#22c55e', 1.18], ['#f4f4f0', 1.12]].forEach(([c, y]) => g.add(cylAt(0.018, 0.018, 0.02, 12, mat(c, 0.3, 0.1, { emissive: c, emissiveIntensity: 0.7 }), PX, y, ZF + 0.01).rotateX(Math.PI / 2)));
+  g.add(cylAt(0.024, 0.024, 0.02, 12, steel, PX, 1.04, ZF + 0.01).rotateX(Math.PI / 2));   // キースイッチ
+
+  // ---- 背面: 循環ファンのモーターカバー (通気スリット) + 端子箱 + 配線管 ----
+  const RZ = -0.945 + 0.006;                                                            // カバー背面 (スリットの厚みぶん内側)
+  g.add(box(0.56, 0.5, ZB - RZ, bodyD, cx, cy, (ZB + RZ) / 2));
+  for (let i = 0; i < 6; i++) g.add(plainBox(0.4, 0.014, 0.006, dark, cx, cy - 0.15 + i * 0.06, RZ - 0.003));
+  g.add(box(0.3, 0.3, 0.12, dark, 0.4, 0.9, ZB - 0.06));
+  g.add(cylAt(0.02, 0.02, 0.22, 8, dark, 0.4, Y0 + 0.07, ZB - 0.05));
+
+  // ---- 上面: 排気口 (上端 = 外形の高さ) ・排気フラップのレバー・給気フラップ・熱電対ヘッド ----
+  g.add(cylAt(0.05, 0.05, H0 - Y1, 16, steel, -0.4, (Y1 + H0) / 2, -0.35));
+  g.add(plainBox(0.12, 0.012, 0.02, dark, -0.4, Y1 + 0.06, -0.27));
+  g.add(box(0.14, 0.05, 0.1, bodyD, 0.2, Y1 + 0.025, -0.35));
+  g.add(plainBox(0.07, 0.05, 0.07, dark, cx, Y1 + 0.025, 0.25));
+
+  g.traverse(o => { if (o.isMesh && o.material === body) o.userData.colorable = true; });
+  g.userData.parts = { door, doorAngle: 1.62, doorOpen: false };
+  g.scale.set(w / 1.29, h / 1.825, d / 1.89);
   return g;
 }
 function buildInjectionMolder({ color='#e8e4dc', w=5.133, d=1.365, h=1.923 } = {}) {
@@ -8641,6 +8773,13 @@ const PRODUCT = {
   alumcoil_side: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径508mm・幅 最大940mm）＋輪止め・バンド掛け', name:'横倒しアルミコイル 内径508×外径750×幅900', mm:{ w:900, d:800, h:800 }, weightKg:580, checked:'2026-09-29',
     note:'外径750・幅900mmのコイル（約580kg）を、軸を左右方向(X)に向けて木製の枕木2本に載せ、両側を楔形の輪止めで止めてバンド2本で締めた状態。外形は枕木・輪止めを含む。',
     sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
+  // ---- ステップ7: 大型油圧プレス・工業炉 ----
+  lg_hydpress: { brand:'Nantong Yijie Machinery（中国・南通）', model:'Y32-315 四柱油圧プレス（公称力3150kN／315t）', name:'Nantong Yijie Y32-315', mm:{ w:4200, d:4200, h:5600 }, checked:'2026-09-29',
+    note:'公称力3150kN（315t）の三梁四柱式（上梁・スライド・下梁を4本の柱で結ぶ）汎用油圧プレス。外形は左右4200×前後4200×地上高5600mm（床下のピットに埋め込む部分を除く）、開口高さ1250mm・ストローク800mm。外形の内訳（油圧ユニット・制御盤・操作盤・金型交換用ムービングボルスタのレール・点検用手すり）はモデル上の表現で、テーブル寸法は同形式の他社機（Y32-315T: 1300×1200mm）に合わせた。',
+    sources:[ { label:'Nantong Yijie Machinery Y32-315 Four-column hydraulic press', url:'https://en.yjkmachinery.com/index.php?m=content&c=index&a=show&catid=35&id=2' }, { label:'参考: 西安全联 Y32-315T 四柱液压机（テーブル 1300×1200・ストローク800）', url:'http://www.xaqlct.com/sizhuyeyaji/610.html' } ] },
+  ind_furnace: { brand:'Nabertherm（ナーバーテルム）', model:'強制対流式チャンバー炉 NA 500/65（コントローラ B500・最高650℃・炉内500L）', name:'Nabertherm NA 500/65', mm:{ w:1290, d:1890, h:1825 }, checked:'2026-09-29',
+    note:'外形 幅1290×奥行1890×高さ1825mm、炉内 幅750×奥行1000×高さ750mm（500L）、最高温度650℃、電源380〜480V。炉内の空気をファンで水平に循環させて均一に加熱する電気炉で、アルミの熱処理（焼なまし・時効）やビレットの予熱に向く。扉のヒンジと操作部の位置、架台・背面のファンモーターカバーの形はモデル上の表現。',
+    sources:[ { label:'LabFriend UK Nabertherm NA-500/65/B500', url:'https://www.labfriend.co.uk/nabertherm-high-temperature-oven-na-50065b500-max-650c' }, { label:'Fisher Scientific Nabertherm NA 500/65/B500 Chamber Furnace', url:'https://www.fishersci.pt/shop/products/na-500-65-b500-chamber-furnace/18000120' }, { label:'Nabertherm 強制対流式チャンバー炉（〜675L）', url:'https://nabertherm.com/en/products/labor/ovens-and-forced-convection/forced-convection-chamber-furnaces-675-liter' } ] },
 };
 
 const FURNITURE_DEFS = [
@@ -8822,8 +8961,8 @@ const FURNITURE_DEFS = [
   // ---- 大型工業機械 ----
   { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:1.56, d:2.223,h:2.498, colorIdx:10, build:buildCNCMachiningCenter, product:PRODUCT.cnc_center },
   { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:12, build:buildIndustrialRobotLg,  product:PRODUCT.ind_robot },
-  { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:3.2,  d:2.6,  h:5.5,   colorIdx:11, build:buildLargeHydraulicPress },
-  { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
+  { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:4.2,  d:4.2,  h:5.6,   colorIdx:11, build:buildLargeHydraulicPress, product:PRODUCT.lg_hydpress },
+  { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:1.29, d:1.89, h:1.825, colorIdx:25, build:buildIndustrialFurnace, product:PRODUCT.ind_furnace },
   { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:5.133,d:1.365,h:1.923, colorIdx:10, build:buildInjectionMolder,    product:PRODUCT.inj_molder },
   // ---- 新規アイテム ----
   { id:'jib_crane',      cat:'factory', name:'ジブクレーン',        icon:'fa-arrow-up-from-bracket', w:3.3,  d:0.6,  h:3.5,   colorIdx:12, build:buildJibCrane,         product:PRODUCT.jib_crane },
@@ -8975,7 +9114,7 @@ const PRESETS = [
   // ===== アルミ製造工場 (デフォルト) =====
   {
     id: 'aluminum_factory', name: 'アルミ製造工場', icon: 'fa-industry', cat: '工場',
-    desc: '28m×22mのアルミニウム生産ライン。西→東への一貫生産フロー（原材料→溶解炉→油圧プレス→CNC加工→出荷）。全生産機械は南向き(rotY=0)で統一し、ロボットは各機械の正面（南側）に配置。コントロールルーム・ダイキャストライン・原材料倉庫・完成品出荷エリアを完備した本格的なアルミ製造工場。',
+    desc: '28m×22mのアルミニウム生産ライン。西→東への一貫生産フロー（原材料→加熱炉(ビレット予熱)→油圧プレス(鍛造)→CNC加工→出荷）。全生産機械は南向き(rotY=0)で統一し、ロボットは各機械の正面（南側）に配置。コントロールルーム・ダイキャストライン・原材料倉庫・完成品出荷エリアを完備した本格的なアルミ製造工場。',
     room: { w: 28, d: 22 }, floorType: 'epoxy', wallType: 'concrete',
     walls: {
       south: [
@@ -9020,21 +9159,22 @@ const PRESETS = [
       P('locker',       -9.0, -10.5,   0, '#5a6370'),  // 作業員ロッカー (北壁沿い・南向き)
       P('sansevieria', -12.6,  -5.6),
 
-      // ===== 生産ライン: 溶解炉 (西端, rotY=0=南向き) =====
-      P('ind_furnace',  -6.0, -9.25, 0, '#2a2a2a'),  // 炉1: x=[-7,-5]
-      P('ind_furnace',  -3.5, -9.25, 0, '#2a2a2a'),  // 炉2: x=[-4.5,-2.5]
+      // ===== 生産ライン: 加熱炉 (Nabertherm NA 500/65: 最高650℃でビレットを予熱, 西端, rotY=0=南向き) =====
+      P('ind_furnace',  -6.0, -9.25, 0),  // 炉1: x=[-6.65,-5.36] z=[-10.2,-8.31]
+      P('ind_furnace',  -3.5, -9.25, 0),  // 炉2: x=[-4.15,-2.86]
 
-      // ===== 生産ライン: 大型油圧プレス (中央, rotY=0=南向き) =====
-      P('lg_hydpress',  +0.5, -8.7, 0),  // プレス1: x=[-1.1,+2.1]
-      P('lg_hydpress',  +5.0, -8.7, 0),  // プレス2: x=[+3.4,+6.6]
+      // ===== 生産ライン: 大型油圧プレス (Y32-315: 外形4.2m角, 中央, rotY=0=南向き) =====
+      // 背面(油圧ユニット・制御盤)は背後の壁 (z=-11) の搬入シャッター/通用口の前を 0.55m 空ける (z=-10.45)。前方のランアウトレールは z=-6.27 まで
+      P('lg_hydpress',  +0.6, -8.35, 0),  // プレス1: x=[-1.5,+2.7] (テーブル中心 x=+0.35)
+      P('lg_hydpress',  +5.1, -8.35, 0),  // プレス2: x=[+3.0,+7.2] (テーブル中心 x=+4.85)
 
       // ===== 生産ライン: CNCマシニングセンタ (東端, rotY=0=南向き) =====
       P('cnc_center',  +8.5, -8.9, 0),   // CNC1: x=[+7.0,+10.0]
       P('cnc_center', +12.0, -8.9, 0),   // CNC2: x=[+10.5,+13.5]
 
       // ===== 産業ロボット (各機械の正面・南側) =====
-      P('ind_robot',  +0.5, -5.5, 0),    // ロボット1: プレス1担当
-      P('ind_robot',  +5.0, -5.5, 0),    // ロボット2: プレス2担当
+      P('ind_robot', +0.35, -5.5, 0),    // ロボット1: プレス1担当 (テーブル正面)
+      P('ind_robot', +4.85, -5.5, 0),    // ロボット2: プレス2担当
       P('ind_robot',  +8.5, -6.0, 0),    // ロボット3: CNC1担当
       P('ind_robot', +12.0, -6.0, 0),    // ロボット4: CNC2担当
 
@@ -9062,7 +9202,7 @@ const PRESETS = [
 
       // ===== 作業者 =====
       P('worker',  -5.6, -6.5, 0),       // 炉前作業者
-      P('worker',  +6.5, -7.0, 0),       // CNC担当作業者
+      P('worker',  +6.55, -6.75, 180),   // プレス2の操作盤を操作する作業者
 
       // ===== 消火器 =====
       P('fire_ext',  -7.5, -8.5, 0),
@@ -9151,12 +9291,12 @@ const PRESETS = [
       P('conveyor',  7.5, -2.0, 90),
       P('conveyor',  7.5,  0.5, 90),
       // 工業炉 (熱処理エリア)
-      P('ind_furnace', -8.0, -5.5, 90, '#2a2a2a'),
+      P('ind_furnace', -7.95, -5.5, 90),   // 背面を西壁に付け、扉は東 (通路) へ
       // 作業台エリア (左壁)
       P('workbench', -7.8, -1.5, 90, '#5a6370'),
       P('workbench', -7.8, -4.0, 90, '#5a6370'),
       P('toolcab',   -8.7, -2.6, 90),
-      P('toolcab',   -8.7, -5.2, 90),
+      P('toolcab',   -8.7,  0.6, 90),   // 工業炉の設置面と重なっていたため作業台の南へ
       // パレットラック列 (右壁)
       P('palletrack', 8.5,  5.5, 0),
       P('palletrack', 8.5,  3.0, 0),
@@ -9754,7 +9894,7 @@ const PRESETS = [
       // 帯鋸・溶接・工業炉 (追加機械)
       P('bandsaw',    6.5,  2.5, 270, '#4f7a52'),
       P('welder',     5.5,  2.0, 0,   '#3a4a5a'),
-      P('ind_furnace', -6.0, -0.25, 90, '#2a2a2a'),  // 西壁沿い・投入扉(前面)を東(通路)へ。窓間に収め室外貫通を解消
+      P('ind_furnace', -6.25, -0.25, 0),  // 西壁沿い (側面を壁側に, 窓間に収める)。右ヒンジの扉は南の通路へ開く (東向きだとフライス盤に当たる)
       // 管理コーナー (左仕切り内)
       P('desk',  -5.8, 3.1, 0, '#f3ece0'), P('ochr', -5.8, 3.8, 180),  // 椅子を机の南側・北向きに
       P('ctrlpanel', -6.7, 3.5, 90, '#e8e2d6'),  // 西壁に背面→東向き(ドア前を塞がない)
@@ -11923,12 +12063,13 @@ const ITEM_INTERACTIONS = {
   ind_furnace(g) {
     const p = g.userData.parts || {};
     if (!p.door) return null;
-    let open = true, prog = 1;
+    const ang = p.doorAngle ?? -0.95;                 // 全開時の扉の回転角 (右ヒンジは +)
+    let open = p.doorOpen ?? true, prog = open ? 1 : 0;
     return {
       toggle() { open = !open; },
       tick(dt) {
         prog += ((open ? 1 : 0) - prog) * Math.min(dt * 3, 1);
-        p.door.rotation.y = -prog * 0.95;
+        p.door.rotation.y = prog * ang;
       }
     };
   },

@@ -21,7 +21,9 @@ const COLORS = [
   // 工作機械の塗装色 (淡いマシングリーン) — index 23
   '#7a9486',
   // IKEA STOENSE のライトオリーブグリーン — index 24
-  '#a4a67c'
+  '#a4a67c',
+  // 工業炉の筐体 (ライトグレー) — index 25
+  '#cfd3d0'
 ];
 
 function roundedBoxGeom(w, h, d, radius = 0.03, seg = 3) {

@@ -1853,12 +1853,13 @@ const ITEM_INTERACTIONS = {
   ind_furnace(g) {
     const p = g.userData.parts || {};
     if (!p.door) return null;
-    let open = true, prog = 1;
+    const ang = p.doorAngle ?? -0.95;                 // 全開時の扉の回転角 (右ヒンジは +)
+    let open = p.doorOpen ?? true, prog = open ? 1 : 0;
     return {
       toggle() { open = !open; },
       tick(dt) {
         prog += ((open ? 1 : 0) - prog) * Math.min(dt * 3, 1);
-        p.door.rotation.y = -prog * 0.95;
+        p.door.rotation.y = prog * ang;
       }
     };
   },

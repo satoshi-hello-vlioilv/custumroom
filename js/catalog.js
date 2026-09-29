@@ -551,6 +551,13 @@ const PRODUCT = {
   alumcoil_side: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径508mm・幅 最大940mm）＋輪止め・バンド掛け', name:'横倒しアルミコイル 内径508×外径750×幅900', mm:{ w:900, d:800, h:800 }, weightKg:580, checked:'2026-09-29',
     note:'外径750・幅900mmのコイル（約580kg）を、軸を左右方向(X)に向けて木製の枕木2本に載せ、両側を楔形の輪止めで止めてバンド2本で締めた状態。外形は枕木・輪止めを含む。',
     sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
+  // ---- ステップ7: 大型油圧プレス・工業炉 ----
+  lg_hydpress: { brand:'Nantong Yijie Machinery（中国・南通）', model:'Y32-315 四柱油圧プレス（公称力3150kN／315t）', name:'Nantong Yijie Y32-315', mm:{ w:4200, d:4200, h:5600 }, checked:'2026-09-29',
+    note:'公称力3150kN（315t）の三梁四柱式（上梁・スライド・下梁を4本の柱で結ぶ）汎用油圧プレス。外形は左右4200×前後4200×地上高5600mm（床下のピットに埋め込む部分を除く）、開口高さ1250mm・ストローク800mm。外形の内訳（油圧ユニット・制御盤・操作盤・金型交換用ムービングボルスタのレール・点検用手すり）はモデル上の表現で、テーブル寸法は同形式の他社機（Y32-315T: 1300×1200mm）に合わせた。',
+    sources:[ { label:'Nantong Yijie Machinery Y32-315 Four-column hydraulic press', url:'https://en.yjkmachinery.com/index.php?m=content&c=index&a=show&catid=35&id=2' }, { label:'参考: 西安全联 Y32-315T 四柱液压机（テーブル 1300×1200・ストローク800）', url:'http://www.xaqlct.com/sizhuyeyaji/610.html' } ] },
+  ind_furnace: { brand:'Nabertherm（ナーバーテルム）', model:'強制対流式チャンバー炉 NA 500/65（コントローラ B500・最高650℃・炉内500L）', name:'Nabertherm NA 500/65', mm:{ w:1290, d:1890, h:1825 }, checked:'2026-09-29',
+    note:'外形 幅1290×奥行1890×高さ1825mm、炉内 幅750×奥行1000×高さ750mm（500L）、最高温度650℃、電源380〜480V。炉内の空気をファンで水平に循環させて均一に加熱する電気炉で、アルミの熱処理（焼なまし・時効）やビレットの予熱に向く。扉のヒンジと操作部の位置、架台・背面のファンモーターカバーの形はモデル上の表現。',
+    sources:[ { label:'LabFriend UK Nabertherm NA-500/65/B500', url:'https://www.labfriend.co.uk/nabertherm-high-temperature-oven-na-50065b500-max-650c' }, { label:'Fisher Scientific Nabertherm NA 500/65/B500 Chamber Furnace', url:'https://www.fishersci.pt/shop/products/na-500-65-b500-chamber-furnace/18000120' }, { label:'Nabertherm 強制対流式チャンバー炉（〜675L）', url:'https://nabertherm.com/en/products/labor/ovens-and-forced-convection/forced-convection-chamber-furnaces-675-liter' } ] },
 };
 import { buildBamboo, buildBenjamin, buildCactus, buildDracaena, buildFicusUmbellata, buildMonstera, buildOlive, buildPlant, buildPothos, buildRhapis, buildSansevieria, buildStrelitzia, buildSucculent, buildZZPlant } from './builders/plants.js';
 import { buildCampChair, buildCampfire, buildCoolerBox, buildLantern, buildTent } from './builders/outdoor.js';
@@ -735,8 +742,8 @@ const FURNITURE_DEFS = [
   // ---- 大型工業機械 ----
   { id:'cnc_center',     cat:'factory', name:'CNCマシニングセンタ', icon:'fa-gear',                w:1.56, d:2.223,h:2.498, colorIdx:10, build:buildCNCMachiningCenter, product:PRODUCT.cnc_center },
   { id:'ind_robot',      cat:'factory', name:'大型産業ロボット',    icon:'fa-robot',               w:1.2,  d:1.2,  h:2.4,   colorIdx:12, build:buildIndustrialRobotLg,  product:PRODUCT.ind_robot },
-  { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:3.2,  d:2.6,  h:5.5,   colorIdx:11, build:buildLargeHydraulicPress },
-  { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:2.0,  d:1.5,  h:2.2,   colorIdx:2,  build:buildIndustrialFurnace },
+  { id:'lg_hydpress',    cat:'factory', name:'大型油圧プレス',      icon:'fa-compress-arrows-alt', w:4.2,  d:4.2,  h:5.6,   colorIdx:11, build:buildLargeHydraulicPress, product:PRODUCT.lg_hydpress },
+  { id:'ind_furnace',    cat:'factory', name:'工業炉',              icon:'fa-fire',                w:1.29, d:1.89, h:1.825, colorIdx:25, build:buildIndustrialFurnace, product:PRODUCT.ind_furnace },
   { id:'inj_molder',     cat:'factory', name:'射出成形機',          icon:'fa-cubes',               w:5.133,d:1.365,h:1.923, colorIdx:10, build:buildInjectionMolder,    product:PRODUCT.inj_molder },
   // ---- 新規アイテム ----
   { id:'jib_crane',      cat:'factory', name:'ジブクレーン',        icon:'fa-arrow-up-from-bracket', w:3.3,  d:0.6,  h:3.5,   colorIdx:12, build:buildJibCrane,         product:PRODUCT.jib_crane },
