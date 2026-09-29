@@ -410,7 +410,7 @@ function shade(hex, f) {
 // ===== js/core/version.js =====
 // アプリのバージョン番号。リリースのたびに更新し, CHANGELOG.md に対応するエントリを追記する。
 // セマンティックバージョニング(MAJOR.MINOR.PATCH): 破壊的変更/大規模刷新=MAJOR, 機能追加=MINOR, 修正=PATCH
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 
 
 // ===== js/core/orient.js =====
@@ -1093,6 +1093,11 @@ function makeBgGradient() {
   ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
+
+// 明るい室内の反射 (RoomEnvironment に renderer を渡すと物理ライト単位で室内が照らされる)。シーン全体の IBL は上のまま、
+// ほぼ鏡面の金属 (アルミコイル等) の素材だけが envMap として使う。初回に1度だけ作る
+let _envBright = null;
+function envBright() { return _envBright || (_envBright = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture); }
 
 
 // ===== js/core/textures.js =====
@@ -2021,7 +2026,9 @@ const COLORS = [
   // IKEA STOENSE のライトオリーブグリーン — index 24
   '#a4a67c',
   // 工業炉の筐体 (ライトグレー) — index 25
-  '#cfd3d0'
+  '#cfd3d0',
+  // アルミコイルの地肌 (ほぼ鏡面のアルミ) — index 26
+  '#f3f5f6'
 ];
 
 function roundedBoxGeom(w, h, d, radius = 0.03, seg = 3) {
@@ -4994,53 +5001,234 @@ function buildForklift({ color='#f5c020', w=1.15, d=3.0, h=2.1 } = {}) {
   return g;
 }
 
-// ---- アルミコイル共通 (United Aluminum の製造範囲: 内径 406/508/610mm・外径 最大1981mm・幅 6〜940mm。内径は標準の 508mm) ----
-// 端面は板の巻き目 (細かい同心円) をテクスチャで描き, 外周に巻き終わりの端と留めテープ。axis = コイル軸の向き ('x' | 'y' | 'z')
-let _coilFaceTex = null;
-function coilFaceTexture() {
-  if (_coilFaceTex) return _coilFaceTex;
-  const c = document.createElement('canvas'); c.width = c.height = 512;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#c4c8cd'; ctx.fillRect(0, 0, 512, 512);
-  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  for (let r = 2; r < 256; r += 1.4) {
-    const light = rnd() < 0.5;
-    ctx.strokeStyle = light ? `rgba(240,242,246,${0.12 + rnd() * 0.2})` : `rgba(70,74,80,${0.08 + rnd() * 0.2})`;
-    ctx.lineWidth = 0.7 + rnd() * 0.6; ctx.beginPath(); ctx.arc(256, 256, r, 0, Math.PI * 2); ctx.stroke();
+// ---- アルミコイル (パラメトリック・共通) ------------------------------------------------------------------------
+// 寸法とテールの形をパラメータ (mm・度) で与え、最外周の1巻 (らせん: 巻き始めより板厚ぶん外で終わる)・浮いたテールと
+// その下の巻きの露出面・舌状に切れたテール端 (角部R・板厚方向の丸み)・内径・両端面 (巻き目のらせんを描いた平面テクスチャ
+// + 円周方向の異方性反射) を作る。コイル軸 = ローカル X、中心 = 原点。角度はテール端を基準に +Y → +Z 方向へ測る。
+//   id/od/w/t: 内径・外径・板幅・板厚   lift/liftDeg/tailDeg: テールの浮き量・浮き範囲・テール位置
+//   cornerR/edgeRound/tongueDeg: テール端の角部R・板厚方向の丸み(%)・舌状の切れ込み (板幅の中央に対する両端の遅れ角)
+// 既定はホットコイル (熱延上がり 板厚8mm・テールが浮いた状態)。製品コイルは板厚を薄くし、テールを真っすぐ切りそろえて浮かせない。
+const COIL_HOT  = { id: 508, od: 1250, w: 1100, t: 8.0, lift: 159, liftDeg: 90, tailDeg: -93, cornerR: 150, edgeRound: 100, tongueDeg: 14 };
+const COIL_PROD = { id: 508, od: 1250, w: 1100, t: 1.0, lift: 0, liftDeg: 90, tailDeg: 38, cornerR: 0, edgeRound: 0, tongueDeg: 0 };
+const _cFract = x => x - Math.floor(x);
+const _cHash = k => _cFract(Math.sin(k * 127.1 + 311.7) * 43758.5453);
+const _cNoise = x => { const i = Math.floor(x), f = x - i, s = f * f * (3 - 2 * f); return _cHash(i) * (1 - s) + _cHash(i + 1) * s; };
+// 外周: ほぼ鏡面に近いアルミ (圧延方向 = 円周方向の淡い筋)。全コイルで共用
+let _coilBrushTex = null;
+function coilBrushTextures() {
+  if (_coilBrushTex) return _coilBrushTex;
+  const W = 1024, H = 256;
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgb(224,227,230)'; g.fillRect(0, 0, W, H);
+  for (let x = 0; x < W; x++) {
+    const v = (_cNoise(x / 150) - 0.5) * 4;
+    g.fillStyle = v > 0 ? `rgba(255,255,255,${v / 255})` : `rgba(0,0,0,${-v / 255})`;
+    g.fillRect(x, 0, 1, H);
   }
-  _coilFaceTex = new THREE.CanvasTexture(c); _coilFaceTex.colorSpace = THREE.SRGBColorSpace; _coilFaceTex.anisotropy = 4;
-  return _coilFaceTex;
-}
-function alumCoil(g, { R, r = 0.254, L, axis = 'z', at = [0, 0, 0], color = '#c8c8cc', colorable = true, tape = true }) {
-  const cg = new THREE.Group(); cg.position.set(at[0], at[1], at[2]);
-  if (axis === 'z') cg.rotation.x = Math.PI / 2; else if (axis === 'x') cg.rotation.z = -Math.PI / 2;   // ローカル Y = コイル軸
-  const alum = mat(color, 0.26, 0.85, { env: 0.95 }); alum.side = THREE.DoubleSide;
-  const face = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), map: coilFaceTexture(), roughness: 0.34, metalness: 0.75, side: THREE.DoubleSide }); face.envMapIntensity = 0.8;
-  const inner = mat(shade(color, 0.8), 0.35, 0.8, { env: 0.7 }); inner.side = THREE.DoubleSide;
-  const od = new THREE.Mesh(new THREE.CylinderGeometry(R, R, L, 64, 1, true), alum); od.castShadow = od.receiveShadow = true; if (colorable) od.userData.colorable = true; cg.add(od);
-  const bore = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 40, 1, true), inner); cg.add(bore);
-  [-1, 1].forEach(s => { const f = new THREE.Mesh(new THREE.RingGeometry(r, R, 64, 1), face); f.rotation.x = -s * Math.PI / 2; f.position.y = s * L / 2; f.receiveShadow = true; if (colorable) f.userData.colorable = true; cg.add(f); });
-  if (tape) {                                                             // 巻き終わりの端 + 留めテープ 2 か所
-    const a = -0.9, tail = plainBox(0.0025, L, 0.05, mat(shade(color, 0.9), 0.3, 0.8), Math.cos(a) * (R + 0.001), 0, Math.sin(a) * (R + 0.001)); tail.rotation.y = -a; cg.add(tail);
-    [-0.3, 0.3].forEach(k => { const tp = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.0015, R + 0.0015, 0.05, 24, 1, true, Math.PI / 2 - a - 0.14, 0.28), mat('#2f6fc0', 0.6)); tp.material.side = THREE.DoubleSide; tp.position.y = k * L; cg.add(tp); });
+  for (let i = 0; i < 180; i++) {
+    const y = rnd() * H, x = rnd() * W, len = 100 + rnd() * 700;
+    g.strokeStyle = `rgba(255,255,255,${0.008 + rnd() * 0.018})`;
+    g.lineWidth = 0.35 + rnd() * 0.35;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + len, y); g.stroke();
   }
-  g.add(cg); return cg;
+  const color = new THREE.CanvasTexture(c); color.colorSpace = THREE.SRGBColorSpace;
+  const r = document.createElement('canvas'); r.width = W; r.height = H;
+  const q = r.getContext('2d');
+  q.fillStyle = 'rgb(0,42,0)'; q.fillRect(0, 0, W, H);
+  for (let x = 0; x < W; x++) {
+    const v = Math.round((_cNoise(x / 180 + 9) - 0.5) * 8);
+    q.fillStyle = `rgb(0,${Math.max(34, Math.min(50, 42 + v))},0)`;
+    q.fillRect(x, 0, 1, H);
+  }
+  const rough = new THREE.CanvasTexture(r);
+  for (const tex of [color, rough]) { tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.anisotropy = 8; }
+  return (_coilBrushTex = { color, rough });
 }
-// スチールバンド (帯鋼 幅32mm): 外周を一周する輪 (axis まわり) と, 内径を通して外周へ回す放射状のバンド
-function coilBandRing(cg, R, y, bandM) { const b = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.032, 64, 1, true), bandM); b.position.y = y; cg.add(b); const seal = plainBox(0.006, 0.036, 0.05, bandM, R + 0.004, y, 0); cg.add(seal); }
-function coilBandRadial(cg, R, r, L, ang, bandM) {
-  const hold = new THREE.Group(); hold.rotation.y = ang; cg.add(hold);
-  hold.add(plainBox(0.032, L + 0.004, 0.0025, bandM, 0, 0, R + 0.0015));        // 外周 (軸方向)
-  hold.add(plainBox(0.032, L + 0.004, 0.0025, bandM, 0, 0, r - 0.0015));        // 内径 (軸方向)
-  [-1, 1].forEach(s => hold.add(plainBox(0.032, 0.0025, R - r + 0.003, bandM, 0, s * (L / 2 + 0.0015), (R + r) / 2)));   // 端面 (半径方向)
+// 端面: 巻き目のらせん (巻きの境目を暗く) + 円周方向の異方性マップ。寸法ごとにキャッシュ。
+// 板厚が画素より薄い製品コイルは境目を描かず、半径方向の縞 (細かい巻き目) だけにして模様のちらつきを防ぐ
+const _coilEndTex = new Map();
+function coilEndTextures(ri, t, th0, Rm) {
+  const key = [ri, t, th0, Rm].map(v => v.toFixed(5)).join('|');
+  if (_coilEndTex.has(key)) return _coilEndTex.get(key);
+  const S = 768, TAU = Math.PI * 2, pix = 2 * Rm / S;
+  const tv = Math.max(t, 1.6 * pix), gap = Math.max(0, Math.min(1, (t / pix - 1.5) / 2));
+  const c1 = document.createElement('canvas'); c1.width = c1.height = S;
+  const c2 = document.createElement('canvas'); c2.width = c2.height = S;
+  const g1 = c1.getContext('2d'), g2 = c2.getContext('2d');
+  const im1 = g1.createImageData(S, S), im2 = g2.createImageData(S, S);
+  const d1 = im1.data, d2 = im2.data;
+  for (let py = 0; py < S; py++) {
+    const v = 1 - (py + 0.5) / S, z = (v - 0.5) * 2 * Rm;
+    for (let px = 0; px < S; px++) {
+      const u = (px + 0.5) / S, y = (u - 0.5) * 2 * Rm, o = (py * S + px) * 4;
+      const tx = -(v - 0.5), ty = u - 0.5, Ln = Math.hypot(tx, ty) || 1;
+      d2[o] = (tx / Ln * 0.5 + 0.5) * 255; d2[o + 1] = (ty / Ln * 0.5 + 0.5) * 255; d2[o + 2] = 210; d2[o + 3] = 255;
+      const r = Math.hypot(y, z);
+      if (r < ri - 2 * pix || r > Rm) { d1[o] = d1[o + 1] = d1[o + 2] = 170; d1[o + 3] = 255; continue; }   // 端面の外 (描かれない)
+      const al = Math.atan2(z, y), rho = (r - ri) / tv;
+      let b = 0.70 + 0.12 * (_cNoise(rho / 31 + 3.1) - 0.5) + 0.10 * (_cNoise(rho / 7) - 0.5) + 0.07 * (_cNoise(rho * 0.9 + 5.3) - 0.5)
+        + 0.025 * Math.sin(al * 2 + _cNoise(rho / 40) * 6);
+      if (gap > 0) {
+        let th = (th0 - al) % TAU; if (th < 0) th += TAU;
+        const s = (r - ri) / t - th / TAU, f = s - Math.floor(s), dd = Math.min(f, 1 - f);
+        b -= gap * Math.exp(-((dd / 0.18) ** 2)) * (0.08 + 0.16 * _cNoise(rho * 0.8 + 13.7));
+      }
+      b = Math.max(0, Math.min(1, b));
+      d1[o] = b * 247; d1[o + 1] = b * 250; d1[o + 2] = b * 255; d1[o + 3] = 255;
+    }
+  }
+  g1.putImageData(im1, 0, 0); g2.putImageData(im2, 0, 0);
+  const color = new THREE.CanvasTexture(c1); color.colorSpace = THREE.SRGBColorSpace;
+  const aniso = new THREE.CanvasTexture(c2);
+  color.anisotropy = aniso.anisotropy = 8;
+  const res = { color, aniso }; _coilEndTex.set(key, res); return res;
 }
-// アルミコイル (内径508×外径800×幅800mm, A1100 で約650kg): ミル仕上げの板を巻いたコイルを, 軸を水平 (Z) にして床に置いた状態
-function buildAluminumCoil({ color='#c8c8cc', w=0.8, d=0.8, h=0.8 } = {}) {
-  const g = new THREE.Group();
-  const R = Math.min(w, h) / 2;
-  const cg = alumCoil(g, { R, L: d, axis: 'z', at: [0, R, 0], color });
-  cg.add(plainBox(0.09, 0.06, 0.002, mat('#f6f4ee', 0.8), 0.12, 0.2, -(R + 0.002)));   // 識別ラベル (外周の上側。ローカル -Z = 上)
+// (u,v) ∈ [0,1]² の格子面。ext があれば頂点の範囲を記録する
+function _coilGrid(nu, nv, fn, ext) {
+  const pos = new Float32Array((nu + 1) * (nv + 1) * 3), uv = new Float32Array((nu + 1) * (nv + 1) * 2), idx = [];
+  let k = 0, m = 0;
+  for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) {
+    const o = fn(i / nu, j / nv);
+    pos[k++] = o.p[0]; pos[k++] = o.p[1]; pos[k++] = o.p[2]; uv[m++] = o.uv[0]; uv[m++] = o.uv[1];
+    if (ext) for (let a = 0; a < 3; a++) { if (o.p[a] < ext.min[a]) ext.min[a] = o.p[a]; if (o.p[a] > ext.max[a]) ext.max[a] = o.p[a]; }
+  }
+  for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+    const a = i * (nv + 1) + j, b = (i + 1) * (nv + 1) + j;
+    idx.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  return geo;
+}
+function _extBox(ext, x0, y0, z0, x1, y1, z1) {
+  ext.min[0] = Math.min(ext.min[0], x0); ext.min[1] = Math.min(ext.min[1], y0); ext.min[2] = Math.min(ext.min[2], z0);
+  ext.max[0] = Math.max(ext.max[0], x1); ext.max[1] = Math.max(ext.max[1], y1); ext.max[2] = Math.max(ext.max[2], z1);
+}
+function _coilMesh(geo, m) { const me = new THREE.Mesh(geo, m); me.castShadow = me.receiveShadow = true; return me; }
+// コイル本体。返す Group の userData.coil に寸法・形状関数・頂点範囲 (ext)・質量 (kg, 比重2.70) を持たせる
+function coilModel(P, { color = '#f3f5f6', nt = 240, colorable = true } = {}) {
+  const MM = 0.001, TAU = Math.PI * 2, DEG = Math.PI / 180;
+  const g = new THREE.Group(), ext = { min: [1e9, 1e9, 1e9], max: [-1e9, -1e9, -1e9] };
+  const ri = P.id / 2 * MM, t = P.t * MM, W = P.w * MM;
+  const odR = Math.max(P.od / 2 * MM, ri + 4 * t);
+  const n = Math.max(1, Math.round((odR - 2 * t - ri) / t));
+  const Rc = ri + n * t, Ro = Rc + 2 * t;                                  // 最外周の1巻の下面 (巻き始め) ・実際の外半径
+  const th0 = P.tailDeg * DEG, phi = Math.min(P.liftDeg * DEG, TAU * 0.9), L = P.lift * MM;
+  const Rm = Ro + L + 0.05;                                                // 端面テクスチャの範囲
+  const PA = (r, a, x) => [x, r * Math.cos(a), r * Math.sin(a)];            // 角度 a: +Y → +Z
+  const P3 = (r, th, x) => PA(r, th0 - th, x);                             // th: 最外周の1巻の巻き角 (0 → 2π でテール端)
+  const pUV = p => [p[1] / (2 * Rm) + 0.5, p[2] / (2 * Rm) + 0.5];
+  const rb = th => Rc + t * th / TAU;                                      // 最外周の1巻の下 (1つ内側の巻きの外面)
+  const lift = th => th > TAU - phi ? L * ((th - (TAU - phi)) / phi) ** 2 : 0;
+  const ain = th => rb(th) + lift(th), aout = th => ain(th) + t;
+  const tongue = (P.tongueDeg ?? 14) * DEG, Rref = Ro + L, rc = Math.min((P.cornerR || 0) * MM, W / 2);
+  const shaped = tongue > 0 || rc > 0, NT = nt, NX = shaped ? 24 : 1;
+  const XV = v => shaped ? 0.5 - 0.5 * Math.cos(Math.PI * v) : v;          // 板幅方向: 両端ほど細かく分割
+  const tailTheta = v => {                                                 // テール端の巻き角: 中央が 2π、両端は tongue 手前 + 角部R
+    const q = XV(v), dd = Math.min(q, 1 - q) * W;
+    let th = TAU - tongue * (2 * q - 1) ** 2;
+    if (rc > 0 && dd < rc) th -= (rc - Math.sqrt(Math.max(0, rc * rc - (rc - dd) ** 2))) / Rref;
+    return th;
+  };
+  const XW = v => (XV(v) - 0.5) * W, thEdge = tailTheta(0);
+  const brush = coilBrushTextures(), endT = coilEndTextures(ri, t, th0, Rm);
+  const outerM = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(color), metalness: 1.0, roughness: 0.16, map: brush.color, roughnessMap: brush.rough,
+    anisotropy: 0.18, clearcoat: 0.25, clearcoatRoughness: 0.08, side: THREE.DoubleSide });
+  const edgeM = new THREE.MeshPhysicalMaterial({ color: 0xb9bdc2, metalness: 0.9, roughness: 0.5, side: THREE.DoubleSide });
+  const endM = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(color), metalness: 0.85, roughness: 0.42, map: endT.color, anisotropy: 0.6, anisotropyMap: endT.aniso, side: THREE.DoubleSide });
+  const env = envBright(); outerM.envMap = edgeM.envMap = endM.envMap = env;   // 明るい室内を映す (元モデルの見え方)
+  const add = (geo, m, col = true) => { const me = _coilMesh(geo, m); if (col && colorable) me.userData.colorable = true; g.add(me); return me; };
+  // 最外周の1巻 (外面)
+  add(_coilGrid(NT, NX, (u, v) => { const th = u * tailTheta(v); return { p: P3(aout(th), th, XW(v)), uv: [u, XV(v)] }; }, ext), outerM);
+  // テール付近: 浮いた巻きの下面と、1つ内側の巻きの露出面 (浮きが無くても舌状・角部Rの切れ込みの下は見える)
+  const t1 = L > 0 ? TAU - phi : Math.max(0, thEdge - 0.02), NL = Math.max(12, Math.round(NT * (TAU - t1) / TAU));
+  if (L > 0) add(_coilGrid(NL, NX, (u, v) => { const th = t1 + u * Math.max(0, tailTheta(v) - t1); return { p: P3(ain(th), th, XW(v)), uv: [th / TAU, XV(v)] }; }, ext), outerM);
+  add(_coilGrid(NL, 1, (u, v) => { const th = t1 + u * (TAU - t1); return { p: P3(rb(th), th, (v - 0.5) * W), uv: [th / TAU, v] }; }, ext), outerM);
+  // テール端 (せん断面): 板厚方向に丸め、角部Rが板の側面に接する所では丸みを 0 に
+  const NB = t > 0.003 ? 12 : 2, eR = t / 2 * (P.edgeRound || 0) / 100, hh = 1e-3;
+  add(_coilGrid(NB, NX, (u, v) => {
+    const th = tailTheta(v), a = u * Math.PI, rmid = ain(th) + t / 2;
+    const v1 = Math.max(0, v - hh), v2 = Math.min(1, v + hh);
+    const ds = (tailTheta(v2) - tailTheta(v1)) * Rref, dx = XW(v2) - XW(v1);
+    const ns = Math.abs(dx) / (Math.hypot(ds, dx) || 1);                   // テール端の平面法線の周方向成分
+    const r = rmid - (t / 2) * Math.cos(a), dth = eR * Math.sin(a) * ns / rmid;
+    return { p: P3(r, th + dth, XW(v)), uv: [u, v] };
+  }, ext), edgeM, false);
+  // 内径
+  add(_coilGrid(Math.round(NT / 2), 1, (u, v) => ({ p: P3(ri, u * TAU, (v - 0.5) * W), uv: [u, v] }), ext), outerM);
+  // 両端面: 本体の円環 + 最外周の1巻の帯
+  for (const x of [W / 2, -W / 2]) {
+    add(_coilGrid(NT, 1, (u, v) => { const th = u * TAU, p = P3(ri + v * (rb(th) - ri), th, x); return { p, uv: pUV(p) }; }, ext), endM);
+    add(_coilGrid(NT, 1, (u, v) => { const th = u * thEdge, p = P3(ain(th) + v * t, th, x); return { p, uv: pUV(p) }; }, ext), endM);
+  }
+  const mass = Math.PI * (Ro * Ro - ri * ri) * W * 2700;
+  g.userData.coil = { ri, t, W, Ro, n, L, th0, ext, mass, PA };
   return g;
+}
+// 巻き終わりを留めるテープ (幅50mm, テール端をまたぐ)。n 本を板幅に均等配置
+function coilTape(cg, { n = 3, tw = 0.05, span = 0.2, color = '#2f6fc0' } = {}) {
+  const c = cg.userData.coil, M = mat(color, 0.6); M.side = THREE.DoubleSide;
+  for (let i = 0; i < n; i++) {
+    const x0 = (i - (n - 1) / 2) * c.W / n;
+    cg.add(_coilMesh(_coilGrid(10, 1, (u, v) => ({ p: c.PA(c.Ro + 0.0006, c.th0 + (u - 0.5) * span, x0 + (v - 0.5) * tw), uv: [u, v] }), c.ext), M));
+  }
+}
+// 端面の識別ラベル (合金・質別・寸法を印字した白ラベル)。a = 貼る角度, side = +1 / -1 (端面)
+let _coilLabelTex = null;
+function coilLabel(cg, { a = 0.55, side = 1 } = {}) {
+  const c = cg.userData.coil;
+  if (!_coilLabelTex) {
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 160;
+    const x = cv.getContext('2d');
+    x.fillStyle = '#f6f4ee'; x.fillRect(0, 0, 256, 160);
+    x.fillStyle = '#1d2733'; x.font = 'bold 30px Arial'; x.fillText('A1100-H14', 14, 40);
+    x.font = '22px Arial'; x.fillText('1.0 × 1100 × C', 14, 74); x.fillText('NET 3,040 kg', 14, 102);
+    for (let i = 0; i < 40; i++) x.fillRect(14 + i * 5.6, 118, (i * 7) % 3 + 1, 30);
+    _coilLabelTex = new THREE.CanvasTexture(cv); _coilLabelTex.colorSpace = THREE.SRGBColorSpace; _coilLabelTex.anisotropy = 4;
+  }
+  const r = (c.ri + c.Ro) / 2, p = c.PA(r, a, side * (c.W / 2 + 0.0006));
+  const lb = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.1), new THREE.MeshStandardMaterial({ map: _coilLabelTex, roughness: 0.8, side: THREE.DoubleSide }));
+  lb.rotation.set(a, side * Math.PI / 2, 0);                                // Rx(a)·Ry(±90°): 法線 = ±X, 短辺 = 半径方向 (文字の上が外周側)
+  lb.position.set(p[0], p[1], p[2]); cg.add(lb);
+  _extBox(c.ext, p[0] - 0.001, p[1], p[2], p[0] + 0.001, p[1], p[2]);
+}
+// 帯鋼 (幅32mm・塗装): 外周を一周する輪 (x = 板幅方向の位置, 上でシール留め) と、内径を通して外周・両端面へ回すバンド
+function _bandMat() { const m = mat('#3e434a', 0.4, 0.6, { env: 0.6 }); m.side = THREE.DoubleSide; return m; }
+function coilBandRing(cg, x, M, bw = 0.032) {
+  const c = cg.userData.coil, R = c.Ro + 0.0015;
+  cg.add(_coilMesh(_coilGrid(120, 1, (u, v) => ({ p: c.PA(R, u * Math.PI * 2, x + (v - 0.5) * bw), uv: [u, v] }), c.ext), M));
+  cg.add(plainBox(bw + 0.006, 0.004, 0.06, M, x, R + 0.002, 0));
+  _extBox(c.ext, x - bw / 2 - 0.003, R, -0.03, x + bw / 2 + 0.003, R + 0.004, 0.03);
+}
+function coilBandEye(cg, a, M, bw = 0.032) {
+  const c = cg.userData.coil, R = c.Ro + 0.0015, r = c.ri - 0.0015, xe = c.W / 2 + 0.0015;
+  [R, r].forEach(rr => cg.add(_coilMesh(_coilGrid(1, 1, (u, v) => ({ p: c.PA(rr, a + (u - 0.5) * bw / rr, -xe + v * 2 * xe), uv: [u, v] }), c.ext), M)));
+  [-xe, xe].forEach(x => cg.add(_coilMesh(_coilGrid(1, 1, (u, v) => { const rr = r + v * (R - r); return { p: c.PA(rr, a + (u - 0.5) * bw / rr, x), uv: [u, v] }; }, c.ext), M)));
+}
+// コイル (ローカル X 軸) を外形の中心に置いて最下点を床に合わせ、外形 w×d×h に収まるよう拡縮した Group を返す
+function _coilPlaced(cg, w, d, h) {
+  const e = cg.userData.coil.ext, out = new THREE.Group(), inner = new THREE.Group();
+  inner.position.set(-(e.min[0] + e.max[0]) / 2, -e.min[1], -(e.min[2] + e.max[2]) / 2);
+  inner.add(cg); out.add(inner);
+  out.scale.set(w / (e.max[0] - e.min[0]), h / (e.max[1] - e.min[1]), d / (e.max[2] - e.min[2]));
+  return out;
+}
+// アルミコイル (ホットコイル): 熱間圧延で巻き取った 内径508×外径1250×幅1100×板厚8mm (45巻・約3.0t, 整数巻きのため外径1244)。
+// 巻き終わりが最後の90°で最大159mm浮き、テール端は舌状 (角部R150・板厚方向に丸い)。軸を左右 (X) にして床に置いた状態。
+// 外形の奥行はテールの浮きを含む
+function buildAluminumCoil({ color='#f3f5f6', w=1.1, d=1.403, h=1.244 } = {}) {
+  return _coilPlaced(coilModel(COIL_HOT, { color }), w, d, h);
+}
+// アルミ製品コイル: ホットコイルを冷間圧延で板厚1.0mmにして巻き直したもの (370巻・板の長さ約1024m・約3.0t)。
+// テールは真っすぐ切りそろえて浮かせず 3 か所をテープで留め、端面に識別ラベル
+function buildProductCoil({ color='#f3f5f6', w=1.1, d=1.25, h=1.25 } = {}) {
+  const cg = coilModel(COIL_PROD, { color });
+  coilTape(cg); coilLabel(cg);
+  return _coilPlaced(cg, w, d, h);
 }
 
 // 島津 オートグラフ AGX-V2 50kN 床置形 (W975×D579×H1708, 410kg): チャコールの基台と上部ヨーク, 白いコラムカバー2本,
@@ -5297,60 +5485,73 @@ function buildFireExtinguisher({ color='#cc1818', w=0.18, d=0.126, h=0.49 } = {}
   return g;
 }
 
-// バンド掛けアルミコイル (内径508×外径792×幅800mm, 約630kg): 外周に帯鋼 (幅32mm) を 3 本 (シールで留める) + 内径を通す放射状のバンド 2 本
-function buildBandedAlumCoil({ color='#c8c8cc', w=0.8, d=0.8, h=0.8 } = {}) {
-  const g = new THREE.Group();
-  const bandT = 0.004, R = Math.min(w, h) / 2 - bandT, r = 0.254;
-  const cg = alumCoil(g, { R, r, L: d - 0.004, axis: 'z', at: [0, R + bandT, 0], color, tape: false });
-  const bandM = mat('#3e434a', 0.4, 0.6, { env: 0.6 }); bandM.side = THREE.DoubleSide;
-  [-0.3, 0, 0.3].forEach(k => coilBandRing(cg, R + 0.002, k * d, bandM));
-  [0.5, 0.5 + Math.PI].forEach(a => coilBandRadial(cg, R, r, d - 0.004, a, bandM));
-  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
-  return g;
+// バンド掛けアルミコイル: 製品コイル (テープ留め) に帯鋼 (幅32mm) を外周3本 (上でシール留め) + 内径を通して前後2本掛けた出荷前の状態
+function buildBandedAlumCoil({ color='#f3f5f6', w=1.103, d=1.253, h=1.2555 } = {}) {
+  const cg = coilModel(COIL_PROD, { color });
+  coilTape(cg); coilLabel(cg, { a: 0.3 });
+  const M = _bandMat();
+  [-0.38, 0, 0.38].forEach(x => coilBandRing(cg, x, M));
+  [Math.PI * 0.42, Math.PI * 1.42].forEach(a => coilBandEye(cg, a, M));
+  return _coilPlaced(cg, w, d, h);
 }
 
-// 梱包済みアルミコイル (内径508×外径740×幅800mm, 約490kg): 防錆紙 (VCI) で外周と端面を包み, 端の角に紙製のエッジプロテクター,
-// 外周バンド 2 本 + 内径を通すバンド 2 本。木製の枕木 (スキッド) 2 本に載せた出荷形態 (外形は包装・スキッドを含む)
-function buildPackagedAlumCoil({ color='#b4a478', w=0.82, d=0.84, h=0.82 } = {}) {
+// 梱包済みアルミコイル: 製品コイル (内径508×外径1250×幅1100) を防錆紙 (VCI) で外周・端面・内径まで包み, 角に紙製のエッジプロテクター,
+// 外周バンド 2 本 + 内径を通すバンド 2 本。軸を左右 (X) にして前後 2 本の枕木に載せた出荷形態 (外形は包装・枕木を含む)
+function _bandRingY(cg, R, y, M) {                                   // ローカル Y = コイル軸 の円筒に掛ける輪 + シール
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.032, 72, 1, true), M); b.position.y = y; cg.add(b);
+  cg.add(plainBox(0.006, 0.036, 0.05, M, R + 0.003, y, 0));
+}
+function _bandEyeY(cg, R, r, L, ang, M) {                            // 内径を通して外周・端面へ回すバンド
+  const hold = new THREE.Group(); hold.rotation.y = ang; cg.add(hold);
+  hold.add(plainBox(0.032, L + 0.004, 0.0025, M, 0, 0, R + 0.0015));
+  hold.add(plainBox(0.032, L + 0.004, 0.0025, M, 0, 0, r - 0.0015));
+  [-1, 1].forEach(s => hold.add(plainBox(0.032, 0.0025, R - r + 0.003, M, 0, s * (L / 2 + 0.0015), (R + r) / 2)));
+}
+function buildPackagedAlumCoil({ color='#b4a478', w=1.14, d=1.286, h=1.308 } = {}) {
   const g = new THREE.Group();
-  const R = 0.37, r = 0.254, L = 0.8, pk = 0.012, Rp = R + pk, cy = h - Rp - 0.004;
-  const paper = mat(color, 0.92, 0), edgeM = mat('#8a7a5a', 0.85), woodM = mat('#b88a58', 0.85), bandM = mat('#3e434a', 0.4, 0.6, { env: 0.6 }); paper.side = bandM.side = THREE.DoubleSide;
-  const cg = new THREE.Group(); cg.position.set(0, cy, 0); cg.rotation.x = Math.PI / 2; g.add(cg);
-  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(Rp, Rp, L + 2 * pk, 56, 1, true), paper); wrap.castShadow = wrap.receiveShadow = true; wrap.userData.colorable = true; cg.add(wrap);
-  cg.add(new THREE.Mesh(new THREE.CylinderGeometry(r - 0.004, r - 0.004, L + 2 * pk, 36, 1, true), paper));
+  const Ro = COIL_PROD.od / 2000, r = COIL_PROD.id / 2000, L = COIL_PROD.w / 1000, pk = 0.012, Rp = Ro + pk;
+  const z0 = 0.28, SH = 0.09, cy = SH + Math.sqrt(Rp * Rp - z0 * z0);          // 枕木 (z = ±z0) の上に載る高さ
+  const paper = mat(color, 0.92, 0), edgeM = mat('#8a7a5a', 0.85), woodM = mat('#b88a58', 0.85), bandM = _bandMat(); paper.side = THREE.DoubleSide;
+  const cg = new THREE.Group(); cg.position.set(0, cy, 0); cg.rotation.z = Math.PI / 2; g.add(cg);   // ローカル Y (= コイル軸) → X
+  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(Rp, Rp, L + 2 * pk, 72, 1, true), paper); wrap.castShadow = wrap.receiveShadow = true; wrap.userData.colorable = true; cg.add(wrap);
+  cg.add(new THREE.Mesh(new THREE.CylinderGeometry(r - 0.004, r - 0.004, L + 2 * pk, 40, 1, true), paper));
   [-1, 1].forEach(s => {
-    const f = new THREE.Mesh(new THREE.RingGeometry(r - 0.004, Rp, 56, 1), paper); f.rotation.x = -s * Math.PI / 2; f.position.y = s * (L / 2 + pk); f.userData.colorable = true; cg.add(f);
-    const e = new THREE.Mesh(new THREE.TorusGeometry(Rp - 0.01, 0.016, 4, 56), edgeM); e.rotation.x = Math.PI / 2; e.position.y = s * (L / 2 + pk - 0.008); cg.add(e);   // エッジプロテクター
-    const ei = new THREE.Mesh(new THREE.TorusGeometry(r + 0.006, 0.012, 4, 36), edgeM); ei.rotation.x = Math.PI / 2; ei.position.y = s * (L / 2 + pk - 0.006); cg.add(ei);
+    const f = new THREE.Mesh(new THREE.RingGeometry(r - 0.004, Rp, 72, 1), paper); f.rotation.x = -s * Math.PI / 2; f.position.y = s * (L / 2 + pk); f.userData.colorable = true; cg.add(f);
+    const e = new THREE.Mesh(new THREE.TorusGeometry(Rp - 0.01, 0.016, 4, 72), edgeM); e.rotation.x = Math.PI / 2; e.position.y = s * (L / 2 + pk - 0.008); cg.add(e);   // エッジプロテクター
+    const ei = new THREE.Mesh(new THREE.TorusGeometry(r + 0.006, 0.012, 4, 40), edgeM); ei.rotation.x = Math.PI / 2; ei.position.y = s * (L / 2 + pk - 0.006); cg.add(ei);
   });
-  [-0.25, 0.25].forEach(k => coilBandRing(cg, Rp + 0.003, k * L, bandM));
-  [0.35, 0.35 + Math.PI].forEach(a => coilBandRadial(cg, Rp + 0.001, r - 0.004, L + 2 * pk, a, bandM));
-  const lbl = plainBox(0.16, 0.1, 0.004, mat('#f8f4e8', 0.88), 0, cy + (Rp + r) / 2, -(L / 2 + pk + 0.003)); g.add(lbl);   // 出荷ラベル (端面の上側)
-  // 枕木 2 本 (コイルの下を軸方向に)
-  const x0 = 0.2, top = cy - Math.sqrt(Rp * Rp - x0 * x0);
-  [-1, 1].forEach(s => g.add(plainBox(0.09, top, d, woodM, s * x0, top / 2, 0)));
+  [-0.3, 0.3].forEach(k => _bandRingY(cg, Rp + 0.003, k * L, bandM));
+  [0.35, 0.35 + Math.PI].forEach(a => _bandEyeY(cg, Rp + 0.001, r - 0.004, L + 2 * pk, a, bandM));
+  g.add(plainBox(0.004, 0.1, 0.16, mat('#f8f4e8', 0.88), L / 2 + pk + 0.003, cy + (Rp + r) / 2, 0));   // 出荷ラベル (端面の上側)
+  [-1, 1].forEach(s => g.add(plainBox(L + 2 * pk, SH, 0.09, woodM, 0, SH / 2, s * z0)));              // 枕木 (軸方向)
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  const W0 = L + 2 * pk + 0.016, D0 = 2 * (Rp + 0.006), H0 = cy + Rp + 0.009;             // 包装・エッジプロテクター・シールを含む外形
+  g.scale.set(w / W0, h / H0, d / D0);
   return g;
 }
 
 // 輸出梱包アルミコイル (タカムラ産業 2006: コイル 径650〜1080・幅170〜260mm・1巻160〜230kg を 3〜4 巻, 梱包外寸 1100×1100×710〜1220mm):
-// アイトゥスカイ (軸を鉛直) に 3 巻 (外径800・幅250mm, 1巻約200kg) を重ね, 上下を木製パレットで挟み, 外周をハードボードで巻いて
-// 帯鋼で締めた梱包。上のパレットは板の隙間からコイルの上面が見える
+// アイトゥスカイ (軸を鉛直) に 3 巻 (内径508×外径800×幅250mm・板厚1.0mm, 1巻約200kg) を重ね, 上下を木製パレットで挟み,
+// 外周をハードボードで巻いて帯鋼で締めた梱包。上のパレットは板の隙間からコイルの上面 (巻き目の端面) が見える
+const COIL_EXPORT = { id: 508, od: 800, w: 250, t: 1.0, lift: 0, liftDeg: 90, tailDeg: 30, cornerR: 0, edgeRound: 0, tongueDeg: 0 };
 function buildExportAlumCoil({ color='#c0a870', w=1.1, d=1.1, h=1.0 } = {}) {
   const g = new THREE.Group();
   const woodM = mat(color, 0.85, 0), woodD = mat(shade(color, 0.78), 0.9, 0), hb = mat('#7a5a3c', 0.8, 0), bandM = mat('#3e434a', 0.4, 0.6, { env: 0.6 });
   hb.side = THREE.DoubleSide;
-  const pb = 0.12, pt = 0.1, R = 0.4, cw = 0.25, sep = 0.005;
+  const pb = 0.12, pt = 0.1, R = COIL_EXPORT.od / 2000, cw = COIL_EXPORT.w / 1000, sep = 0.005;
   // 下パレット: デッキボード 7 枚 + 桁 3 本 + 下板
   const deck = (y, n, bw, M) => { for (let i = 0; i < n; i++) g.add(plainBox(bw, 0.02, d, M, -w / 2 + bw / 2 + i * (w - bw) / (n - 1), y, 0)); };
   deck(pb - 0.01, 7, 0.1, woodM);
   [-1, 0, 1].forEach(k => g.add(plainBox(w, pb - 0.04, 0.09, woodD, 0, 0.02 + (pb - 0.04) / 2, k * (d / 2 - 0.045))));
   deck(0.01, 3, 0.1, woodM);
-  // コイル 3 巻 (アイトゥスカイ) + 間の当て板
+  // コイル 3 巻 (アイトゥスカイ: コイル軸 X を鉛直に) + 間の当て板。最上段は巻き終わりをテープで留める
   let y = pb;
   for (let i = 0; i < 3; i++) {
-    y += sep; alumCoil(g, { R, L: cw, axis: 'y', at: [0, y + cw / 2, 0], color: '#c8c8cc', colorable: false, tape: i === 2 }); y += cw;
-    g.add(new THREE.Mesh(new THREE.RingGeometry(0.254, R, 48, 1), hb).rotateX(-Math.PI / 2).translateZ(y + sep / 2));
+    y += sep;
+    const cg = coilModel(COIL_EXPORT, { color: '#f3f5f6', nt: 160, colorable: false });
+    if (i === 2) coilTape(cg, { n: 1, tw: 0.04 });
+    cg.rotation.z = Math.PI / 2; cg.position.set(0, y + cw / 2, 0); g.add(cg); y += cw;
+    g.add(new THREE.Mesh(new THREE.RingGeometry(COIL_EXPORT.id / 2000, R, 48, 1), hb).rotateX(-Math.PI / 2).translateZ(y + sep / 2));
   }
   y += sep;
   // ハードボード巻き (コイルの外周)
@@ -5370,24 +5571,25 @@ function buildExportAlumCoil({ color='#c0a870', w=1.1, d=1.1, h=1.0 } = {}) {
   return g;
 }
 
-// 横倒しアルミコイル (内径508×外径750×幅900mm, 約580kg): 軸を左右 (X) に向けて木製の枕木 2 本に載せ, 両側を楔形の輪止めで止め,
-// 外周にバンド 2 本。外形は枕木・輪止めを含む
-function buildAlumCoilSide({ color='#c8c8cc', w=0.9, d=0.8, h=0.8 } = {}) {
+// 横倒しアルミコイル: バンド掛けした製品コイルを横倒し (目を上に向け, 端面を下にして置く) にし, 1300角の木製パレットに載せた状態。
+// 内径を通す帯鋼 4 本 + 外周 1 本で締め, 上面 (端面) に識別ラベル。外形はパレットを含む
+function buildAlumCoilSide({ color='#f3f5f6', w=1.3, d=1.3, h=1.243 } = {}) {
   const g = new THREE.Group();
-  const lift = 0.05, R = h / 2 - lift / 2, cy = lift + R, L = w;
-  const cg = alumCoil(g, { R, L, axis: 'x', at: [0, cy, 0], color });
-  const bandM = mat('#3e434a', 0.4, 0.6, { env: 0.6 }); bandM.side = THREE.DoubleSide;
-  [-0.3, 0.3].forEach(k => coilBandRing(cg, R + 0.002, k * L, bandM));
-  const woodM = mat('#a87a4a', 0.85);
-  [-0.3, 0.3].forEach(k => {
-    g.add(plainBox(0.1, lift, d, woodM, k * L, lift / 2, 0));                               // 枕木 (前後方向)
-    [-1, 1].forEach(s => {                                                                   // 楔形の輪止め (コイルに当たる面が斜め)
-      const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(0.13, 0); sh.lineTo(0, 0.11); sh.closePath();
-      const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.09, bevelEnabled: false }); geo.translate(0, 0, -0.045);
-      const wd = new THREE.Mesh(geo, woodM); wd.rotation.y = s > 0 ? Math.PI / 2 : -Math.PI / 2; wd.position.set(k * L, lift, s * (d / 2 - 0.13)); g.add(wd);
-    });
-  });
-  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  const PW = 1.3, PH = 0.14, woodM = mat('#c9a26a', 0.85), woodD = mat(shade('#c9a26a', 0.78), 0.9);
+  for (let i = 0; i < 9; i++) g.add(plainBox(0.1, 0.022, PW, woodM, -PW / 2 + 0.05 + i * (PW - 0.1) / 8, PH - 0.011, 0));     // 上面デッキ
+  [-1, 0, 1].forEach(k => g.add(plainBox(PW, PH - 0.044, 0.09, woodD, 0, 0.022 + (PH - 0.044) / 2, k * (PW / 2 - 0.045))));     // 桁
+  [-1, 0, 1].forEach(k => g.add(plainBox(0.12, 0.022, PW, woodM, k * (PW / 2 - 0.06), 0.011, 0)));                             // 下板
+  const cg = coilModel(COIL_PROD, { color });
+  coilTape(cg); coilLabel(cg, { a: 2.2 });
+  const M = _bandMat();
+  coilBandRing(cg, 0.15, M);
+  [0.3, 0.3 + Math.PI / 2, 0.3 + Math.PI, 0.3 + Math.PI * 1.5].forEach(a => coilBandEye(cg, a, M));
+  const c = cg.userData.coil;
+  cg.rotation.z = Math.PI / 2;                                             // コイル軸 X → 鉛直。端面 +X が上面になる
+  cg.position.set(0, PH + 0.0015 + c.W / 2, 0); g.add(cg);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  const H0 = PH + c.W + 0.003;                                             // パレット + コイル + 上下の帯鋼
+  g.scale.set(w / PW, h / H0, d / PW);
   return g;
 }
 
@@ -8757,22 +8959,27 @@ const PRODUCT = {
   toolrack: { brand:'TRUSCO（トラスコ中山）', model:'パンチングパネル UPR-P450（幅900×高さ450mm）×2枚＋フック・コンテナ用棚板', name:'TRUSCO パンチングパネル UPR-P450 ×2', mm:{ w:900, d:120, h:900 }, weightKg:10, checked:'2026-09-29',
     note:'UPR型パンチングパネル 1枚 幅900×高さ450×厚さ25mm・質量5kg（スチール）。2枚を上下に並べて壁に取り付け、フックに工具を掛け、下段にVNコンテナ用の棚板を付けた構成。奥行(D)は工具・棚板を含むモデル上の外形。',
     sources:[ { label:'参考: モノタロウ TRUSCO パンチングパネル UPR-P450', url:'https://www.monotaro.com/g/00140739/' }, { label:'オレンジブック TRUSCO パンチングパネル シリーズ', url:'https://www.orange-book.com/ja/c/series/index.html?seriesCd=7007603' } ] },
-  // アルミコイル: 特定の商品ではなく圧延メーカーが公開している製造範囲をモデルデータに使う（kind:'data'）
-  alumcoil: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径 406/508/610mm・外径 最大1981mm・幅 6〜940mm・板厚 0.1〜4.0mm・最大7.9kg/mm幅）', name:'アルミコイル 内径508×外径800×幅800', mm:{ w:800, d:800, h:800 }, weightKg:650, checked:'2026-09-29',
-    note:'内径は標準の508mm（20インチ）。外径800・幅800mmで、A1100（比重2.71）なら約650kg（幅1mmあたり約0.81kg、上限7.9kg/mm以内）。ミル仕上げの板を巻いたコイルを、軸を水平にして床に置いた状態。',
-    sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
-  alumcoil_banded: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径508mm・外径 最大1981mm・幅 6〜940mm）＋スチールバンド3本掛け', name:'バンド掛けアルミコイル 内径508×外径792×幅800', mm:{ w:800, d:800, h:800 }, weightKg:630, checked:'2026-09-29',
-    note:'外径792・幅約800mmのコイル（約630kg）。巻きほどけを防ぐため、帯鋼（幅32mm）を外周に3本・内径を通して2本掛け、シールで留めた状態。外形はバンドの厚みを含む。',
-    sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
-  alumcoil_packed: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径508mm）＋防錆紙包装・エッジ保護・バンド掛け', name:'梱包済みアルミコイル 内径508×外径740×幅800', mm:{ w:820, d:840, h:820 }, weightKg:490, checked:'2026-09-29',
-    note:'外径740・幅800mmのコイル（約490kg）を防錆紙（VCI）で包み、端面の角にエッジプロテクター、外周と内径にバンドを掛け、木製の枕木2本に載せた出荷形態。外形は包装・バンド・枕木を含む。',
-    sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
+  // アルミコイル: 特定の商品ではないため、圧延メーカー・技術資料の一般的な仕様をモデルデータに使う（kind:'data'）。
+  // 形はパラメトリックなコイルモデル（内径・外径・板幅・板厚・テールの浮き量/範囲/位置・角部R・端面の丸み）で作り、
+  // ホットコイルを既定に、板厚やテールを変えて製品コイル・バンド掛け・横倒し・梱包・輸出梱包へ派生させる
+  alumcoil: { kind:'data', brand:'UACJ・GlobalSpec', model:'熱間圧延で巻き取ったホットコイル（冷間圧延前の素材・板厚8mm）。内径は標準の508mm（406/508/610mm）', name:'ホットコイル 内径508×外径1250×幅1100×板厚8mm', mm:{ w:1100, d:1403, h:1244 }, weightKg:3008, checked:'2026-09-29',
+    note:'45巻（板の長さ約127m）で、比重2.70なら約3.0t。外径は整数巻きのため1244mm。巻き終わり（テール）は最後の90°で最大159mm浮き上がり、テール端は舌状（板幅の中央が長く、両端は14°手前で角部R150mm）で板厚方向に丸い。奥行はテールの浮きを含む外形。板厚・テールを変えて製品コイル・バンド掛け・横倒し・梱包の各アイテムに派生させている。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
+  alumcoil_prod: { kind:'data', brand:'UACJ・GlobalSpec', model:'冷間圧延で板厚1.0mmに仕上げた製品コイル（内径508mm）', name:'製品コイル 内径508×外径1250×幅1100×板厚1.0mm', mm:{ w:1100, d:1250, h:1250 }, weightKg:3043, checked:'2026-09-29',
+    note:'ホットコイルを冷間圧延で板厚1.0mmまで薄くして巻き直した製品。370巻（板の長さ約1024m）で約3.0t。テールは真っすぐ切りそろえて浮かせず、3か所をテープで留める。端面の巻き目は細かい縞に見え、端面に識別ラベルを貼る。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
+  alumcoil_banded: { kind:'data', brand:'UACJ・GlobalSpec', model:'製品コイル（内径508×外径1250×幅1100×板厚1.0mm）＋帯鋼のバンド掛け', name:'バンド掛け製品コイル 内径508×外径1250×幅1100', mm:{ w:1103, d:1253, h:1256 }, weightKg:3043, checked:'2026-09-29',
+    note:'テープで留めた製品コイルに、巻きほどけを防ぐ帯鋼（幅32mm）を外周に3本（上でシール留め）・内径を通して2本掛けた出荷前の状態。外形はバンドとシールの厚みを含む。質量はコイル本体。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
+  alumcoil_packed: { kind:'data', brand:'UACJ・GlobalSpec', model:'製品コイル（内径508×外径1250×幅1100）＋防錆紙包装・エッジ保護・バンド掛け', name:'梱包済み製品コイル 内径508×外径1250×幅1100', mm:{ w:1140, d:1286, h:1308 }, weightKg:3043, checked:'2026-09-29',
+    note:'製品コイルを防錆紙（VCI）で外周・端面・内径まで包み、端面の角にエッジプロテクター、外周と内径にバンドを掛け、軸方向の木製の枕木2本に載せた出荷形態。外形は包装・エッジプロテクター・枕木を含む。質量はコイル本体。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
   alumcoil_export: { kind:'data', brand:'タカムラ産業', model:'アルミコイル梱包（2006年 VA大会発表の従来仕様: 上下木パレット＋ハードボード巻き、1梱包3〜4巻）', name:'輸出梱包アルミコイル 1100×1100', mm:{ w:1100, d:1100, h:1000 }, weightKg:660, checked:'2026-09-29',
-    note:'中国・韓国・フィリピン向けのコイル（径650〜1080mm・幅170〜260mm・1巻160〜230kg）をアイトゥスカイ（軸を鉛直）に3〜4巻重ね、上下の木製パレットとハードボードの巻き付けで梱包。梱包外寸1100×1100×710〜1220mm、1梱包480〜690kg、2段積み。モデルは外径800・幅250mmの3巻（1巻約200kg、パレット込みで約660kg）。',
+    note:'中国・韓国・フィリピン向けのコイル（径650〜1080mm・幅170〜260mm・1巻160〜230kg）をアイトゥスカイ（軸を鉛直）に3〜4巻重ね、上下の木製パレットとハードボードの巻き付けで梱包。梱包外寸1100×1100×710〜1220mm、1梱包480〜690kg、2段積み。モデルは内径508×外径800×幅250mm・板厚1.0mmの3巻（1巻約200kg、パレット込みで約660kg）で、コイルは製品コイルと同じ作り（端面の巻き目・テープ留め）。',
     sources:[ { label:'タカムラ産業 アルミコイル梱包改善2006', url:'https://takamura-tmsg.jp/example/53/' } ] },
-  alumcoil_side: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径508mm・幅 最大940mm）＋輪止め・バンド掛け', name:'横倒しアルミコイル 内径508×外径750×幅900', mm:{ w:900, d:800, h:800 }, weightKg:580, checked:'2026-09-29',
-    note:'外径750・幅900mmのコイル（約580kg）を、軸を左右方向(X)に向けて木製の枕木2本に載せ、両側を楔形の輪止めで止めてバンド2本で締めた状態。外形は枕木・輪止めを含む。',
-    sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
+  alumcoil_side: { kind:'data', brand:'UACJ・GlobalSpec', model:'製品コイル（内径508×外径1250×幅1100）を横倒し（アイトゥスカイ）にしてパレット積み', name:'横倒し製品コイル 内径508×外径1250×幅1100', mm:{ w:1300, d:1300, h:1243 }, weightKg:3043, checked:'2026-09-29',
+    note:'バンド掛けした製品コイルを横倒し（目＝内径を上に向け、端面を下にして置く）にし、1300角の木製パレットに載せて、内径を通す帯鋼4本と外周1本で締めた状態。上面の端面に識別ラベル。外形はパレットを含む。質量はコイル本体。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
   // ---- ステップ7: 大型油圧プレス・工業炉 ----
   lg_hydpress: { brand:'Nantong Yijie Machinery（中国・南通）', model:'Y32-315 四柱油圧プレス（公称力3150kN／315t）', name:'Nantong Yijie Y32-315', mm:{ w:4200, d:4200, h:5600 }, checked:'2026-09-29',
     note:'公称力3150kN（315t）の三梁四柱式（上梁・スライド・下梁を4本の柱で結ぶ）汎用油圧プレス。外形は左右4200×前後4200×地上高5600mm（床下のピットに埋め込む部分を除く）、開口高さ1250mm・ストローク800mm。外形の内訳（油圧ユニット・制御盤・操作盤・金型交換用ムービングボルスタのレール・点検用手すり）はモデル上の表現で、テーブル寸法は同形式の他社機（Y32-315T: 1300×1200mm）に合わせた。',
@@ -8951,7 +9158,7 @@ const FURNITURE_DEFS = [
   { id:'vacpump',    cat:'lab',     name:'真空ポンプ',        icon:'fa-pump-soap',         w:0.17, d:0.488,h:0.25, colorIdx:13,  build:buildVacuumPump,  stack:true, product:PRODUCT.vacpump },
   // ---- factory heavy equipment ----
   { id:'forklift',   cat:'factory', name:'フォークリフト',   icon:'fa-truck-moving',      w:1.15, d:3.0,  h:2.1,  colorIdx:12, build:buildForklift,    product:PRODUCT.forklift },
-  { id:'alumcoil',   cat:'factory', name:'アルミコイル',     icon:'fa-circle',            w:0.8,  d:0.8,  h:0.8,  colorIdx:10, build:buildAluminumCoil, product:PRODUCT.alumcoil },
+  { id:'alumcoil',   cat:'factory', name:'アルミコイル（ホット）', icon:'fa-circle',        w:1.1,  d:1.403,h:1.244,colorIdx:26, build:buildAluminumCoil, product:PRODUCT.alumcoil },
   { id:'scrpbucket', cat:'factory', name:'屑バケット',       icon:'fa-trash',             w:0.6,  d:0.6,  h:0.6,  colorIdx:13, build:buildScrapBucket,  product:PRODUCT.scrpbucket },
   { id:'tensile',    cat:'lab',     name:'引張試験機',       icon:'fa-arrows-up-down',    w:0.975,d:0.579,h:1.708,colorIdx:10, build:buildTensileTestMachine, product:PRODUCT.tensile },
   { id:'woodpallet', cat:'factory', name:'木製パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.144, colorIdx:0,  build:buildWoodPallet,  product:PRODUCT.woodpallet },
@@ -8967,10 +9174,11 @@ const FURNITURE_DEFS = [
   // ---- 新規アイテム ----
   { id:'jib_crane',      cat:'factory', name:'ジブクレーン',        icon:'fa-arrow-up-from-bracket', w:3.3,  d:0.6,  h:3.5,   colorIdx:12, build:buildJibCrane,         product:PRODUCT.jib_crane },
   { id:'fire_ext',       cat:'factory', name:'消火器',              icon:'fa-fire-extinguisher',     w:0.18, d:0.126,h:0.49,  colorIdx:22, build:buildFireExtinguisher, stack:true, product:PRODUCT.fire_ext },
-  { id:'alumcoil_banded',cat:'factory', name:'バンド掛けアルミコイル',icon:'fa-circle',              w:0.8,  d:0.8,  h:0.8,   colorIdx:10, build:buildBandedAlumCoil,   product:PRODUCT.alumcoil_banded },
-  { id:'alumcoil_packed', cat:'factory',name:'梱包済みアルミコイル', icon:'fa-box-archive',          w:0.82, d:0.84, h:0.82,   colorIdx:11, build:buildPackagedAlumCoil, product:PRODUCT.alumcoil_packed },
+  { id:'alumcoil_prod',  cat:'factory', name:'アルミ製品コイル',     icon:'fa-circle',               w:1.1,  d:1.25, h:1.25,  colorIdx:26, build:buildProductCoil,      product:PRODUCT.alumcoil_prod },
+  { id:'alumcoil_banded',cat:'factory', name:'バンド掛けアルミコイル',icon:'fa-circle',              w:1.103,d:1.253,h:1.256, colorIdx:26, build:buildBandedAlumCoil,   product:PRODUCT.alumcoil_banded },
+  { id:'alumcoil_packed', cat:'factory',name:'梱包済みアルミコイル', icon:'fa-box-archive',          w:1.14, d:1.286,h:1.308, colorIdx:11, build:buildPackagedAlumCoil, product:PRODUCT.alumcoil_packed },
   { id:'alumcoil_export', cat:'factory',name:'輸出梱包アルミコイル', icon:'fa-pallet',               w:1.1,  d:1.1,  h:1.0,   colorIdx:8,  build:buildExportAlumCoil,   product:PRODUCT.alumcoil_export },
-  { id:'alumcoil_side',  cat:'factory', name:'横倒しアルミコイル',   icon:'fa-circle',               w:0.9,  d:0.8,  h:0.8,   colorIdx:10, build:buildAlumCoilSide,     product:PRODUCT.alumcoil_side },
+  { id:'alumcoil_side',  cat:'factory', name:'横倒しアルミコイル',   icon:'fa-circle',               w:1.3,  d:1.3,  h:1.243, colorIdx:26, build:buildAlumCoilSide,     product:PRODUCT.alumcoil_side },
   { id:'worker',         cat:'factory', name:'作業員',              icon:'fa-person-walking',        w:0.5,  d:0.5,  h:1.715, colorIdx:20, build:buildWorker,           product:PRODUCT.worker },
   // ---- 家具追加 ----
   { id:'monitor',       cat:'office',   name:'PCモニター',          icon:'fa-desktop',        w:0.538,d:0.18, h:0.496,colorIdx:2,  build:buildMonitor,         stack:true, product:PRODUCT.monitor },
@@ -9193,7 +9401,7 @@ const PRESETS = [
       // ===== 炉前 原材料待機エリア (x=-8〜-3, z=-6.3) =====
       P('woodpallet', -7.5, -6.3, 0),
       P('woodpallet', -6.2, -6.3, 0),
-      P('alumcoil',   -3.8, -6.3, 0),    // 待機アルミ原反
+      P('alumcoil',   -3.8, -6.3, 180),  // 待機中のホットコイル (浮いたテールを通路側へ)
 
       // ===== スクラップ回収 (各ゾーン) =====
       P('scrpbucket',  -4.5, -7.7, 0),   // 炉ゾーン
@@ -9211,12 +9419,13 @@ const PRESETS = [
       P('fire_ext', +13.5,  0.0, 0),
 
       // ===== 原材料エリア (南西, z=+2〜+9, x=-14〜-7) =====
-      P('alumcoil', -13.0, +3.0, 0),
-      P('alumcoil', -11.5, +3.0, 0),
-      P('alumcoil', -10.0, +3.0, 0),
-      P('alumcoil', -13.0, +4.5, 0),
-      P('alumcoil', -11.5, +4.5, 0),
-      P('alumcoil', -10.0, +4.5, 0),
+      // ホットコイル (外形 1.1×1.4m, 約3t) を 2 列 × 3: 北列はテールを通路 (北) へ、南列は南へ向ける。西壁の作業台と 0.1m 以上離す
+      P('alumcoil', -12.45, +2.85, 0),
+      P('alumcoil', -11.10, +2.85, 0),
+      P('alumcoil',  -9.75, +2.85, 0),
+      P('alumcoil', -12.45, +4.35, 180),
+      P('alumcoil', -11.10, +4.35, 180),
+      P('alumcoil',  -9.75, +4.35, 180),
       P('woodpallet', -13.0, +6.5, 0),
       P('woodpallet', -11.5, +6.5, 0),
       P('woodpallet', -10.0, +6.5, 0),
@@ -9229,9 +9438,9 @@ const PRESETS = [
       P('palletrack', +13.5, +2.0, 270),  // 東壁沿いラック (西向き)
       P('palletrack', +13.5, +4.5, 270),
       P('palletrack', +13.5, +7.0, 270),
-      P('woodpallet', +11.0, +2.5, 0),
+      P('alumcoil_side', +11.0, +2.5, 0),  // 横倒しでパレットに載せた出荷待ちの製品コイル
       P('woodpallet', +11.0, +5.0, 0),
-      P('alumcoil',    +11.0, +7.5, 0),   // 完成品アルミコイル
+      P('alumcoil_banded', +11.0, +7.5, 0),   // バンド掛けした完成品の製品コイル
       P('resinpallet', +9.5,  +3.5, 0),
       // フォークリフト② (完成品出荷, 西向き=荷捌き方向)
       P('forklift', +10.5, +5.0, 270),

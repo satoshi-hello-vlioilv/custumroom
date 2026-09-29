@@ -1,6 +1,6 @@
 import { buildArmchair, buildBed, buildLowSofa, buildBench, buildBlackboard, buildBookshelf, buildBunkBed, buildCafeChair, buildCafeTable, buildChest, buildCoffeeTable, buildConsoleTable, buildDesk, buildDeskLamp, buildDiningChair, buildDiningTable, buildDresser, buildFloorLamp, buildGlassCabinet, buildHangerRack, buildKotatsu, buildLoungeChair, buildMonitor, buildOfficeChair, buildOttoman, buildPendantLamp, buildPiano, buildRoundCoffeeTable, buildRoundRug, buildRoundTableSm, buildRug, buildSchoolDesk, buildSideTable, buildSofa3, buildSofaL, buildStackingChair, buildStool, buildTV, buildTVBoard, buildTableLamp, buildUpholsteredChair, buildWallArt, buildWallClock, buildWardrobe, buildWindsorChair, buildZabuton } from './builders/furniture.js';
 import { buildBathSet, buildBathtub, buildCloset, buildCupboard, buildDishwasher, buildEspressoMachine, buildFridge, buildGasStove, buildHandBasin, buildKitchenCounter, buildLockerUnit, buildMicrowave, buildRiceCooker, buildShoeCabinet, buildToilet, buildVanity, buildVendingMachine, buildWallAC, buildWallTV, buildWasher } from './builders/household.js';
-import { buildAlumCoilSide, buildAluminumCoil, buildBandedAlumCoil, buildCNCMachine, buildCNCMachiningCenter, buildControlPanel, buildConveyor, buildDrum, buildExportAlumCoil, buildFireExtinguisher, buildForklift, buildIndustrialFurnace, buildIndustrialRobot, buildIndustrialRobotLg, buildInjectionMolder, buildJibCrane, buildLargeHydraulicPress, buildPackagedAlumCoil, buildPalletRack, buildResinPallet, buildScrapBucket, buildSteelPallet, buildTensileTestMachine, buildToolCabinet, buildWoodPallet, buildWorkbench, buildWorker } from './builders/industrial.js';
+import { buildAlumCoilSide, buildAluminumCoil, buildBandedAlumCoil, buildProductCoil, buildCNCMachine, buildCNCMachiningCenter, buildControlPanel, buildConveyor, buildDrum, buildExportAlumCoil, buildFireExtinguisher, buildForklift, buildIndustrialFurnace, buildIndustrialRobot, buildIndustrialRobotLg, buildInjectionMolder, buildJibCrane, buildLargeHydraulicPress, buildPackagedAlumCoil, buildPalletRack, buildResinPallet, buildScrapBucket, buildSteelPallet, buildTensileTestMachine, buildToolCabinet, buildWoodPallet, buildWorkbench, buildWorker } from './builders/industrial.js';
 import { buildHPLC, buildIncubator, buildLabOven, buildSpectrophotometer, buildUltrasonicCleaner, buildVacuumPump } from './builders/instruments.js';
 import { build3DPrinter, buildAnalyticalBalance, buildBandSaw, buildBenchGrinder, buildCentrifuge, buildChemShelf, buildDrillPress, buildFumeHood, buildGlassware, buildHydraulicPress, buildLabBench, buildLaserCutter, buildLathe, buildMicroscope, buildMillingMachine, buildOscilloscope, buildScrollSaw, buildTestBench, buildToolRack, buildWelderStation } from './builders/lab.js';
 import { buildATM, buildBarCounter, buildBarStool, buildBenchDesk, buildBenchDeskDouble, buildConferenceTable, buildCopier, buildDisplayCase, buildFilingCabinet, buildGondolaShelf, buildInfoPanel, buildPedestal, buildProjector, buildProjectorScreen, buildReceptionCounter, buildRegisterCounter, buildRoundTable, buildShelfRack, buildShowcaseFridge, buildWhiteboard } from './builders/office.js';
@@ -535,22 +535,27 @@ const PRODUCT = {
   toolrack: { brand:'TRUSCO（トラスコ中山）', model:'パンチングパネル UPR-P450（幅900×高さ450mm）×2枚＋フック・コンテナ用棚板', name:'TRUSCO パンチングパネル UPR-P450 ×2', mm:{ w:900, d:120, h:900 }, weightKg:10, checked:'2026-09-29',
     note:'UPR型パンチングパネル 1枚 幅900×高さ450×厚さ25mm・質量5kg（スチール）。2枚を上下に並べて壁に取り付け、フックに工具を掛け、下段にVNコンテナ用の棚板を付けた構成。奥行(D)は工具・棚板を含むモデル上の外形。',
     sources:[ { label:'参考: モノタロウ TRUSCO パンチングパネル UPR-P450', url:'https://www.monotaro.com/g/00140739/' }, { label:'オレンジブック TRUSCO パンチングパネル シリーズ', url:'https://www.orange-book.com/ja/c/series/index.html?seriesCd=7007603' } ] },
-  // アルミコイル: 特定の商品ではなく圧延メーカーが公開している製造範囲をモデルデータに使う（kind:'data'）
-  alumcoil: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径 406/508/610mm・外径 最大1981mm・幅 6〜940mm・板厚 0.1〜4.0mm・最大7.9kg/mm幅）', name:'アルミコイル 内径508×外径800×幅800', mm:{ w:800, d:800, h:800 }, weightKg:650, checked:'2026-09-29',
-    note:'内径は標準の508mm（20インチ）。外径800・幅800mmで、A1100（比重2.71）なら約650kg（幅1mmあたり約0.81kg、上限7.9kg/mm以内）。ミル仕上げの板を巻いたコイルを、軸を水平にして床に置いた状態。',
-    sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
-  alumcoil_banded: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径508mm・外径 最大1981mm・幅 6〜940mm）＋スチールバンド3本掛け', name:'バンド掛けアルミコイル 内径508×外径792×幅800', mm:{ w:800, d:800, h:800 }, weightKg:630, checked:'2026-09-29',
-    note:'外径792・幅約800mmのコイル（約630kg）。巻きほどけを防ぐため、帯鋼（幅32mm）を外周に3本・内径を通して2本掛け、シールで留めた状態。外形はバンドの厚みを含む。',
-    sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
-  alumcoil_packed: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径508mm）＋防錆紙包装・エッジ保護・バンド掛け', name:'梱包済みアルミコイル 内径508×外径740×幅800', mm:{ w:820, d:840, h:820 }, weightKg:490, checked:'2026-09-29',
-    note:'外径740・幅800mmのコイル（約490kg）を防錆紙（VCI）で包み、端面の角にエッジプロテクター、外周と内径にバンドを掛け、木製の枕木2本に載せた出荷形態。外形は包装・バンド・枕木を含む。',
-    sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
+  // アルミコイル: 特定の商品ではないため、圧延メーカー・技術資料の一般的な仕様をモデルデータに使う（kind:'data'）。
+  // 形はパラメトリックなコイルモデル（内径・外径・板幅・板厚・テールの浮き量/範囲/位置・角部R・端面の丸み）で作り、
+  // ホットコイルを既定に、板厚やテールを変えて製品コイル・バンド掛け・横倒し・梱包・輸出梱包へ派生させる
+  alumcoil: { kind:'data', brand:'UACJ・GlobalSpec', model:'熱間圧延で巻き取ったホットコイル（冷間圧延前の素材・板厚8mm）。内径は標準の508mm（406/508/610mm）', name:'ホットコイル 内径508×外径1250×幅1100×板厚8mm', mm:{ w:1100, d:1403, h:1244 }, weightKg:3008, checked:'2026-09-29',
+    note:'45巻（板の長さ約127m）で、比重2.70なら約3.0t。外径は整数巻きのため1244mm。巻き終わり（テール）は最後の90°で最大159mm浮き上がり、テール端は舌状（板幅の中央が長く、両端は14°手前で角部R150mm）で板厚方向に丸い。奥行はテールの浮きを含む外形。板厚・テールを変えて製品コイル・バンド掛け・横倒し・梱包の各アイテムに派生させている。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
+  alumcoil_prod: { kind:'data', brand:'UACJ・GlobalSpec', model:'冷間圧延で板厚1.0mmに仕上げた製品コイル（内径508mm）', name:'製品コイル 内径508×外径1250×幅1100×板厚1.0mm', mm:{ w:1100, d:1250, h:1250 }, weightKg:3043, checked:'2026-09-29',
+    note:'ホットコイルを冷間圧延で板厚1.0mmまで薄くして巻き直した製品。370巻（板の長さ約1024m）で約3.0t。テールは真っすぐ切りそろえて浮かせず、3か所をテープで留める。端面の巻き目は細かい縞に見え、端面に識別ラベルを貼る。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
+  alumcoil_banded: { kind:'data', brand:'UACJ・GlobalSpec', model:'製品コイル（内径508×外径1250×幅1100×板厚1.0mm）＋帯鋼のバンド掛け', name:'バンド掛け製品コイル 内径508×外径1250×幅1100', mm:{ w:1103, d:1253, h:1256 }, weightKg:3043, checked:'2026-09-29',
+    note:'テープで留めた製品コイルに、巻きほどけを防ぐ帯鋼（幅32mm）を外周に3本（上でシール留め）・内径を通して2本掛けた出荷前の状態。外形はバンドとシールの厚みを含む。質量はコイル本体。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
+  alumcoil_packed: { kind:'data', brand:'UACJ・GlobalSpec', model:'製品コイル（内径508×外径1250×幅1100）＋防錆紙包装・エッジ保護・バンド掛け', name:'梱包済み製品コイル 内径508×外径1250×幅1100', mm:{ w:1140, d:1286, h:1308 }, weightKg:3043, checked:'2026-09-29',
+    note:'製品コイルを防錆紙（VCI）で外周・端面・内径まで包み、端面の角にエッジプロテクター、外周と内径にバンドを掛け、軸方向の木製の枕木2本に載せた出荷形態。外形は包装・エッジプロテクター・枕木を含む。質量はコイル本体。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
   alumcoil_export: { kind:'data', brand:'タカムラ産業', model:'アルミコイル梱包（2006年 VA大会発表の従来仕様: 上下木パレット＋ハードボード巻き、1梱包3〜4巻）', name:'輸出梱包アルミコイル 1100×1100', mm:{ w:1100, d:1100, h:1000 }, weightKg:660, checked:'2026-09-29',
-    note:'中国・韓国・フィリピン向けのコイル（径650〜1080mm・幅170〜260mm・1巻160〜230kg）をアイトゥスカイ（軸を鉛直）に3〜4巻重ね、上下の木製パレットとハードボードの巻き付けで梱包。梱包外寸1100×1100×710〜1220mm、1梱包480〜690kg、2段積み。モデルは外径800・幅250mmの3巻（1巻約200kg、パレット込みで約660kg）。',
+    note:'中国・韓国・フィリピン向けのコイル（径650〜1080mm・幅170〜260mm・1巻160〜230kg）をアイトゥスカイ（軸を鉛直）に3〜4巻重ね、上下の木製パレットとハードボードの巻き付けで梱包。梱包外寸1100×1100×710〜1220mm、1梱包480〜690kg、2段積み。モデルは内径508×外径800×幅250mm・板厚1.0mmの3巻（1巻約200kg、パレット込みで約660kg）で、コイルは製品コイルと同じ作り（端面の巻き目・テープ留め）。',
     sources:[ { label:'タカムラ産業 アルミコイル梱包改善2006', url:'https://takamura-tmsg.jp/example/53/' } ] },
-  alumcoil_side: { kind:'data', brand:'United Aluminum', model:'アルミコイルの製造範囲（内径508mm・幅 最大940mm）＋輪止め・バンド掛け', name:'横倒しアルミコイル 内径508×外径750×幅900', mm:{ w:900, d:800, h:800 }, weightKg:580, checked:'2026-09-29',
-    note:'外径750・幅900mmのコイル（約580kg）を、軸を左右方向(X)に向けて木製の枕木2本に載せ、両側を楔形の輪止めで止めてバンド2本で締めた状態。外形は枕木・輪止めを含む。',
-    sources:[ { label:'United Aluminum Aluminum Coil Alloys & Capabilities（Metric）', url:'https://unitedaluminum.com/alloys-capabilities-metric/' } ] },
+  alumcoil_side: { kind:'data', brand:'UACJ・GlobalSpec', model:'製品コイル（内径508×外径1250×幅1100）を横倒し（アイトゥスカイ）にしてパレット積み', name:'横倒し製品コイル 内径508×外径1250×幅1100', mm:{ w:1300, d:1300, h:1243 }, weightKg:3043, checked:'2026-09-29',
+    note:'バンド掛けした製品コイルを横倒し（目＝内径を上に向け、端面を下にして置く）にし、1300角の木製パレットに載せて、内径を通す帯鋼4本と外周1本で締めた状態。上面の端面に識別ラベル。外形はパレットを含む。質量はコイル本体。',
+    sources:[ { label:'UACJ 世界に誇るUACJの設備（熱間圧延・冷間圧延）', url:'https://www.uacj.co.jp/techno/production/equipment.htm' }, { label:'GlobalSpec Fundamentals of aluminum coil（標準の内径 406/508/610mm）', url:'https://insights.globalspec.com/article/19516/fundamentals-of-aluminum-coil' } ] },
   // ---- ステップ7: 大型油圧プレス・工業炉 ----
   lg_hydpress: { brand:'Nantong Yijie Machinery（中国・南通）', model:'Y32-315 四柱油圧プレス（公称力3150kN／315t）', name:'Nantong Yijie Y32-315', mm:{ w:4200, d:4200, h:5600 }, checked:'2026-09-29',
     note:'公称力3150kN（315t）の三梁四柱式（上梁・スライド・下梁を4本の柱で結ぶ）汎用油圧プレス。外形は左右4200×前後4200×地上高5600mm（床下のピットに埋め込む部分を除く）、開口高さ1250mm・ストローク800mm。外形の内訳（油圧ユニット・制御盤・操作盤・金型交換用ムービングボルスタのレール・点検用手すり）はモデル上の表現で、テーブル寸法は同形式の他社機（Y32-315T: 1300×1200mm）に合わせた。',
@@ -732,7 +737,7 @@ const FURNITURE_DEFS = [
   { id:'vacpump',    cat:'lab',     name:'真空ポンプ',        icon:'fa-pump-soap',         w:0.17, d:0.488,h:0.25, colorIdx:13,  build:buildVacuumPump,  stack:true, product:PRODUCT.vacpump },
   // ---- factory heavy equipment ----
   { id:'forklift',   cat:'factory', name:'フォークリフト',   icon:'fa-truck-moving',      w:1.15, d:3.0,  h:2.1,  colorIdx:12, build:buildForklift,    product:PRODUCT.forklift },
-  { id:'alumcoil',   cat:'factory', name:'アルミコイル',     icon:'fa-circle',            w:0.8,  d:0.8,  h:0.8,  colorIdx:10, build:buildAluminumCoil, product:PRODUCT.alumcoil },
+  { id:'alumcoil',   cat:'factory', name:'アルミコイル（ホット）', icon:'fa-circle',        w:1.1,  d:1.403,h:1.244,colorIdx:26, build:buildAluminumCoil, product:PRODUCT.alumcoil },
   { id:'scrpbucket', cat:'factory', name:'屑バケット',       icon:'fa-trash',             w:0.6,  d:0.6,  h:0.6,  colorIdx:13, build:buildScrapBucket,  product:PRODUCT.scrpbucket },
   { id:'tensile',    cat:'lab',     name:'引張試験機',       icon:'fa-arrows-up-down',    w:0.975,d:0.579,h:1.708,colorIdx:10, build:buildTensileTestMachine, product:PRODUCT.tensile },
   { id:'woodpallet', cat:'factory', name:'木製パレット',     icon:'fa-pallet',             w:1.1,  d:1.1,  h:0.144, colorIdx:0,  build:buildWoodPallet,  product:PRODUCT.woodpallet },
@@ -748,10 +753,11 @@ const FURNITURE_DEFS = [
   // ---- 新規アイテム ----
   { id:'jib_crane',      cat:'factory', name:'ジブクレーン',        icon:'fa-arrow-up-from-bracket', w:3.3,  d:0.6,  h:3.5,   colorIdx:12, build:buildJibCrane,         product:PRODUCT.jib_crane },
   { id:'fire_ext',       cat:'factory', name:'消火器',              icon:'fa-fire-extinguisher',     w:0.18, d:0.126,h:0.49,  colorIdx:22, build:buildFireExtinguisher, stack:true, product:PRODUCT.fire_ext },
-  { id:'alumcoil_banded',cat:'factory', name:'バンド掛けアルミコイル',icon:'fa-circle',              w:0.8,  d:0.8,  h:0.8,   colorIdx:10, build:buildBandedAlumCoil,   product:PRODUCT.alumcoil_banded },
-  { id:'alumcoil_packed', cat:'factory',name:'梱包済みアルミコイル', icon:'fa-box-archive',          w:0.82, d:0.84, h:0.82,   colorIdx:11, build:buildPackagedAlumCoil, product:PRODUCT.alumcoil_packed },
+  { id:'alumcoil_prod',  cat:'factory', name:'アルミ製品コイル',     icon:'fa-circle',               w:1.1,  d:1.25, h:1.25,  colorIdx:26, build:buildProductCoil,      product:PRODUCT.alumcoil_prod },
+  { id:'alumcoil_banded',cat:'factory', name:'バンド掛けアルミコイル',icon:'fa-circle',              w:1.103,d:1.253,h:1.256, colorIdx:26, build:buildBandedAlumCoil,   product:PRODUCT.alumcoil_banded },
+  { id:'alumcoil_packed', cat:'factory',name:'梱包済みアルミコイル', icon:'fa-box-archive',          w:1.14, d:1.286,h:1.308, colorIdx:11, build:buildPackagedAlumCoil, product:PRODUCT.alumcoil_packed },
   { id:'alumcoil_export', cat:'factory',name:'輸出梱包アルミコイル', icon:'fa-pallet',               w:1.1,  d:1.1,  h:1.0,   colorIdx:8,  build:buildExportAlumCoil,   product:PRODUCT.alumcoil_export },
-  { id:'alumcoil_side',  cat:'factory', name:'横倒しアルミコイル',   icon:'fa-circle',               w:0.9,  d:0.8,  h:0.8,   colorIdx:10, build:buildAlumCoilSide,     product:PRODUCT.alumcoil_side },
+  { id:'alumcoil_side',  cat:'factory', name:'横倒しアルミコイル',   icon:'fa-circle',               w:1.3,  d:1.3,  h:1.243, colorIdx:26, build:buildAlumCoilSide,     product:PRODUCT.alumcoil_side },
   { id:'worker',         cat:'factory', name:'作業員',              icon:'fa-person-walking',        w:0.5,  d:0.5,  h:1.715, colorIdx:20, build:buildWorker,           product:PRODUCT.worker },
   // ---- 家具追加 ----
   { id:'monitor',       cat:'office',   name:'PCモニター',          icon:'fa-desktop',        w:0.538,d:0.18, h:0.496,colorIdx:2,  build:buildMonitor,         stack:true, product:PRODUCT.monitor },

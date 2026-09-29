@@ -23,7 +23,9 @@ const COLORS = [
   // IKEA STOENSE のライトオリーブグリーン — index 24
   '#a4a67c',
   // 工業炉の筐体 (ライトグレー) — index 25
-  '#cfd3d0'
+  '#cfd3d0',
+  // アルミコイルの地肌 (ほぼ鏡面のアルミ) — index 26
+  '#f3f5f6'
 ];
 
 function roundedBoxGeom(w, h, d, radius = 0.03, seg = 3) {

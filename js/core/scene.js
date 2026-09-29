@@ -71,4 +71,9 @@ function makeBgGradient() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
-export { canvas, wrapper, renderer, MAX_ANISO, scene, camera, DEFAULT_CAM_POS, raycaster, mouse, floorPlane, sun, hemi, rim, makeBgGradient };
+// 明るい室内の反射 (RoomEnvironment に renderer を渡すと物理ライト単位で室内が照らされる)。シーン全体の IBL は上のまま、
+// ほぼ鏡面の金属 (アルミコイル等) の素材だけが envMap として使う。初回に1度だけ作る
+let _envBright = null;
+function envBright() { return _envBright || (_envBright = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture); }
+
+export { canvas, wrapper, renderer, MAX_ANISO, scene, camera, DEFAULT_CAM_POS, raycaster, mouse, floorPlane, sun, hemi, rim, makeBgGradient, envBright };
