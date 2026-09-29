@@ -226,20 +226,55 @@ function buildBunnyPlush({ color = '#fbf4f6', w = 0.22, d = 0.22, h = 0.40 } = {
   g.add(sph(0.04, fur, 0, 0.13, -0.11)); // tail
   return g;
 }
-function buildUnicornToy({ color = '#f3e3f7', w = 0.5, d = 0.26, h = 0.6 } = {}) {
-  const g = new THREE.Group();
-  const bodyM = mat(color, 0.85), maneM = mat('#b9a0ec', 0.7), horn = mat('#ffe08a', 0.4, 0.3);
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.18, 6, 12), bodyM); body.rotation.z = Math.PI / 2; body.position.set(0, 0.28, 0); body.userData.colorable = true; g.add(body);
-  [[-0.13, -0.07], [0.13, -0.07], [-0.13, 0.07], [0.13, 0.07]].forEach(([x, z]) => g.add(box(0.05, 0.18, 0.05, bodyM, x, 0.09, z)));
-  const head = sph(0.1, bodyM, 0.2, 0.4, 0); head.scale.set(1.1, 1, 0.9); head.userData.colorable = true; g.add(head);
-  g.add(new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 10), horn).translateX(0.27).translateY(0.5)); // horn
-  [-1, 1].forEach(sgn => g.add(new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.07, 8), bodyM).translateX(0.16).translateY(0.49).translateZ(sgn * 0.05))); // ears
-  g.add(sph(0.012, mat('#5a4a55', 0.4), 0.28, 0.41, 0.08, 8)); // eye
-  // mane + tail
-  [0.06, 0.12, 0.0, -0.06].forEach((zx, i) => g.add(sph(0.05, maneM, 0.08 - i * 0.04, 0.46 - i * 0.02, 0)));
-  g.add(new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.16, 4, 8), maneM).translateX(-0.22).translateY(0.28));
-  return g;
+// HANSA ユニコーン 4974 (True-to-Life, 立ち姿 約42×16×48cm): リアルな馬体のぬいぐるみ。4本脚で立ち, 首を上げ,
+// 額に金色のらせんの角 (先端 = 高さ h)。たてがみ・前髪・尾はふさふさの毛束。頭 = +X, 長さ w は尾の先〜鼻先
+function buildUnicornToy({ color = '#f3e3f7', w = 0.42, d = 0.16, h = 0.48 } = {}) {
+  const outer = new THREE.Group(), g = new THREE.Group(); outer.add(g);
+  g.scale.set(w / 0.451, h / 0.484, d / 0.144); g.position.x = -0.0035 * w / 0.451;   // 作った形の外形 (0.451×0.144×0.484) を定義寸法に合わせる
+  const fur = mat(color, 0.9, 0, { roughMap: true, env: 0.2 }), muzzleM = mat(shade(color, 0.93), 0.85);
+  const hairM = mat(shade(color, 0.86), 0.8, 0, { roughMap: true, env: 0.2 }), gold = mat('#d8b35a', 0.35, 0.6, { env: 0.8 }), hoofM = mat('#c9ad72', 0.45, 0.35);
+  const dark = mat('#2a2226', 0.3, 0.1);
+  const ell = (rx, ry, rz, m, x, y, z, rotZ = 0) => { const e = sph(1, m, x, y, z, 20); e.scale.set(rx, ry, rz); e.rotation.z = rotZ; if (m === fur) e.userData.colorable = true; g.add(e); return e; };
+  const seg = (a, b, r0, r1, m) => { const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], len = Math.hypot(dx, dy, dz); const c = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 14), m); c.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize()); c.castShadow = true; if (m === fur) c.userData.colorable = true; g.add(c); return c; };
+  // 胴 (樽形) + 胸 + 尻
+  ell(0.13, 0.072, 0.066, fur, -0.025, 0.262, 0);
+  ell(0.06, 0.07, 0.06, fur, 0.075, 0.27, 0);
+  ell(0.065, 0.072, 0.064, fur, -0.12, 0.275, 0);
+  // 脚 4 本 (上が太く下で細い) + 蹄
+  [[0.075, 0.042], [0.075, -0.042], [-0.12, 0.042], [-0.12, -0.042]].forEach(([x, z], i) => {
+    const back = x < 0, knee = back ? [x - 0.012, 0.115, z] : [x + 0.004, 0.11, z];
+    seg([x, 0.24, z], knee, back ? 0.03 : 0.026, 0.018, fur);
+    ell(0.019, 0.019, 0.019, fur, knee[0], knee[1], knee[2]);
+    seg(knee, [x, 0.03, z], 0.018, 0.015, fur);
+    g.add(cylAt(0.016, 0.019, 0.03, 14, hoofM, x, 0.015, z));
+  });
+  // 首 (前上方へ) + 頭 (鼻先を下げる) + 鼻づら
+  seg([0.07, 0.3, 0], [0.132, 0.405, 0], 0.052, 0.036, fur);
+  ell(0.058, 0.034, 0.033, fur, 0.162, 0.405, 0, -0.55);
+  ell(0.03, 0.026, 0.027, muzzleM, 0.188, 0.372, 0, -0.55);
+  [-1, 1].forEach(s => {
+    g.add(sph(0.0045, dark, 0.206, 0.368, s * 0.011, 8));                                        // 鼻孔
+    g.add(sph(0.0085, dark, 0.158, 0.418, s * 0.028, 10));                                       // 目
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.034, 10), fur); ear.position.set(0.14, 0.447, s * 0.02); ear.rotation.set(s * 0.25, 0, 0.35); ear.userData.colorable = true; g.add(ear);
+  });
+  // 角: 金色の円錐 + らせんの溝 (先端が定義高さ)
+  const hornBase = new THREE.Vector3(0.162, 0.434, 0), hornDir = new THREE.Vector3(Math.sin(0.45), Math.cos(0.45), 0), hornL = 0.05;
+  const horn = new THREE.Mesh(new THREE.ConeGeometry(0.009, hornL, 14), gold); horn.position.copy(hornBase).addScaledVector(hornDir, hornL / 2); horn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), hornDir); g.add(horn);
+  const helix = []; for (let i = 0; i <= 40; i++) { const t = i / 40, a = t * Math.PI * 8, r = 0.0095 * (1 - t) + 0.0005; helix.push(new THREE.Vector3(Math.cos(a) * r, (t - 0.5) * hornL, Math.sin(a) * r)); }
+  const spiral = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(helix), 80, 0.0013, 5), mat('#b8903e', 0.4, 0.6)); spiral.position.copy(horn.position); spiral.quaternion.copy(horn.quaternion); g.add(spiral);
+  // たてがみ (項から背へ, 首の片側に流れる毛束) + 前髪
+  for (let i = 0; i < 9; i++) {
+    const t = i / 8, x = lerpN(0.14, 0.035, t), y = lerpN(0.44, 0.33, t);
+    const lock = ell(0.022, 0.034 - t * 0.008, 0.016, hairM, x - 0.004, y, 0.014 + (i % 2) * 0.006, 0.9 - t * 0.5); lock.rotation.x = 0.35;
+  }
+  ell(0.014, 0.022, 0.012, hairM, 0.166, 0.43, 0, -0.9);
+  // 尾 (尻から垂れて先が広がる)
+  const tailPts = [[-0.175, 0.3, 0], [-0.2, 0.26, 0.01], [-0.205, 0.19, 0.005], [-0.19, 0.12, -0.005]].map(p => new THREE.Vector3(...p));
+  const tail = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tailPts), 24, 0.017, 10), hairM); tail.castShadow = true; g.add(tail);
+  ell(0.018, 0.034, 0.02, hairM, -0.192, 0.11, -0.005, 0.2);
+  return outer;
 }
+const lerpN = (a, b, t) => a + (b - a) * t;
 // Qualatex 11インチ ラウンド (膨らませて直径約28cm): ゴム風船 + 結び目 + カールしたリボン + 重り。高さ(H)は床からの高さ
 function buildBalloon({ color = '#ff7d9c', w = 0.28, d = 0.28, h = 1.5 } = {}) {
   const g = new THREE.Group();
@@ -254,10 +289,19 @@ function buildBalloon({ color = '#ff7d9c', w = 0.28, d = 0.28, h = 1.5 } = {}) {
   g.add(sph(r * 0.22, mat('#ffffff', 0.15), -r * 0.38, top + r * 0.35, r * 0.72, 10));                     // ハイライト
   return g;
 }
-// ハートクッション (床置き・横向き): ハート形の輪郭を押し出してふっくら面取り + 縁のパイピング。定義寸法 w×d×h に合わせて伸縮
-function buildHeartCushion({ color = '#ff8fab', w = 0.5, d = 0.5, h = 0.18 } = {}) {
+// IKEA FAMNIG HJÄRTA クッション (40×101cm): ふっくらしたハート (約44×40cm) の左右から腕が伸びる (腕を広げた幅 101cm)。
+// 床に寝かせた状態: ハートの先端 → 手前 (+Z), くぼみ → 奥。厚み = h。縁にパイピング
+function buildHeartCushion({ color = '#c8201e', w = 1.01, d = 0.4, h = 0.2 } = {}) {
   const g = new THREE.Group();
   const fab = fabricMat(color);
+  // 腕: ハートの側面上寄りから左右へ。先は丸い手 (やや手前へ曲げる)
+  const armR = Math.min(0.05, h * 0.26), hw = Math.min(0.22, w * 0.22);
+  [-1, 1].forEach(s => {
+    const len = w / 2 - hw + 0.03 - armR * 1.1, arm = new THREE.Mesh(new THREE.CapsuleGeometry(armR, len, 6, 14), fab);
+    arm.rotation.z = Math.PI / 2; arm.rotation.y = s * 0.1; arm.position.set(s * (hw - 0.03 + len / 2 + armR * 0.1), armR, -d * 0.08); arm.castShadow = arm.receiveShadow = true; arm.userData.colorable = true; g.add(arm);
+    const hand = sph(armR * 1.1, fab, s * (w / 2 - armR * 1.1), armR * 1.05, -d * 0.08 + s * s * 0.03, 16); hand.scale.set(1, 0.95, 1.15); hand.userData.colorable = true; g.add(hand);
+  });
+  w = hw * 2; d = Math.min(d, 0.4);
   const s = new THREE.Shape();
   s.moveTo(0, -0.22);
   s.bezierCurveTo(-0.08, -0.14, -0.25, -0.05, -0.25, 0.08);
@@ -286,18 +330,42 @@ function buildHeartCushion({ color = '#ff8fab', w = 0.5, d = 0.5, h = 0.18 } = {
   pipe.castShadow = true; g.add(pipe);
   return g;
 }
-function buildBuildingBlocks({ color = '#ff9aa2', w = 0.3, d = 0.3, h = 0.3 } = {}) {
+// IKEA UNDERHÅLLA 積み木 40個セット: 無垢材の積み木 (持ちやすい幅3cm・角が丸い)。立方体・直方体・円柱・アーチ・三角屋根を
+// 積んだ門と塔 + 床に散らばったブロック。形の組み合わせ・配置はモデル上の表現 (外形 w×d×h に収める)
+function buildBuildingBlocks({ color = '#ff9aa2', w = 0.3, d = 0.25, h = 0.18 } = {}) {
   const g = new THREE.Group();
-  const cols = ['#ff9aa2', '#ffd382', '#a9e7cf', '#a9d8f0', '#c9b3ec', '#ffb3c6'];
-  const place = [[-0.08, 0.05, 0, 0.1], [0.06, 0.05, -0.05, 0.1], [0.0, 0.05, 0.07, 0.09],
-                 [-0.03, 0.16, 0.0, 0.1], [0.08, 0.17, 0.05, 0.08]];
-  place.forEach((p, i) => {
-    const sz = p[3];
-    const b = new THREE.Mesh(roundedBoxGeom(sz, sz, sz, 0.012, 2), mat(cols[i % cols.length], 0.65));
-    b.position.set(p[0], p[1], p[2]); b.rotation.y = (i * 0.5); b.castShadow = true; g.add(b);
-    // letter dot
-    g.add(box(sz * 0.4, sz * 0.4, 0.004, mat('#fff', 0.7), p[0], p[1], p[2] + sz / 2 + 0.002));
-  });
+  const m = 0.03, rad = 0.004;
+  const wood = (c) => mat(c, 0.62, 0, { env: 0.3 });
+  const C = { nat: wood('#e3c79a'), red: wood('#d65a4f'), yel: wood('#eec24a'), blu: wood('#4f86c2'), grn: wood('#5fa36d'), acc: wood(color) };
+  const add = (mesh, x, y, z, ry = 0, rz = 0) => { mesh.position.set(x, y, z); mesh.rotation.set(0, ry, rz); mesh.castShadow = mesh.receiveShadow = true; g.add(mesh); return mesh; };
+  const blk = (sx, sy, sz, M, x, y, z, ry = 0) => { const b = add(new THREE.Mesh(roundedBoxGeom(sx, sy, sz, rad, 2), M), x, y + sy / 2, z, ry); if (M === C.acc) b.userData.colorable = true; return b; };
+  const cylB = (r, len, M, x, y, z, lying = false, ry = 0) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 20), M); return lying ? add(c, x, y + r, z, ry, Math.PI / 2) : add(c, x, y + len / 2, z, ry); };
+  const roof = (wd, ht, dp, M, x, y, z, ry = 0) => {   // 三角柱 (断面 = 二等辺三角形, 奥行 dp)
+    const s = new THREE.Shape(); s.moveTo(-wd / 2, 0); s.lineTo(wd / 2, 0); s.lineTo(0, ht); s.closePath();
+    const geo = new THREE.ExtrudeGeometry(s, { depth: dp - 2 * rad, bevelEnabled: true, bevelThickness: rad, bevelSize: rad * 0.6, bevelSegments: 2 }); geo.translate(0, rad * 0.6, -(dp - 2 * rad) / 2);
+    const r = add(new THREE.Mesh(geo, M), x, y, z, ry); if (M === C.acc) r.userData.colorable = true; return r;
+  };
+  const arch = (wd, ht, dp, M, x, y, z) => {           // アーチ (下に半円の切り欠き)
+    const s = new THREE.Shape(); s.moveTo(-wd / 2, 0); s.lineTo(-m / 2 - 0.004, 0); s.absarc(0, 0, m / 2 + 0.004, Math.PI, 0, true); s.lineTo(wd / 2, 0); s.lineTo(wd / 2, ht); s.lineTo(-wd / 2, ht); s.closePath();
+    const geo = new THREE.ExtrudeGeometry(s, { depth: dp - 2 * rad, bevelEnabled: true, bevelThickness: rad, bevelSize: rad * 0.6, bevelSegments: 2, curveSegments: 12 }); geo.translate(0, rad * 0.6, -(dp - 2 * rad) / 2);
+    return add(new THREE.Mesh(geo, M), x, y, z);
+  };
+  // 門: アーチの上に板・立方体 2 個・三角屋根
+  arch(3 * m, 1.5 * m, m, C.red, -0.06, 0, 0.02);
+  blk(4 * m, m / 2, m, C.nat, -0.06, 1.5 * m, 0.02);
+  blk(m, m, m, C.yel, -0.093, 2 * m, 0.02); blk(m, m, m, C.blu, -0.027, 2 * m, 0.02);
+  roof(2 * m, m, m, C.acc, -0.06, 3 * m, 0.02);
+  // 塔: 立方体 5 段 + 三角屋根 (高さ h)
+  const tower = [C.nat, C.grn, C.yel, C.red, C.nat];
+  tower.forEach((M, i) => blk(m, m, m, M, 0.075, i * m, -0.035, i % 2 ? 0.08 : -0.05));
+  roof(m, h - 5 * m - rad * 1.2, m, C.acc, 0.075, 5 * m, -0.035, -0.05);
+  cylB(m / 2, 2 * m, C.blu, 0.03, 0, 0.055);                                   // 円柱の柱
+  // 床に散らばったブロック
+  blk(m, m, m, C.grn, 0.125, 0, 0.085, 0.6);
+  blk(2 * m, m, m, C.yel, -0.105, 0, -0.085, 0.45);
+  roof(2 * m, m, m, C.blu, 0.0, 0, -0.095, 0.9);
+  cylB(m / 2, 2 * m, C.red, -0.01, 0, 0.1, true, 0.3);
+  blk(m, m, m, C.acc, 0.02, 0, -0.03, 0.3);
   return g;
 }
 // IKEA FLISAT おもちゃ収納 キャスター付き (44×39×31): パイン無垢材のオープンボックス, 側面に手掛け穴, 4輪キャスター
@@ -353,31 +421,59 @@ function buildDollhouse({ color = '#e6cfa3', w = 0.58, d = 0.22, h = 0.59 } = {}
   g.add(box(0.06, 0.05, 0.05, mat('#a9d8f0', 0.6), 0.16, t + 0.025, -0.05));
   return g;
 }
-// ホールケーキ (いちごのショートケーキ 6号 = 直径18cm): スポンジ2層 + クリーム + いちご + ろうそく
-function buildCake({ color = '#fff3ea', w = 0.2, d = 0.2, h = 0.16 } = {}) {
+// 不二家 苺のショートケーキ M (直径17cm): 金台紙の上に, 生クリームで覆ったスポンジ (高さ約7cm)。裾に丸い絞り,
+// 天面の縁に絞りを並べてその上にいちご 8 粒, 中央にチョコプレート。ろうそく 3 本はモデル上の表現 (炎の先 = 高さ h)
+function buildCake({ color = '#fffaf2', w = 0.18, d = 0.18, h = 0.15 } = {}) {
   const g = new THREE.Group();
-  const sponge = mat('#f3d9b8', 0.8), cream = mat(color, 0.62), berry = mat('#d8263e', 0.45), board = mat('#e8d9b0', 0.4, 0.3);
-  const r = Math.min(w, d) / 2 - 0.01, bodyH = 0.08;
-  g.add(cylAt(r + 0.012, r + 0.012, 0.004, 32, board, 0, 0.002, 0));                                       // 金台紙
-  const body = cylAt(r, r, bodyH, 40, cream, 0, 0.004 + bodyH / 2, 0); body.userData.colorable = true; g.add(body);
-  [0.03, 0.058].forEach(y => g.add(cylAt(r + 0.0006, r + 0.0006, 0.004, 40, mat('#f3d9b8', 0.8), 0, y, 0)));   // 断面のスポンジ層(うっすら)
-  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; g.add(sph(0.008, cream, Math.cos(a) * (r - 0.012), 0.004 + bodyH + 0.005, Math.sin(a) * (r - 0.012), 8)); }   // 絞り
-  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + 0.2, bx = Math.cos(a) * (r - 0.028), bz = Math.sin(a) * (r - 0.028); const c = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.024, 10), berry); c.position.set(bx, 0.004 + bodyH + 0.014, bz); c.rotation.x = Math.PI; g.add(c); g.add(sph(0.006, mat('#3f8a3a', 0.6), bx, 0.004 + bodyH + 0.026, bz, 6)); }
+  const cream = mat(color, 0.55, 0, { env: 0.3 }), berry = mat('#d42336', 0.32, 0, { env: 0.6 }), seedM = mat('#f2d27a', 0.5);
+  // いちご (へたを落として先を上に): 肩が張り先がとがる回転体 + 種
+  const berryGeo = new THREE.LatheGeometry([[0, 0], [0.0095, 0], [0.0118, 0.006], [0.0112, 0.013], [0.0082, 0.021], [0.0035, 0.0265], [0, 0.0275]].map(([x, y]) => new THREE.Vector2(x, y)), 14);
+  const board = mat('#d6b25e', 0.3, 0.7, { env: 0.9 });
+  const r = Math.min(w, d) / 2 - 0.005, bodyH = 0.07, y0 = 0.003, top = y0 + bodyH;
+  g.add(cylAt(Math.min(w, d) / 2, Math.min(w, d) / 2, y0, 40, board, 0, y0 / 2, 0));                               // 金台紙
+  const body = cylAt(r, r, bodyH, 48, cream, 0, y0 + bodyH / 2, 0); body.userData.colorable = true; g.add(body);
+  const topRound = new THREE.Mesh(new THREE.TorusGeometry(r - 0.004, 0.004, 6, 48), cream); topRound.rotation.x = Math.PI / 2; topRound.position.y = top - 0.002; topRound.userData.colorable = true; g.add(topRound);
+  for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2, b = sph(0.0055, cream, Math.cos(a) * (r + 0.001), y0 + 0.005, Math.sin(a) * (r + 0.001), 8); b.userData.colorable = true; g.add(b); }   // 裾の絞り
+  // 天面の縁の絞り (星口金のロゼット) + いちご (へたを落として先を上に)
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * Math.PI * 2 + 0.2, rx = Math.cos(a) * (r - 0.018), rz = Math.sin(a) * (r - 0.018);
+    const ros = new THREE.Mesh(new THREE.ConeGeometry(0.013, 0.018, 8), cream); ros.position.set(rx, top + 0.008, rz); ros.userData.colorable = true; g.add(ros);
+    const s = new THREE.Mesh(berryGeo, berry); s.position.set(rx, top + 0.014, rz); s.rotation.y = a; s.castShadow = true; g.add(s);
+    for (let k = 0; k < 6; k++) { const sa = k * 1.047 + a, sy = 0.008 + (k % 2) * 0.007, sr = k % 2 ? 0.0106 : 0.0117; g.add(sph(0.0012, seedM, rx + Math.cos(sa) * sr, top + 0.014 + sy, rz + Math.sin(sa) * sr, 4)); }
+  }
+  // 中央のチョコプレート (白い文字の線)
+  const plate = cylAt(0.028, 0.028, 0.004, 24, mat('#4a2c1c', 0.4), 0, top + 0.003, 0.012); plate.rotation.x = -0.25; g.add(plate);
+  [-0.008, 0, 0.008].forEach((dz, i) => g.add(plainBox(0.03 - i * 0.006, 0.0008, 0.0016, mat('#fbf6ee', 0.5), 0, top + 0.0055 + dz * 0.25, 0.012 + dz)));
+  // ろうそく 3 本 (らせん柄) + 炎
+  const flame = new THREE.MeshStandardMaterial({ color: 0xffd27a, emissive: new THREE.Color('#ffb030'), emissiveIntensity: 1.3, roughness: 0.3 });
+  const cH = h - top - 0.016;
   ['#ff9aa2', '#a9d8f0', '#ffd382'].forEach((c, i) => {
-    const cx = (i - 1) * 0.025; g.add(cylAt(0.003, 0.003, 0.05, 6, mat(c, 0.6), cx, 0.004 + bodyH + 0.025, 0.005));
-    g.add(sph(0.006, mat('#ffcf6a', 0.2, 0.0, { emissive: '#ffb030', emissiveIntensity: 1.2 }), cx, 0.004 + bodyH + 0.056, 0.005, 6));
+    const cx = (i - 1) * 0.026, cz = -0.028 + Math.abs(i - 1) * 0.01;
+    g.add(cylAt(0.0032, 0.0032, cH, 8, mat(c, 0.55), cx, top + cH / 2, cz));
+    for (let k = 0; k < 4; k++) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.0033, 0.0008, 4, 10), mat('#ffffff', 0.5)); band.rotation.x = Math.PI / 2 + 0.35; band.position.set(cx, top + 0.008 + k * cH / 4.2, cz); g.add(band); }
+    g.add(cylAt(0.0006, 0.0006, 0.004, 4, mat('#222', 0.8), cx, top + cH + 0.002, cz));
+    const f = sph(0.0045, flame, cx, h - 0.007, cz, 8); f.scale.set(1, 1.7, 1); g.add(f);
   });
   return g;
 }
-// カップケーキ (直径約6.5cm・高さ約9cm): 紙カップ + 絞ったクリーム + さくらんぼ
-function buildCupcake({ color = '#ffb3c6', w = 0.07, d = 0.07, h = 0.09 } = {}) {
+// 生カップケーキ (プティル, 直径7.4cm): ひだのある紙カップ + 盛り上がったスポンジ + 生クリームの渦巻き絞り + さくらんぼ (高さ h)
+function buildCupcake({ color = '#ffb3c6', w = 0.074, d = 0.074, h = 0.085 } = {}) {
   const g = new THREE.Group();
-  const wrap = mat('#f2c14e', 0.6), cream = mat(color, 0.6);
-  const r = Math.min(w, d) / 2;
-  g.add(new THREE.Mesh(new THREE.CylinderGeometry(r * 0.95, r * 0.72, 0.035, 20), wrap).translateY(0.0175));
-  for (let i = 0; i < 3; i++) { const c = cylAt(r * (0.95 - i * 0.22), r * (1.0 - i * 0.22), 0.014, 20, cream, 0, 0.042 + i * 0.013, 0); c.userData.colorable = true; g.add(c); }
-  const sw = cylAt(r * 0.25, 0.0, 0.012, 12, cream, 0, 0.083, 0); sw.userData.colorable = true; g.add(sw);
-  g.add(sph(0.007, mat('#d8263e', 0.4), 0.004, h - 0.006, 0, 8));
+  const r = Math.min(w, d) / 2, cupH = 0.034;
+  const cupGeo = new THREE.CylinderGeometry(r, r * 0.76, cupH, 48, 1, true), cp = cupGeo.attributes.position;   // ひだ (放射状の山谷)
+  for (let i = 0; i < cp.count; i++) { const x = cp.getX(i), z = cp.getZ(i), a = Math.atan2(z, x), k = 1 + 0.035 * Math.cos(a * 24); cp.setX(i, x * k); cp.setZ(i, z * k); }
+  cupGeo.computeVertexNormals();
+  const cupM = mat('#f1e3c8', 0.75); cupM.side = THREE.DoubleSide;
+  const cup = new THREE.Mesh(cupGeo, cupM); cup.position.y = cupH / 2; cup.castShadow = true; g.add(cup);
+  g.add(cylAt(r * 0.76, r * 0.76, 0.002, 24, cupM, 0, 0.001, 0));
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(r * 0.98, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat('#d9a25e', 0.85)); dome.scale.y = 0.4; dome.position.y = cupH - 0.002; g.add(dome);
+  const cream = mat(color, 0.55, 0, { env: 0.3 }), creamTop = h - 0.016;
+  [[0.82, 0.0105], [0.62, 0.0095], [0.42, 0.0085]].forEach(([k, t], i) => {
+    const tor = new THREE.Mesh(new THREE.TorusGeometry(r * k - t, t, 10, 28), cream); tor.rotation.x = Math.PI / 2; tor.position.y = cupH + 0.009 + i * (creamTop - cupH - 0.02) / 2.6; tor.userData.colorable = true; g.add(tor);
+  });
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(r * 0.26, 0.014, 14), cream); tip.position.y = creamTop - 0.004; tip.userData.colorable = true; g.add(tip);
+  g.add(sph(0.0078, mat('#c8102e', 0.25, 0, { env: 0.8 }), 0.002, h - 0.0085, 0, 12));
+  const stem = cylAt(0.0007, 0.0007, 0.012, 4, mat('#5a7a2a', 0.7), 0.004, h - 0.0065, 0); stem.rotation.z = -0.5; g.add(stem);
   return g;
 }
 // 天蓋付きベッド (ARTTOWN ハミング シングル: 幅約98×奥行約203×高さ約100cm, 天蓋装着時 約197cm): アイアンのパイプフレーム,
@@ -464,29 +560,72 @@ function buildKidsChair({ color = '#ffd382', w = 0.39, d = 0.36, h = 0.67 } = {}
   });
   return g;
 }
-// 壁飾り: 顔(柄)を +Z に向ける壁掛け
+// 壁飾り: 顔(柄)を +Z に向ける壁掛け (壁面 = z -d/2)
+// 三角フラッグガーランド (おとりよせ.com zak-40635: 一辺約12cmの正三角形の布の旗 10 枚, 全長約150cm):
+// 両端を 1.3m 離して天井近く (留めピン 床上2.42m) に留め, 布テープが放物線状に約30cm 弛む (旗の先端 床上約2.0m)。
+// 旗はテープに縫い付けられ, 先端が下を向く。柄は旗ごとに違う
 function buildGarland({ color = '#ff9aa2', w = 1.3, d = 0.04, h = 0.4 } = {}) {
-  const g = new THREE.Group(); const cy = 1.9;
-  const cols = ['#ff9aa2', '#ffd382', '#a9e7cf', '#a9d8f0', '#c9b3ec'];
-  // string
-  const n = 9;
-  for (let i = 0; i <= n; i++) {
-    const t = i / n, x = -w / 2 + t * w, y = cy + Math.sin(t * Math.PI) * 0.06;
-    if (i < n) { const flag = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.13, 3), mat(cols[i % cols.length], 0.6)); flag.position.set(x + w / n / 2, y - 0.09, 0.005); flag.rotation.x = Math.PI; g.add(flag); }
-    g.add(sph(0.008, mat('#caa46d', 0.7), x, y, 0, 6));
+  const g = new THREE.Group();
+  const top = 2.42, L = 1.5, side = 0.12, fh = side * Math.sqrt(3) / 2;
+  const sag = Math.sqrt(3 * w * (L - w) / 8);                          // 弦長 w・全長 L の放物線の弛み
+  const Y = (x) => top - sag * (1 - Math.pow(2 * x / w, 2));
+  // 弧長のテーブル (x を弧長 s から引く)
+  const N = 200, xs = [], ss = [0];
+  for (let i = 0; i <= N; i++) xs.push(-w / 2 + w * i / N);
+  for (let i = 1; i <= N; i++) ss.push(ss[i - 1] + Math.hypot(xs[i] - xs[i - 1], Y(xs[i]) - Y(xs[i - 1])));
+  const scale = L / ss[N];                                              // 近似誤差を全長に合わせて補正
+  const at = (s) => { s /= scale; let i = 1; while (i < N && ss[i] < s) i++; const t = (s - ss[i - 1]) / (ss[i] - ss[i - 1] || 1), x = xs[i - 1] + (xs[i] - xs[i - 1]) * t; return new THREE.Vector3(x, Y(x), 0); };
+  const z0 = -d / 2 + 0.012;
+  const tape = []; for (let i = 0; i <= 60; i++) { const x = -w / 2 + w * i / 60; tape.push(new THREE.Vector3(x, Y(x), z0)); }
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tape), 120, 0.0035, 5), mat('#efe6d6', 0.9)));
+  [-1, 1].forEach(s => { g.add(cylAt(0.004, 0.004, 0.012, 8, mat('#b8b8b8', 0.3, 0.8), s * w / 2, top, -d / 2 + 0.006).rotateX(Math.PI / 2)); });   // 留めピン
+  const cols = [color, '#ffd382', '#a9e7cf', '#a9d8f0', '#c9b3ec'], dotM = mat('#fffaf2', 0.85);
+  const start = (L - 10 * side) / 2;
+  for (let i = 0; i < 10; i++) {
+    const A = at(start + i * side + 0.004), B = at(start + (i + 1) * side - 0.004), M = A.clone().add(B).multiplyScalar(0.5);
+    const dir = B.clone().sub(A).normalize(), down = new THREE.Vector3(dir.y, -dir.x, 0), C = M.clone().addScaledVector(down, fh);
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute([A.x, A.y, z0, C.x, C.y, z0, B.x, B.y, z0], 3)); geo.computeVertexNormals();
+    const fm = fabricMat(cols[i % cols.length]); fm.side = THREE.DoubleSide;
+    const flag = new THREE.Mesh(geo, fm); flag.castShadow = true; if (i % cols.length === 0) flag.userData.colorable = true; g.add(flag);
+    // 柄: 水玉 (3 個) / 内側の縁取り / 無地
+    if (i % 3 === 1) [[0.3, 0.25], [0.7, 0.25], [0.5, 0.6]].forEach(([u, v]) => { const P = A.clone().lerp(B, u).lerp(C, v); const dot = new THREE.Mesh(new THREE.CircleGeometry(0.008, 12), dotM); dot.position.set(P.x, P.y, z0 + 0.001); g.add(dot); });
+    if (i % 3 === 2) { const k = 0.62, A2 = M.clone().lerp(A, k), B2 = M.clone().lerp(B, k), C2 = M.clone().lerp(C, k).addScaledVector(down, -0.012 * k); const t2 = new THREE.BufferGeometry(); t2.setAttribute('position', new THREE.Float32BufferAttribute([A2.x, A2.y - 0.012, z0 + 0.001, C2.x, C2.y, z0 + 0.001, B2.x, B2.y - 0.012, z0 + 0.001], 3)); t2.computeVertexNormals(); const tm = mat(shade(cols[i % cols.length], 1.12), 0.9); tm.side = THREE.DoubleSide; g.add(new THREE.Mesh(t2, tm)); }
   }
   return g;
 }
-function buildStarWall({ color = '#ffe08a', w = 0.6, d = 0.04, h = 0.55 } = {}) {
-  const g = new THREE.Group(); const cy = 1.6;
-  const star = (x, y, r, c) => { const s = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.03, 5), mat(c, 0.5, 0.1)); s.rotation.x = Math.PI / 2; s.position.set(x, cy + y, 0.01); s.castShadow = true; if (Math.abs(x) < 0.01 && Math.abs(y) < 0.01) s.userData.colorable = true; return s; };
-  g.add(star(0, 0.05, 0.12, color));
-  g.add(star(-0.22, -0.12, 0.06, '#a9d8f0'));
-  g.add(star(0.22, 0.16, 0.05, '#ff9aa2'));
-  // crescent moon
-  const moon = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.04, 8, 16, Math.PI * 1.3), mat('#ffe9a8', 0.5)); moon.position.set(0.2, cy - 0.16, 0.01); g.add(moon);
-  // little cloud
-  [-0.04, 0.02, 0.08].forEach((dx, i) => g.add(sph(0.05 - Math.abs(i - 1) * 0.012, mat('#fff', 0.8), -0.22 + dx, cy + 0.18, 0.01)));
+// Lovi Decor Star (バーチ合板の組み立て式スター): 36cm と 24cm を紐で壁のピンに掛けた構成。星の板は透かしのある 5 芒星,
+// 先端に直交するひし形のパーツが付き立体になる (奥行 d)。大きい星は色替え可 (既定 = ハニーイエロー), 小さい星はナチュラル
+function buildStarWall({ color = '#ffe08a', w = 0.6, d = 0.06, h = 0.55 } = {}) {
+  const g = new THREE.Group();
+  const plyT = 0.004, zc = -d / 2 + d / 2;                          // 星の板の面 (奥行の中央)
+  const starShape = (R, r) => { const s = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? s.lineTo(x, y) : s.moveTo(x, y); } s.closePath(); return s; };
+  const holeOf = (R, r) => { const p = new THREE.Path(); for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? p.lineTo(x, y) : p.moveTo(x, y); } p.closePath(); return p; };
+  const loviStar = (R, M, cx, cy, colorable) => {
+    const sg = new THREE.Group(); sg.position.set(cx, cy, zc);
+    const outer = starShape(R, R * 0.43); outer.holes.push(holeOf(R * 0.7, R * 0.3));                          // 外枠 (内側を星形に抜く)
+    const geo = new THREE.ExtrudeGeometry(outer, { depth: plyT, bevelEnabled: false }); geo.translate(0, 0, -plyT / 2);
+    const plate = new THREE.Mesh(geo, M); plate.castShadow = true; if (colorable) plate.userData.colorable = true; sg.add(plate);
+    const core = new THREE.ExtrudeGeometry(starShape(R * 0.22, R * 0.1), { depth: plyT, bevelEnabled: false }); core.translate(0, 0, -plyT / 2);   // 中心の小さな星
+    const cm = new THREE.Mesh(core, M); cm.rotation.z = Math.PI / 5; if (colorable) cm.userData.colorable = true; sg.add(cm);
+    for (let i = 0; i < 5; i++) {                                                                            // 中心と外枠をつなぐ桟 (雪の結晶のような透かし)
+      const a = Math.PI / 2 + i * 2 * Math.PI / 5, len = R * 0.5;
+      const bar = plainBox(0.006, len, plyT, M, Math.cos(a) * (R * 0.18 + len / 2), Math.sin(a) * (R * 0.18 + len / 2), 0); bar.rotation.z = a - Math.PI / 2; if (colorable) bar.userData.colorable = true; sg.add(bar);
+      // 先端のひし形 (板に直交)
+      const dia = new THREE.Shape(), dl = R * 0.3, dw = Math.min(R * 0.17, d / 2 - 0.004);
+      dia.moveTo(0, 0); dia.lineTo(dl / 2, dw); dia.lineTo(dl, 0); dia.lineTo(dl / 2, -dw); dia.closePath();
+      const dg = new THREE.ExtrudeGeometry(dia, { depth: plyT, bevelEnabled: false }); dg.translate(0, 0, -plyT / 2);
+      const dm = new THREE.Mesh(dg, M); dm.rotation.set(Math.PI / 2, 0, 0); const holder = new THREE.Group(); holder.add(dm);
+      holder.rotation.z = a; holder.position.set(Math.cos(a) * R * 0.62, Math.sin(a) * R * 0.62, 0); if (colorable) dm.userData.colorable = true; sg.add(holder);
+    }
+    g.add(sg);
+    // 掛け紐 + ピン
+    const pinY = cy + R + 0.06;
+    g.add(plainBox(0.0015, pinY - (cy + R) + 0.004, 0.0015, mat('#fbf8f2', 0.9), cx, (pinY + cy + R) / 2, zc));
+    g.add(cylAt(0.003, 0.003, 0.012, 8, mat('#b8b8b8', 0.3, 0.8), cx, pinY, -d / 2 + 0.006).rotateX(Math.PI / 2));
+  };
+  const top = 1.84, R1 = 0.18, R2 = 0.12;
+  loviStar(R1, mat(color, 0.6, 0, { env: 0.3 }), -w / 2 + R1 * Math.sin(2 * Math.PI / 5), top - h + R1 * Math.cos(Math.PI / 5), true);
+  loviStar(R2, mat('#e9d2a8', 0.65, 0, { env: 0.3 }), w / 2 - R2 * Math.sin(2 * Math.PI / 5), top - 0.06 - R2, false);
   return g;
 }
 

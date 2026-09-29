@@ -1245,33 +1245,52 @@ function buildForklift({ color='#f5c020', w=1.15, d=3.0, h=2.1 } = {}) {
   return g;
 }
 
-function buildAluminumCoil({ color='#c8c8cc', w=1.0, d=0.8, h=0.8 } = {}) {
+// ---- アルミコイル共通 (United Aluminum の製造範囲: 内径 406/508/610mm・外径 最大1981mm・幅 6〜940mm。内径は標準の 508mm) ----
+// 端面は板の巻き目 (細かい同心円) をテクスチャで描き, 外周に巻き終わりの端と留めテープ。axis = コイル軸の向き ('x' | 'y' | 'z')
+let _coilFaceTex = null;
+function coilFaceTexture() {
+  if (_coilFaceTex) return _coilFaceTex;
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#c4c8cd'; ctx.fillRect(0, 0, 512, 512);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let r = 2; r < 256; r += 1.4) {
+    const light = rnd() < 0.5;
+    ctx.strokeStyle = light ? `rgba(240,242,246,${0.12 + rnd() * 0.2})` : `rgba(70,74,80,${0.08 + rnd() * 0.2})`;
+    ctx.lineWidth = 0.7 + rnd() * 0.6; ctx.beginPath(); ctx.arc(256, 256, r, 0, Math.PI * 2); ctx.stroke();
+  }
+  _coilFaceTex = new THREE.CanvasTexture(c); _coilFaceTex.colorSpace = THREE.SRGBColorSpace; _coilFaceTex.anisotropy = 4;
+  return _coilFaceTex;
+}
+function alumCoil(g, { R, r = 0.254, L, axis = 'z', at = [0, 0, 0], color = '#c8c8cc', colorable = true, tape = true }) {
+  const cg = new THREE.Group(); cg.position.set(at[0], at[1], at[2]);
+  if (axis === 'z') cg.rotation.x = Math.PI / 2; else if (axis === 'x') cg.rotation.z = -Math.PI / 2;   // ローカル Y = コイル軸
+  const alum = mat(color, 0.26, 0.85, { env: 0.95 }); alum.side = THREE.DoubleSide;
+  const face = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), map: coilFaceTexture(), roughness: 0.34, metalness: 0.75, side: THREE.DoubleSide }); face.envMapIntensity = 0.8;
+  const inner = mat(shade(color, 0.8), 0.35, 0.8, { env: 0.7 }); inner.side = THREE.DoubleSide;
+  const od = new THREE.Mesh(new THREE.CylinderGeometry(R, R, L, 64, 1, true), alum); od.castShadow = od.receiveShadow = true; if (colorable) od.userData.colorable = true; cg.add(od);
+  const bore = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 40, 1, true), inner); cg.add(bore);
+  [-1, 1].forEach(s => { const f = new THREE.Mesh(new THREE.RingGeometry(r, R, 64, 1), face); f.rotation.x = -s * Math.PI / 2; f.position.y = s * L / 2; f.receiveShadow = true; if (colorable) f.userData.colorable = true; cg.add(f); });
+  if (tape) {                                                             // 巻き終わりの端 + 留めテープ 2 か所
+    const a = -0.9, tail = plainBox(0.0025, L, 0.05, mat(shade(color, 0.9), 0.3, 0.8), Math.cos(a) * (R + 0.001), 0, Math.sin(a) * (R + 0.001)); tail.rotation.y = -a; cg.add(tail);
+    [-0.3, 0.3].forEach(k => { const tp = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.0015, R + 0.0015, 0.05, 24, 1, true, Math.PI / 2 - a - 0.14, 0.28), mat('#2f6fc0', 0.6)); tp.material.side = THREE.DoubleSide; tp.position.y = k * L; cg.add(tp); });
+  }
+  g.add(cg); return cg;
+}
+// スチールバンド (帯鋼 幅32mm): 外周を一周する輪 (axis まわり) と, 内径を通して外周へ回す放射状のバンド
+function coilBandRing(cg, R, y, bandM) { const b = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.032, 64, 1, true), bandM); b.position.y = y; cg.add(b); const seal = plainBox(0.006, 0.036, 0.05, bandM, R + 0.004, y, 0); cg.add(seal); }
+function coilBandRadial(cg, R, r, L, ang, bandM) {
+  const hold = new THREE.Group(); hold.rotation.y = ang; cg.add(hold);
+  hold.add(plainBox(0.032, L + 0.004, 0.0025, bandM, 0, 0, R + 0.0015));        // 外周 (軸方向)
+  hold.add(plainBox(0.032, L + 0.004, 0.0025, bandM, 0, 0, r - 0.0015));        // 内径 (軸方向)
+  [-1, 1].forEach(s => hold.add(plainBox(0.032, 0.0025, R - r + 0.003, bandM, 0, s * (L / 2 + 0.0015), (R + r) / 2)));   // 端面 (半径方向)
+}
+// アルミコイル (内径508×外径800×幅800mm, A1100 で約650kg): ミル仕上げの板を巻いたコイルを, 軸を水平 (Z) にして床に置いた状態
+function buildAluminumCoil({ color='#c8c8cc', w=0.8, d=0.8, h=0.8 } = {}) {
   const g = new THREE.Group();
-  const alum = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.2, metalness: 0.85, envMapIntensity: 0.9, side: THREE.DoubleSide });
-  const core_m = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.4, metalness: 0.5, side: THREE.DoubleSide });
-
-  // main coil body — open-ended so the hollow center is visible through the core
-  const coilR = Math.min(w, h) / 2;
-  const coil = new THREE.Mesh(new THREE.CylinderGeometry(coilR, coilR, d, 32, 1, true), alum);
-  coil.rotation.x = Math.PI / 2; coil.position.set(0, coilR, 0); coil.castShadow = true; coil.receiveShadow = true; coil.userData.colorable = true; g.add(coil);
-
-  // inner steel core tube — open-ended and double-sided so the hollow bore is visible
-  const coreR = Math.min(0.254, coilR * 0.7);   // 内径 508mm (20インチ) = アルミ板コイルの標準スリーブ径
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, d + 0.02, 16, 1, true), core_m);
-  core.rotation.x = Math.PI / 2; core.position.set(0, coilR, 0); g.add(core);
-
-  // end faces — RingGeometry shows the annular wound cross-section (hollow center exposed)
-  [-(d / 2), d / 2].forEach(fz => {
-    for (let r = coreR + 0.03; r < coilR - 0.01; r += 0.06) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 4, 28), alum);
-      ring.position.set(0, coilR, fz); g.add(ring);
-    }
-    const face = new THREE.Mesh(new THREE.RingGeometry(coreR, coilR, 32), alum);
-    face.position.set(0, coilR, fz + (fz < 0 ? -0.005 : 0.005));
-    if (fz < 0) face.rotation.y = Math.PI;
-    g.add(face);
-  });
-
+  const R = Math.min(w, h) / 2;
+  const cg = alumCoil(g, { R, L: d, axis: 'z', at: [0, R, 0], color });
+  cg.add(plainBox(0.09, 0.06, 0.002, mat('#f6f4ee', 0.8), 0.12, 0.2, -(R + 0.002)));   // 識別ラベル (外周の上側。ローカル -Z = 上)
   return g;
 }
 
@@ -1309,70 +1328,60 @@ function buildTensileTestMachine({ color='#ecebe8', w=0.975, d=0.579, h=1.708 } 
   return g;
 }
 
-function buildScrapBucket({ color='#4a4f54', w=1.0, d=1.0, h=0.7 } = {}) {
+// TRUSCO スクラップボックス“ミニカーゴ” 鉄板張型 600×600×H600 (VJ-603, 22kg, 均等荷重300kg): 山形鋼の枠に鉄板を張った上開きの箱
+// (メラミン焼付塗装)。四隅の脚で底を約10cm 浮かせ, 脚の間にハンドリフターを差し込む。柱の上端に段積み用の受け。
+// 中身はアルミの切粉 (カールした切りくず) の山
+function buildScrapBucket({ color='#4a4f54', w=0.6, d=0.6, h=0.6 } = {}) {
   const g = new THREE.Group();
-  // rectangular steel stillage / pallet box container (open top, fork pockets, lifting eyes)
-  const panel  = mat(color, 0.55, 0.35, { env: 0.4 });               // sheet-metal walls (colorable)
-  const frame  = mat(shade(color, 0.82), 0.5, 0.45, { env: 0.5 });   // posts / frame / feet
-  const steelA = mat('#bcc0c6', 0.3, 0.85, { env: 0.9 });            // bright steel scrap
-  const steelB = mat('#9aa0a8', 0.35, 0.8, { env: 0.8 });            // duller scrap
-
-  const footH = 0.11;
-  const wallBot = footH + 0.02, wallTop = h - 0.1;
-  const wallH = wallTop - wallBot, wallY = (wallBot + wallTop) / 2;
-  const cx = w/2 - 0.045, cz = d/2 - 0.045;                          // corner-post centres
-
-  // ---- pallet base: 3 runner feet (fork tunnels run front-to-back) + deck ----
-  [-w/2 + 0.06, 0, w/2 - 0.06].forEach(fx => g.add(box(0.1, footH, d - 0.02, frame, fx, footH/2, 0)));
-  [-d/2 + 0.07, d/2 - 0.07].forEach(fz => g.add(box(w - 0.04, 0.03, 0.12, frame, 0, footH - 0.012, fz)));
-  g.add(box(w - 0.05, 0.03, d - 0.05, panel, 0, footH + 0.015, 0));   // container floor
-
-  // ---- corner posts (4) ----
-  [[cx,cz],[-cx,cz],[cx,-cz],[-cx,-cz]].forEach(([px,pz]) =>
-    g.add(box(0.07, wallTop - 0.02, 0.07, frame, px, (wallTop)/2, pz)));
-
-  // ---- side wall panels (inset between posts) ----
-  const wThk = 0.02;
-  [d/2 - 0.012, -(d/2 - 0.012)].forEach(pz => g.add(box(w - 0.14, wallH, wThk, panel, 0, wallY, pz)));   // front/back
-  [w/2 - 0.012, -(w/2 - 0.012)].forEach(px => g.add(box(wThk, wallH, d - 0.14, panel, px, wallY, 0)));   // left/right
-
-  // ---- central vertical reinforcement ribs on each face ----
-  [d/2, -(d/2)].forEach(pz => g.add(box(0.07, wallH, 0.025, frame, 0, wallY, pz + Math.sign(pz)*0.006)));
-  [w/2, -(w/2)].forEach(px => g.add(box(0.025, wallH, 0.07, frame, px + Math.sign(px)*0.006, wallY, 0)));
-
-  // ---- top & bottom rim frames tying the posts ----
-  [d/2 - 0.03, -(d/2 - 0.03)].forEach(pz => g.add(box(w, 0.05, 0.05, frame, 0, wallTop, pz)));
-  [w/2 - 0.03, -(w/2 - 0.03)].forEach(px => g.add(box(0.05, 0.05, d, frame, px, wallTop, 0)));
-  [d/2 - 0.03, -(d/2 - 0.03)].forEach(pz => g.add(box(w - 0.02, 0.045, 0.045, frame, 0, wallBot, pz)));
-  [w/2 - 0.03, -(w/2 - 0.03)].forEach(px => g.add(box(0.045, 0.045, d - 0.02, frame, px, wallBot, 0)));
-
-  // ---- lifting eyes on top of each corner post ----
-  [[cx,cz],[-cx,cz],[cx,-cz],[-cx,-cz]].forEach(([px,pz]) => {
-    g.add(box(0.045, 0.05, 0.045, frame, px, wallTop + 0.035, pz));               // stem
-    const eye = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.012, 8, 16), frame);
-    eye.position.set(px, wallTop + 0.085, pz); eye.rotation.y = Math.atan2(pz, px);
-    eye.castShadow = true; g.add(eye);
+  const paint = mat(color, 0.5, 0.3, { env: 0.45 }), frameM = mat(shade(color, 0.82), 0.45, 0.35, { env: 0.5 });
+  const legH = 0.1, a = 0.04, t = 0.004, top = h - 0.03;
+  const tag = (m) => { m.userData.colorable = true; return m; };
+  // 柱 (山形鋼 40×40: 2 枚の板で L 字) — 床から段積み受けの下まで
+  [[1, 1], [-1, 1], [1, -1], [-1, -1]].forEach(([sx, sz]) => {
+    const x = sx * (w / 2 - t / 2), z = sz * (d / 2 - t / 2);
+    g.add(tag(plainBox(t, top, a, frameM, x, top / 2, z - sz * (a / 2 - t / 2))));
+    g.add(tag(plainBox(a, top, t, frameM, x - sx * (a / 2 - t / 2), top / 2, z)));
+    g.add(plainBox(0.034, h - top, 0.034, frameM, sx * (w / 2 - 0.019), top + (h - top) / 2, sz * (d / 2 - 0.019)));   // 段積み受け
+    g.add(plainBox(0.05, 0.004, 0.05, frameM, sx * (w / 2 - 0.025), 0.002, sz * (d / 2 - 0.025)));                   // 脚の座板
   });
-
-  // ---- scrap fill: bright steel turnings/chips piled near the top ----
-  const seed = [0.38,0.81,0.14,0.57,0.93,0.26,0.72,0.45,0.18,0.64,0.33,0.87,0.09,0.52,0.77,0.31,0.68,0.22,0.55,0.89,0.11,0.44,0.66,0.05,0.97,0.41,0.73,0.28];
-  const fillX = w/2 - 0.12, fillZ = d/2 - 0.12, fillY = wallTop - 0.07;
-  for (let i = 0; i < 46; i++) {
-    const s = seed[i % seed.length], s2 = seed[(i+7) % seed.length], s3 = seed[(i+13) % seed.length];
-    const px = (s - 0.5) * 2 * fillX, pz = (s2 - 0.5) * 2 * fillZ, py = fillY + s3 * 0.05;
-    const m = (i % 4 === 0) ? steelB : steelA;
-    let scrap;
-    const t = i % 3;
-    if (t === 0)      scrap = new THREE.Mesh(new THREE.TorusGeometry(0.018 + s*0.014, 0.005, 4, 8, Math.PI*(0.7 + s*0.9)), m);
-    else if (t === 1) scrap = new THREE.Mesh(new THREE.BoxGeometry(0.05 + s*0.04, 0.006, 0.012 + s2*0.012), m);
-    else              scrap = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.04 + s*0.05, 5), m);
-    scrap.position.set(px, py, pz);
-    scrap.rotation.set(s*Math.PI*2, s2*Math.PI*2, s3*Math.PI*2);
-    scrap.castShadow = true; g.add(scrap);
+  // 底枠 + 底板 (脚の間を空ける)
+  [-1, 1].forEach(s => { g.add(tag(plainBox(w - 2 * t, 0.03, t, frameM, 0, legH + 0.015, s * (d / 2 - t / 2)))); g.add(tag(plainBox(t, 0.03, d - 2 * t, frameM, s * (w / 2 - t / 2), legH + 0.015, 0))); });
+  g.add(tag(plainBox(w - 2 * t, 0.003, d - 2 * t, paint, 0, legH + 0.0015, 0)));
+  // 側面の鉄板 (4 面) + 中段の補強ビード + 上枠
+  const wallH = top - legH;
+  [-1, 1].forEach(s => {
+    g.add(tag(plainBox(w - 2 * a + 0.004, wallH, 0.0016, paint, 0, legH + wallH / 2, s * (d / 2 - 0.002))));
+    g.add(tag(plainBox(0.0016, wallH, d - 2 * a + 0.004, paint, s * (w / 2 - 0.002), legH + wallH / 2, 0)));
+    g.add(tag(plainBox(w - 2 * a, 0.012, 0.006, paint, 0, legH + wallH * 0.5, s * (d / 2 - 0.001))));
+    g.add(tag(plainBox(0.006, 0.012, d - 2 * a, paint, s * (w / 2 - 0.001), legH + wallH * 0.5, 0)));
+    g.add(tag(plainBox(w, 0.03, t, frameM, 0, top - 0.015, s * (d / 2 - t / 2))));
+    g.add(tag(plainBox(t, 0.03, d, frameM, s * (w / 2 - t / 2), top - 0.015, 0)));
+  });
+  g.add(plainBox(0.12, 0.06, 0.002, mat('#f2efe6', 0.8), 0, legH + wallH * 0.72, d / 2 + 0.001));   // 表示ラベル
+  // 中身: 切粉の山 (土台の山 + カールした切りくずを 1 メッシュに)
+  const heapTop = top - 0.02, inW = w - 0.02, inD = d - 0.02;
+  const heap = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat('#a9aeb3', 0.55, 0.6, { env: 0.6 }));
+  heap.scale.set(inW / 2, 0.09, inD / 2); heap.position.y = heapTop - 0.09; g.add(heap);
+  g.add(plainBox(inW, heapTop - 0.09 - legH, inD, mat('#8f949a', 0.6, 0.5), 0, legH + (heapTop - 0.09 - legH) / 2, 0));
+  const pos = []; let sd = 11; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 90; i++) {
+    const cx = (rnd() - 0.5) * inW * 0.85, cz = (rnd() - 0.5) * inD * 0.85, rr = Math.hypot(cx / (inW / 2), cz / (inD / 2));
+    const cy = heapTop - 0.09 + 0.09 * Math.sqrt(Math.max(0, 1 - rr * rr)) + 0.004;
+    const u = [rnd() - 0.5, rnd() - 0.5, rnd() - 0.5], ul = Math.hypot(...u) || 1; u.forEach((v, k) => u[k] = v / ul);
+    const tmp = Math.abs(u[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+    let v = [u[1] * tmp[2] - u[2] * tmp[1], u[2] * tmp[0] - u[0] * tmp[2], u[0] * tmp[1] - u[1] * tmp[0]]; const vl = Math.hypot(...v); v = v.map(x => x / vl);
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const rad = 0.007 + rnd() * 0.008, wid = 0.004, turns = 1 + rnd() * 1.5, pitch = 0.006, seg = 18;
+    const P = (th, s) => [0, 1, 2].map(k => [cx, cy, cz][k] + rad * (Math.cos(th) * u[k] + Math.sin(th) * v[k]) + (s * wid + th / (Math.PI * 2) * pitch) * n[k]);
+    for (let j = 0; j < seg; j++) {
+      const t0 = j / seg * turns * Math.PI * 2, t1 = (j + 1) / seg * turns * Math.PI * 2;
+      const A = P(t0, -0.5), B = P(t0, 0.5), C = P(t1, 0.5), D = P(t1, -0.5);
+      pos.push(...A, ...B, ...C, ...A, ...C, ...D);
+    }
   }
-
-  // mark colorable
-  g.traverse(o => { if (o.isMesh && o.material === panel) o.userData.colorable = true; });
+  const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); cg.computeVertexNormals();
+  const chipM = mat('#d7dbe0', 0.25, 0.9, { env: 1.0 }); chipM.side = THREE.DoubleSide;
+  const chips = new THREE.Mesh(cg, chipM); chips.castShadow = true; g.add(chips);
   return g;
 }
 
@@ -1539,177 +1548,95 @@ function buildFireExtinguisher({ color='#cc1818', w=0.18, d=0.126, h=0.49 } = {}
   return g;
 }
 
+// バンド掛けアルミコイル (内径508×外径792×幅800mm, 約630kg): 外周に帯鋼 (幅32mm) を 3 本 (シールで留める) + 内径を通す放射状のバンド 2 本
 function buildBandedAlumCoil({ color='#c8c8cc', w=0.8, d=0.8, h=0.8 } = {}) {
   const g = new THREE.Group();
-  const alum  = mat(color, 0.2, 0.85, { env: 0.9 }); alum.side = THREE.DoubleSide;
-  const core_m= mat('#888', 0.4, 0.5); core_m.side = THREE.DoubleSide;
-  const bandM = mat('#6a7080', 0.35, 0.55);
-  const claspM= mat('#8a9098', 0.3, 0.65);
-  const BT = 0.034, coilR = Math.min(w, h) / 2 - BT, coreR = Math.min(0.254, coilR * 0.7), cy = coilR + BT;   // 内径 508mm。バンドの厚みぶん持ち上げて床に接地
-  // 本体コイル(軸=Z, 開口端なので中空のボアが見える)
-  const coil = new THREE.Mesh(new THREE.CylinderGeometry(coilR, coilR, d, 32, 1, true), alum);
-  coil.rotation.x = Math.PI/2; coil.position.set(0, cy, 0);
-  coil.castShadow = true; coil.receiveShadow = true; coil.userData.colorable = true; g.add(coil);
-  // 内側スチールコア(開口端)
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, d + 0.02, 16, 1, true), core_m);
-  core.rotation.x = Math.PI/2; core.position.set(0, cy, 0); g.add(core);
-  // 端面(±Z) — 軸=コイル軸=Z に揃えた同心の巻きリング + 環状断面(回転なし)
-  [-(d/2), d/2].forEach(fz => {
-    for (let r = coreR + 0.03; r < coilR - 0.01; r += 0.06) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 4, 28), alum);
-      ring.position.set(0, cy, fz); g.add(ring);
-    }
-    const face = new THREE.Mesh(new THREE.RingGeometry(coreR, coilR, 32), alum);
-    face.position.set(0, cy, fz + (fz < 0 ? -0.005 : 0.005));
-    if (fz < 0) face.rotation.y = Math.PI; g.add(face);
+  const bandT = 0.004, R = Math.min(w, h) / 2 - bandT, r = 0.254;
+  const cg = alumCoil(g, { R, r, L: d - 0.004, axis: 'z', at: [0, R + bandT, 0], color, tape: false });
+  const bandM = mat('#3e434a', 0.4, 0.6, { env: 0.6 }); bandM.side = THREE.DoubleSide;
+  [-0.3, 0, 0.3].forEach(k => coilBandRing(cg, R + 0.002, k * d, bandM));
+  [0.5, 0.5 + Math.PI].forEach(a => coilBandRadial(cg, R, r, d - 0.004, a, bandM));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+// 梱包済みアルミコイル (内径508×外径740×幅800mm, 約490kg): 防錆紙 (VCI) で外周と端面を包み, 端の角に紙製のエッジプロテクター,
+// 外周バンド 2 本 + 内径を通すバンド 2 本。木製の枕木 (スキッド) 2 本に載せた出荷形態 (外形は包装・スキッドを含む)
+function buildPackagedAlumCoil({ color='#b4a478', w=0.82, d=0.84, h=0.82 } = {}) {
+  const g = new THREE.Group();
+  const R = 0.37, r = 0.254, L = 0.8, pk = 0.012, Rp = R + pk, cy = h - Rp - 0.004;
+  const paper = mat(color, 0.92, 0), edgeM = mat('#8a7a5a', 0.85), woodM = mat('#b88a58', 0.85), bandM = mat('#3e434a', 0.4, 0.6, { env: 0.6 }); paper.side = bandM.side = THREE.DoubleSide;
+  const cg = new THREE.Group(); cg.position.set(0, cy, 0); cg.rotation.x = Math.PI / 2; g.add(cg);
+  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(Rp, Rp, L + 2 * pk, 56, 1, true), paper); wrap.castShadow = wrap.receiveShadow = true; wrap.userData.colorable = true; cg.add(wrap);
+  cg.add(new THREE.Mesh(new THREE.CylinderGeometry(r - 0.004, r - 0.004, L + 2 * pk, 36, 1, true), paper));
+  [-1, 1].forEach(s => {
+    const f = new THREE.Mesh(new THREE.RingGeometry(r - 0.004, Rp, 56, 1), paper); f.rotation.x = -s * Math.PI / 2; f.position.y = s * (L / 2 + pk); f.userData.colorable = true; cg.add(f);
+    const e = new THREE.Mesh(new THREE.TorusGeometry(Rp - 0.01, 0.016, 4, 56), edgeM); e.rotation.x = Math.PI / 2; e.position.y = s * (L / 2 + pk - 0.008); cg.add(e);   // エッジプロテクター
+    const ei = new THREE.Mesh(new THREE.TorusGeometry(r + 0.006, 0.012, 4, 36), edgeM); ei.rotation.x = Math.PI / 2; ei.position.y = s * (L / 2 + pk - 0.006); cg.add(ei);
   });
-  // Steel strapping bands (3 circumferential rings on OD)
-  [-0.21, 0, 0.21].map(t => t * d).forEach(bz => {
-    const band = new THREE.Mesh(new THREE.TorusGeometry(coilR + 0.016, 0.018, 6, 32), bandM);
-    band.position.set(0, cy, bz); g.add(band);
-    // Buckle/clasp block (バンド上の斜め上 45°)
-    const bk = box(0.07, 0.04, 0.04, claspM, Math.SQRT1_2 * (coilR + 0.03), cy + Math.SQRT1_2 * (coilR + 0.03), bz); bk.rotation.z = -Math.PI / 4; g.add(bk);
+  [-0.25, 0.25].forEach(k => coilBandRing(cg, Rp + 0.003, k * L, bandM));
+  [0.35, 0.35 + Math.PI].forEach(a => coilBandRadial(cg, Rp + 0.001, r - 0.004, L + 2 * pk, a, bandM));
+  const lbl = plainBox(0.16, 0.1, 0.004, mat('#f8f4e8', 0.88), 0, cy + (Rp + r) / 2, -(L / 2 + pk + 0.003)); g.add(lbl);   // 出荷ラベル (端面の上側)
+  // 枕木 2 本 (コイルの下を軸方向に)
+  const x0 = 0.2, top = cy - Math.sqrt(Rp * Rp - x0 * x0);
+  [-1, 1].forEach(s => g.add(plainBox(0.09, top, d, woodM, s * x0, top / 2, 0)));
+  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
+  return g;
+}
+
+// 輸出梱包アルミコイル (タカムラ産業 2006: コイル 径650〜1080・幅170〜260mm・1巻160〜230kg を 3〜4 巻, 梱包外寸 1100×1100×710〜1220mm):
+// アイトゥスカイ (軸を鉛直) に 3 巻 (外径800・幅250mm, 1巻約200kg) を重ね, 上下を木製パレットで挟み, 外周をハードボードで巻いて
+// 帯鋼で締めた梱包。上のパレットは板の隙間からコイルの上面が見える
+function buildExportAlumCoil({ color='#c0a870', w=1.1, d=1.1, h=1.0 } = {}) {
+  const g = new THREE.Group();
+  const woodM = mat(color, 0.85, 0), woodD = mat(shade(color, 0.78), 0.9, 0), hb = mat('#7a5a3c', 0.8, 0), bandM = mat('#3e434a', 0.4, 0.6, { env: 0.6 });
+  hb.side = THREE.DoubleSide;
+  const pb = 0.12, pt = 0.1, R = 0.4, cw = 0.25, sep = 0.005;
+  // 下パレット: デッキボード 7 枚 + 桁 3 本 + 下板
+  const deck = (y, n, bw, M) => { for (let i = 0; i < n; i++) g.add(plainBox(bw, 0.02, d, M, -w / 2 + bw / 2 + i * (w - bw) / (n - 1), y, 0)); };
+  deck(pb - 0.01, 7, 0.1, woodM);
+  [-1, 0, 1].forEach(k => g.add(plainBox(w, pb - 0.04, 0.09, woodD, 0, 0.02 + (pb - 0.04) / 2, k * (d / 2 - 0.045))));
+  deck(0.01, 3, 0.1, woodM);
+  // コイル 3 巻 (アイトゥスカイ) + 間の当て板
+  let y = pb;
+  for (let i = 0; i < 3; i++) {
+    y += sep; alumCoil(g, { R, L: cw, axis: 'y', at: [0, y + cw / 2, 0], color: '#c8c8cc', colorable: false, tape: i === 2 }); y += cw;
+    g.add(new THREE.Mesh(new THREE.RingGeometry(0.254, R, 48, 1), hb).rotateX(-Math.PI / 2).translateZ(y + sep / 2));
+  }
+  y += sep;
+  // ハードボード巻き (コイルの外周)
+  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.008, R + 0.008, y - pb, 56, 1, true), hb); wrap.position.y = (pb + y) / 2; wrap.castShadow = wrap.receiveShadow = true; g.add(wrap);
+  g.add(plainBox(0.22, 0.15, 0.004, mat('#f4f0e2', 0.88), 0, (pb + y) / 2, R + 0.012));   // 荷札
+  // 上パレット (デッキを下向き): 板 5 枚 + 桁 3 本。隙間から中が見える
+  const yt = h - pt;
+  for (let i = 0; i < 5; i++) { const b = plainBox(0.12, 0.02, d, woodM, -w / 2 + 0.06 + i * (w - 0.12) / 4, yt + 0.01, 0); b.userData.colorable = true; g.add(b); }
+  [-1, 0, 1].forEach(k => { const b = plainBox(w, pt - 0.02, 0.09, woodD, 0, yt + 0.02 + (pt - 0.02) / 2, k * (d / 2 - 0.045)); b.userData.colorable = true; g.add(b); });
+  // 帯鋼: 前後方向・左右方向に 2 本ずつ, パレットごと縦に締める
+  [-0.28, 0.28].forEach(k => {
+    g.add(plainBox(0.032, h + 0.004, 0.003, bandM, k * w, h / 2, d / 2 + 0.002)); g.add(plainBox(0.032, h + 0.004, 0.003, bandM, k * w, h / 2, -d / 2 - 0.002));
+    g.add(plainBox(0.003, h + 0.004, 0.032, bandM, w / 2 + 0.002, h / 2, k * d)); g.add(plainBox(0.003, h + 0.004, 0.032, bandM, -w / 2 - 0.002, h / 2, k * d));
+    g.add(plainBox(0.032, 0.003, d, bandM, k * w, h + 0.001, 0)); g.add(plainBox(w, 0.003, 0.032, bandM, 0, h + 0.001, k * d));
   });
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;
 }
 
-function buildPackagedAlumCoil({ color='#b4a478', w=0.8, d=0.8, h=0.8 } = {}) {
+// 横倒しアルミコイル (内径508×外径750×幅900mm, 約580kg): 軸を左右 (X) に向けて木製の枕木 2 本に載せ, 両側を楔形の輪止めで止め,
+// 外周にバンド 2 本。外形は枕木・輪止めを含む
+function buildAlumCoilSide({ color='#c8c8cc', w=0.9, d=0.8, h=0.8 } = {}) {
   const g = new THREE.Group();
-  const coilR = Math.min(w, h) / 2 - 0.04, coreR = Math.min(0.254, coilR * 0.7);    // 内径 508mm (外形は包装紙 12mm + バンド 28mm)
-  const L = d - 0.04;                        // コイル幅 (d は端面の保護材を含む)
-  const cy = coilR + 0.04;                   // 軸心高さ (バンドの外面が床に接する)
-  const packM = mat(color, 0.9, 0.0);      // kraft/VCI paper
-  const edgeM = mat('#d0c8a0', 0.85);      // edge protector
-  const bandM = mat('#4a5058', 0.35, 0.55); // steel strap
-  const alumM = mat('#c8c8cc', 0.2, 0.85, { env: 0.9 });
-  // Paper wrapping (full outer cylinder)
-  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(coilR + 0.012, coilR + 0.012, L + 0.02, 28), packM);
-  wrap.rotation.x = Math.PI/2; wrap.position.set(0, cy, 0);
-  wrap.castShadow = true; wrap.receiveShadow = true; wrap.userData.colorable = true; g.add(wrap);
-  // アイ(露出した中心穴) — ±Z 端面に正立(軸=Z)
-  [-(L/2 + 0.012), (L/2 + 0.012)].forEach(fz => {
-    const eye = new THREE.Mesh(new THREE.RingGeometry(coreR, coreR + 0.05, 32), alumM);
-    eye.position.set(0, cy, fz);
-    if (fz < 0) eye.rotation.y = Math.PI; g.add(eye);
-    // ボア(中心の穴)
-    const hole = new THREE.Mesh(new THREE.CircleGeometry(coreR, 18), mat('#363639', 0.6));
-    hole.position.set(0, cy, fz + (fz < 0 ? -0.004 : 0.004)); if (fz < 0) hole.rotation.y = Math.PI; g.add(hole);
-    // エッジプロテクター
-    const ep = new THREE.Mesh(new THREE.TorusGeometry(coilR - 0.03, 0.025, 6, 32), edgeM);
-    ep.position.set(0, cy, fz); g.add(ep);
-  });
-  // Steel strapping bands × 2
-  [-0.18, 0.18].map(t => t * L).forEach(bz => {
-    const band = new THREE.Mesh(new THREE.TorusGeometry(coilR + 0.022, 0.018, 6, 32), bandM);
-    band.position.set(0, cy, bz); g.add(band);
-    const bk = box(0.07, 0.04, 0.03, mat('#5a6068', 0.4, 0.5), Math.SQRT1_2 * (coilR + 0.036), cy + Math.SQRT1_2 * (coilR + 0.036), bz); bk.rotation.z = -Math.PI / 4; g.add(bk);
-  });
-  // Shipping label
-  const lbl = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.01), mat('#f8f4e8', 0.88));
-  lbl.position.set(coilR + 0.014, cy, 0); lbl.rotation.y = Math.PI/2; g.add(lbl);
-  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
-  return g;
-}
-
-function buildExportAlumCoil({ color='#c0a870', w=1.2, d=1.2, h=1.0 } = {}) {
-  const g = new THREE.Group();
-  const woodM  = mat(color, 0.85, 0.0);
-  const slatM  = mat(shade(color, 0.72), 0.9, 0.0);
-  const metalM = mat('#6a7278', 0.4, 0.45);
-  const alumM  = mat('#c8c8cc', 0.2, 0.85, { env: 0.9 });
-  const pw = w, pd = d, ph = h * 0.82;
-  const coilR = Math.min(pw, pd) / 2 * 0.86;
-  // Wooden pallet base
-  const pallet = new THREE.Mesh(new THREE.BoxGeometry(pw, 0.11, pd), mat(shade(color, 0.72), 0.88, 0));
-  pallet.position.set(0, 0.055, 0); pallet.receiveShadow = true; g.add(pallet);
-  // Pallet runner blocks (3 runners)
-  [-1,0,1].forEach(t => {
-    const runner = new THREE.Mesh(new THREE.BoxGeometry(pw, 0.08, 0.12), mat(shade(color, 0.6), 0.9));
-    runner.position.set(0, 0.04, t * pd * 0.36); g.add(runner);
-  });
-  // Main box body (plywood crate)
-  const crateBox = new THREE.Mesh(new THREE.BoxGeometry(pw - 0.02, ph, pd - 0.02), woodM);
-  crateBox.position.set(0, 0.11 + ph/2, 0);
-  crateBox.castShadow = true; crateBox.receiveShadow = true; crateBox.userData.colorable = true; g.add(crateBox);
-  // Vertical slat overlays (front, back, sides)
-  [-(pd/2 - 0.005), (pd/2 - 0.005)].forEach(zf => {
-    [-0.3, 0, 0.3].forEach(xo => {
-      const slat = new THREE.Mesh(new THREE.BoxGeometry(0.065, ph * 1.02, 0.03), slatM);
-      slat.position.set(xo * pw * 0.72, 0.11 + ph/2, zf); g.add(slat);
+  const lift = 0.05, R = h / 2 - lift / 2, cy = lift + R, L = w;
+  const cg = alumCoil(g, { R, L, axis: 'x', at: [0, cy, 0], color });
+  const bandM = mat('#3e434a', 0.4, 0.6, { env: 0.6 }); bandM.side = THREE.DoubleSide;
+  [-0.3, 0.3].forEach(k => coilBandRing(cg, R + 0.002, k * L, bandM));
+  const woodM = mat('#a87a4a', 0.85);
+  [-0.3, 0.3].forEach(k => {
+    g.add(plainBox(0.1, lift, d, woodM, k * L, lift / 2, 0));                               // 枕木 (前後方向)
+    [-1, 1].forEach(s => {                                                                   // 楔形の輪止め (コイルに当たる面が斜め)
+      const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(0.13, 0); sh.lineTo(0, 0.11); sh.closePath();
+      const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.09, bevelEnabled: false }); geo.translate(0, 0, -0.045);
+      const wd = new THREE.Mesh(geo, woodM); wd.rotation.y = s > 0 ? Math.PI / 2 : -Math.PI / 2; wd.position.set(k * L, lift, s * (d / 2 - 0.13)); g.add(wd);
     });
-  });
-  [-(pw/2 - 0.005), (pw/2 - 0.005)].forEach(xf => {
-    [-0.25, 0.25].forEach(zo => {
-      const slat = new THREE.Mesh(new THREE.BoxGeometry(0.03, ph * 1.02, 0.065), slatM);
-      slat.position.set(xf, 0.11 + ph/2, zo * pd * 0.72); g.add(slat);
-    });
-  });
-  // Metal corner brackets
-  [[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([sx,sz]) => {
-    const cb = new THREE.Mesh(new THREE.BoxGeometry(0.055, ph * 1.02, 0.055), metalM);
-    cb.position.set(sx*(pw/2-0.027), 0.11 + ph/2, sz*(pd/2-0.027)); g.add(cb);
-  });
-  // コイルのアイは天面(上向き=Eye-to-Sky)に — 軸=鉛直で梱包
-  const eyeTopY = 0.11 + ph + 0.004;
-  const mkTop = (mesh) => { mesh.rotation.x = -Math.PI/2; mesh.position.set(0, eyeTopY, 0); return mesh; };
-  const eyeR = 0.254;   // 内径 508mm
-  g.add(mkTop(new THREE.Mesh(new THREE.RingGeometry(eyeR, eyeR + 0.12, 32), alumM)));
-  for (let r = eyeR + 0.03; r < eyeR + 0.12; r += 0.04) g.add(mkTop(new THREE.Mesh(new THREE.TorusGeometry(r, 0.008, 4, 32), alumM)));
-  { const hole = new THREE.Mesh(new THREE.CircleGeometry(eyeR, 32), mat('#363639', 0.6)); hole.rotation.x = -Math.PI/2; hole.position.set(0, eyeTopY - 0.004, 0); g.add(hole); }
-  // Steel strapping bands (2 bands at 1/3 and 2/3 height)
-  [-0.2, 0.2].forEach(t => {
-    const by = 0.11 + ph * (0.5 + t * 0.85);
-    const bx = new THREE.Mesh(new THREE.BoxGeometry(pw + 0.04, 0.038, 0.038), metalM);
-    bx.position.set(0, by, pd/2); g.add(bx);
-    const bz = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.038, pd + 0.04), metalM);
-    bz.position.set(pw/2, by, 0); g.add(bz);
-  });
-  // 輸出ラベル(前面 +Z)
-  const lbl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.20, 0.008), mat('#f0eedc', 0.9));
-  lbl.position.set(0, 0.11 + ph * 0.5, pd/2 - 0.006); g.add(lbl);
-  g.add(box(0.28, 0.03, 0.009, mat('#cc2020', 0.7), 0, 0.11 + ph * 0.5 + 0.07, pd/2 - 0.005));
-  g.add(box(0.28, 0.03, 0.009, mat('#2060cc', 0.7), 0, 0.11 + ph * 0.5 - 0.07, pd/2 - 0.005));
-  g.traverse(c => { if (c.isMesh) c.castShadow = true; });
-  return g;
-}
-
-function buildAlumCoilSide({ color='#c8c8cc', w=1.0, d=0.8, h=0.8 } = {}) {
-  const g = new THREE.Group();
-  const alum   = mat(color, 0.2, 0.85, { env: 0.9 }); alum.side = THREE.DoubleSide;
-  const core_m = mat('#888', 0.4, 0.5); core_m.side = THREE.DoubleSide;
-  const cradleM= mat('#5a5048', 0.7, 0.1);
-  const bandM  = mat('#6a7080', 0.35, 0.55);
-  // 横倒し: コイル軸は水平 = X 方向。端面(アイ)は ±X を向く。
-  const BT = 0.034, coilR = Math.min(h, d) / 2 - BT, coreR = Math.min(0.254, coilR * 0.7), coilDepth = w, cy = coilR + BT;   // 内径 508mm, コイル幅 = w (軸 = X)。バンドぶん持ち上げ, 輪止めに載せる
-  // 本体コイル(軸=X, 湾曲面を下に接地, 開口端)
-  const coil = new THREE.Mesh(new THREE.CylinderGeometry(coilR, coilR, coilDepth, 32, 1, true), alum);
-  coil.rotation.z = Math.PI/2; coil.position.set(0, cy, 0);
-  coil.castShadow = true; coil.receiveShadow = true; coil.userData.colorable = true; g.add(coil);
-  // 内側コア(開口端)
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(coreR, coreR, coilDepth + 0.02, 16, 1, true), core_m);
-  core.rotation.z = Math.PI/2; core.position.set(0, cy, 0); g.add(core);
-  // 端面(±X) — 軸=コイル軸=X に揃えた同心の巻きリング + 環状断面(rotation.y)
-  [-(coilDepth/2), coilDepth/2].forEach(fx => {
-    for (let r = coreR + 0.03; r < coilR - 0.01; r += 0.06) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 4, 28), alum);
-      ring.rotation.y = Math.PI/2; ring.position.set(fx, cy, 0); g.add(ring);
-    }
-    const face = new THREE.Mesh(new THREE.RingGeometry(coreR, coilR, 32), alum);
-    face.rotation.y = (fx < 0 ? -Math.PI/2 : Math.PI/2); face.position.set(fx + (fx < 0 ? -0.005 : 0.005), cy, 0); g.add(face);
-  });
-  // スチールバンド(2本, X軸まわりにOD外周を締める → rotation.y)
-  [-0.18, 0.18].map(t => t * coilDepth).forEach(bx => {
-    const band = new THREE.Mesh(new THREE.TorusGeometry(coilR + 0.016, 0.018, 6, 32), bandM);
-    band.rotation.y = Math.PI/2; band.position.set(bx, cy, 0); g.add(band);
-    const bk = box(0.04, 0.04, 0.07, mat('#8a9098', 0.3, 0.65), bx, cy + Math.SQRT1_2 * (coilR + 0.03), Math.SQRT1_2 * (coilR + 0.03)); bk.rotation.x = Math.PI / 4; g.add(bk);
-  });
-  // Cradle chocks (prevent rolling)
-  [-0.32, 0.32].map(t => t * coilDepth).forEach(bx => {
-    const chock = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, coilR * 0.8), cradleM);
-    chock.position.set(bx, 0.05, -coilR * 0.5); g.add(chock);
-    const chock2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, coilR * 0.8), cradleM);
-    chock2.position.set(bx, 0.05, coilR * 0.5); g.add(chock2);
   });
   g.traverse(c => { if (c.isMesh) c.castShadow = true; });
   return g;

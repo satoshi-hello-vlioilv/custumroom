@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { clamp, shade } from '../core/util.js';
-import { mat, cyl, cylAt } from '../core/helpers.js';
+import { mat, cyl, cylAt, plainBox } from '../core/helpers.js';
 
 // ============================================================================
 // plants.js — 観葉植物シリーズ
 // 実寸の根拠: HitoHana(ひとはな) の号数別サイズ(鉢込み高さ)。鉢は号数×3cm = 直径。
+// 小鉢は販売店の商品寸法 (柱サボテン: ヤオコー / アガベ: cocoha / ミリオンバンブー: WOOTANG)。
 // 葉は 1 枚ずつ Mesh にせず、頂点カラー付きの 1 メッシュへまとめる (描画負荷を抑え、葉数を実物に近づける)。
 // 乱数は種(seed)固定の擬似乱数で、何度配置しても同じ形になる。
 // ============================================================================
@@ -119,13 +120,17 @@ function fitCrown(batches, { w, d, h, y0 }) {
 }
 
 // ---- 鉢カバー (HitoHana の陶器・ファイバーストーン鉢) + 土/ウッドチップ。土の上面 Y を返す ----
+// 鉢は上を開けて内側も描き (DoubleSide), 縁から 2cm 下に土の面を見せる
 function potCover(g, r, h, col = '#ecebe6', { taper = 0.86, rough = 0.62, soil = '#3a2a1e', segs = 32 } = {}) {
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * taper, h, segs), mat(col, rough, 0.02));
+  const pm = mat(col, rough, 0.02); pm.side = THREE.DoubleSide;
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * taper, h, segs, 1, true), pm);
   body.position.y = h / 2; body.castShadow = body.receiveShadow = true; g.add(body);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(r - 0.006, 0.006, 6, segs), mat(shade(col, 0.95), rough));
+  g.add(cylAt(r * taper, r * taper, 0.006, segs, pm, 0, 0.003, 0));                                // 底
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(r - 0.004, 0.005, 6, segs), mat(shade(col, 0.95), rough));
   rim.rotation.x = Math.PI / 2; rim.position.y = h; g.add(rim);
-  g.add(cylAt(r - 0.012, r - 0.012, 0.012, segs, mat(soil, 0.98), 0, h - 0.02, 0));
-  return h - 0.014;
+  const soilY = h - 0.02, rs = r - (r - r * taper) * 0.02 / h - 0.002;
+  g.add(cylAt(rs, rs, 0.012, segs, mat(soil, 0.98), 0, soilY - 0.006, 0));
+  return soilY;
 }
 
 // ---- 観葉植物 (HitoHana パキラ 8号, 鉢込み高さ約110〜130cm): ねじり幹 + 長い葉柄の先に掌状の小葉5〜7枚 ----
@@ -159,56 +164,96 @@ function buildPlant({ color = '#6f9e74', w = 0.55, d = 0.55, h = 1.2 } = {}) {
   return g;
 }
 
-// ---- サボテン (柱サボテン系の小鉢): 縦の稜(リブ)がある円柱 + 2本の腕, 素焼き鉢 ----
-function ribbedColumn(r, h, ribs, material) {
-  const geo = new THREE.CylinderGeometry(r, r, h, ribs * 4, 6, false);
+// 葉の上の点 (addLeaf と同じ座標計算)。u=-1..1 (葉幅方向), t=0..1 (付け根→先端)
+function leafPoint(B, o, u, t) {
+  const F = leafFrame(o.yaw, o.pitch, o.roll || 0), s = t * o.len, hw = o.wid / 2 * o.prof(t);
+  const off = (o.fold || 0) * Math.abs(u) * hw - (o.droop || 0) * s * s;
+  return [B[0] + F.L[0] * s + F.W[0] * u * hw + F.N[0] * off, B[1] + F.L[1] * s + F.W[1] * u * hw + F.N[1] * off, B[2] + F.L[2] * s + F.W[2] * u * hw + F.N[2] * off];
+}
+// 小さな三角錐のトゲ (base から dir 方向へ len) を Batch に追加
+function addSpine(b, base, dir, len, r, col) {
+  const d = norm3(dir), ref = Math.abs(d[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0];
+  const u = norm3(cross3(d, ref)), v = cross3(d, u), tip = add3(base, mul3(d, len));
+  const p = [0, 2.094, 4.189].map(a => add3(base, add3(mul3(u, Math.cos(a) * r), mul3(v, Math.sin(a) * r))));
+  for (let i = 0; i < 3; i++) b.tri(p[i], p[(i + 1) % 3], tip, col);
+}
+
+// ---- 柱サボテン 6号・2本立ち (ヤオコー 商品番号023: 6号鉢・高さ約52cm / 園芸ネット 柱サボテン(2本立ち)6号):
+//      鬼面角系の青緑の柱が 2 本。6 本の稜の山に沿ってトゲ座 (白い綿毛 + 放射状の短いトゲ) が並び, 頭頂は丸い。陶器の鉢カバー + 化粧砂 ----
+function cereusStem(r, len, ribs, material, spineB, R) {
+  // y=0 が茎の根元, y=len が頭頂。稜の山/谷と, 頭頂に向かって楕円状に絞る
+  const cap = Math.min(r * 1.3, len * 0.3), rows = Math.max(10, Math.round(len / 0.01));
+  const geo = new THREE.CylinderGeometry(1, 1, 1, ribs * 8, rows, true);
   const pos = geo.attributes.position;
+  const radiusAt = (y) => y > len - cap ? Math.sqrt(Math.max(0, 1 - Math.pow((y - (len - cap)) / cap, 2))) : 1;
+  const ribK = (a) => 0.78 + 0.22 * Math.pow(Math.abs(Math.cos(a * ribs / 2)), 0.7);
   for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i), y = pos.getY(i), a = Math.atan2(z, x), rr = Math.hypot(x, z);
-    if (rr < 1e-6) continue;
-    const k = (0.84 + 0.16 * Math.abs(Math.cos(a * ribs / 2))) * (y > h * 0.35 ? 1 - Math.pow((y - h * 0.35) / (h * 0.15), 2) * 0.35 : 1);
-    pos.setX(i, x * k); pos.setZ(i, z * k);
+    const x = pos.getX(i), z = pos.getZ(i), y = (pos.getY(i) + 0.5) * len, a = Math.atan2(z, x);
+    const k = r * ribK(a) * radiusAt(y);
+    pos.setXYZ(i, Math.cos(a) * k, y, Math.sin(a) * k);
   }
   pos.needsUpdate = true; geo.computeVertexNormals();
-  const m = new THREE.Mesh(geo, material); m.castShadow = true; m.receiveShadow = true; return m;
+  const m = new THREE.Mesh(geo, material); m.castShadow = true; m.receiveShadow = true; m.userData.colorable = true;
+  // トゲ座: 稜の山 (a = 2πj/ribs) に 1.6cm 間隔。白い綿毛 (小さな八面体) + 3〜5 本の黄褐色のトゲ
+  for (let j = 0; j < ribs; j++) {
+    const a = j / ribs * Math.PI * 2;
+    for (let y = 0.03 + (j % 2) * 0.008; y < len - cap * 0.25; y += 0.016) {
+      const k = r * radiusAt(y) + 0.001, P = [Math.cos(a) * k, y, Math.sin(a) * k], out = [Math.cos(a), 0.15, Math.sin(a)];
+      addSpine(spineB, P, out, 0.003, 0.0035, [1.0, 1.0, 1.0]);
+      const n = 3 + Math.floor(R() * 3);
+      for (let s = 0; s < n; s++) { const t = (s / n - 0.5) * 2.2; addSpine(spineB, P, add3(out, [-Math.sin(a) * t, (R() - 0.3) * 0.9, Math.cos(a) * t]), 0.006 + R() * 0.006, 0.0006, [0.86, 0.74, 0.5]); }
+    }
+  }
+  return m;
 }
-function buildCactus({ color = '#5f8a52', w = 0.3, d = 0.3, h = 0.55 } = {}) {
-  const g = new THREE.Group();
-  const pr = Math.min(w, d) / 2 - 0.035, ph = 0.14;
-  const pot = new THREE.Mesh(new THREE.CylinderGeometry(pr, pr * 0.78, ph, 28), mat('#b8704a', 0.85)); pot.position.y = ph / 2; pot.castShadow = pot.receiveShadow = true; g.add(pot);
-  const lip = new THREE.Mesh(new THREE.CylinderGeometry(pr + 0.008, pr + 0.008, 0.028, 28), mat('#a9633f', 0.85)); lip.position.y = ph - 0.014; g.add(lip);
-  g.add(cylAt(pr - 0.008, pr - 0.008, 0.01, 24, mat('#cdb892', 0.95), 0, ph - 0.004, 0));   // 化粧砂
-  const green = mat(color, 0.62);
-  const bodyH = h - ph - 0.02, br = 0.042;
-  const body = ribbedColumn(br, bodyH, 8, green); body.position.y = ph + bodyH / 2 - 0.01; body.userData.colorable = true; g.add(body);
-  const top = new THREE.Mesh(new THREE.SphereGeometry(br * 0.9, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), green); top.position.y = ph + bodyH - 0.012; top.userData.colorable = true; g.add(top);
-  // 腕 (L字に立ち上がる。腕の外側が定義幅 w いっぱいになるよう張り出す)
-  const armX = Math.max(br + 0.045, Math.min(w, d) / 2 - 0.03);
-  [[-1, 0.38, 0.13], [1, 0.55, 0.1]].forEach(([s, fy, len]) => {
-    const y0 = ph + bodyH * fy, ar = 0.026, outL = armX - br + 0.01;
-    const out = cyl(ar, ar, outL, 12, green); out.rotation.z = Math.PI / 2; out.position.set(s * (br - 0.01 + outL / 2), y0, 0); out.userData.colorable = true; g.add(out);
-    const up = ribbedColumn(ar, len, 6, green); up.position.set(s * armX, y0 + len / 2 - 0.01, 0); up.userData.colorable = true; g.add(up);
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(ar * 0.9, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), green); cap.position.set(s * armX, y0 + len - 0.01, 0); cap.userData.colorable = true; g.add(cap);
-    const elbow = new THREE.Mesh(new THREE.SphereGeometry(ar, 12, 8), green); elbow.position.set(s * armX, y0, 0); elbow.userData.colorable = true; g.add(elbow);
+function buildCactus({ color = '#587f63', w = 0.22, d = 0.2, h = 0.52 } = {}) {
+  const g = new THREE.Group(), R = rng(6161);
+  const soilY = potCover(g, 0.095, 0.16, '#e6e2da', { taper: 0.84, soil: '#cdbb96' });   // 6号(φ18cm)を入れた鉢カバー + 化粧砂
+  const green = mat(color, 0.55);
+  // 2 本の柱: 高い方の頭頂が定義高さ h、低い方は約 7 割。わずかに外へ傾ける
+  [[-0.024, 0.006, 0.031, 1.0, 0.05, 0.02], [0.03, -0.01, 0.026, 0.7, -0.08, -0.03]].forEach(([x, z, r, k, tiltZ, tiltX]) => {
+    const len = (h - soilY + 0.01) * k / Math.cos(Math.abs(tiltZ));
+    const spineB = new Batch();
+    const stem = cereusStem(r, len, 6, green, spineB, R);
+    const sg = new THREE.Group(); sg.position.set(x, soilY - 0.012, z); sg.rotation.set(tiltX, R() * 0.5, tiltZ);
+    sg.add(stem); sg.add(spineB.mesh(vcMat('#f2eee2', 0.7)));
+    g.add(sg);
   });
   return g;
 }
-// ---- 多肉植物 (エケベリア系のロゼット): 六角鉢 + 3重のロゼット ----
-function buildSucculent({ color = '#7fae8a', w = 0.25, d = 0.25, h = 0.2 } = {}) {
+// ---- 多肉植物 = アガベ・ホリダ 5号 (cocoha: 鉢 φ15×h17cm・全高20cm前後): 黒いロングスリット鉢 + 軽石の化粧土,
+//      肉厚で硬い三角形の葉 (竜骨状に折れる) がロゼットに開き, 灰褐色の角質の縁・鋭い鋸歯・先端の頂棘 ----
+function buildSucculent({ color = '#3f6b48', w = 0.2, d = 0.2, h = 0.2 } = {}) {
   const g = new THREE.Group(), R = rng(5307);
-  const pr = Math.min(w, d) / 2 * 0.6, ph = h * 0.5;
-  const pot = new THREE.Mesh(new THREE.CylinderGeometry(pr, pr * 0.86, ph, 6), mat('#d9d2c6', 0.82)); pot.position.y = ph / 2; pot.castShadow = pot.receiveShadow = true; g.add(pot);
-  g.add(cylAt(pr - 0.01, pr - 0.01, 0.008, 6, mat('#b8a888', 0.95), 0, ph - 0.004, 0));
-  const leafB = new Batch();
-  const cy = ph + 0.005, k = Math.min(w, d) / 0.25;
-  [[11, 0.1 * k, 0.18, 0.045 * k], [9, 0.08 * k, 0.55, 0.04 * k], [7, 0.055 * k, 0.95, 0.032 * k], [5, 0.035 * k, 1.25, 0.024 * k]].forEach(([n, len, pitch, wid], ring) => {
-    for (let i = 0; i < n; i++) {
-      const yaw = i / n * Math.PI * 2 + ring * 0.33 + R() * 0.12;
-      addLeaf(leafB, [Math.sin(yaw) * 0.006, cy + ring * 0.01, Math.cos(yaw) * 0.006], { yaw, pitch, len, wid, prof: PROF.ovate, fold: 0.5, droop: 0.2, seg: 5, col: gray(0.85 + ring * 0.07 + R() * 0.06) });
+  const pr = 0.075, ph = 0.17, potM = mat('#262626', 0.5, 0.05); potM.side = THREE.DoubleSide;
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(pr, pr * 0.84, ph, 32, 1, true), potM); pot.position.y = ph / 2; pot.castShadow = pot.receiveShadow = true; g.add(pot);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(pr - 0.002, 0.004, 6, 32), potM); rim.rotation.x = Math.PI / 2; rim.position.y = ph; g.add(rim);
+  g.add(cylAt(pr * 0.84, pr * 0.84, 0.006, 32, potM, 0, 0.003, 0));
+  for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + Math.PI / 4, r0 = pr * 0.87 + 0.001; const s = plainBox(0.012, 0.05, 0.004, mat('#0e0e0e', 0.8), Math.cos(a) * r0, 0.028, Math.sin(a) * r0); s.rotation.y = -a + Math.PI / 2; g.add(s); }   // スリット
+  const soilY = ph - 0.018;                                                                  // ウォータースペース 約2cm
+  g.add(cylAt(pr - 0.006, pr - 0.006, 0.012, 28, mat('#cbbd9c', 0.97), 0, soilY - 0.006, 0));   // 軽石・日向土
+  const leafB = new Batch(), edgeB = new Batch(), spineB = new Batch();
+  const tri = (t) => Math.min(1, t * 6) * Math.pow(Math.max(0, 1 - t), 0.85);   // 付け根が広く先へ直線的に細る
+  const nL = 19;
+  for (let i = 0; i < nL; i++) {
+    const f = i / (nL - 1), yaw = i * 2.39996 + R() * 0.15;                    // 黄金角で重なりを避ける
+    const pitch = lerp(0.9, 0.3, f) + (R() - 0.5) * 0.08, len = lerp(0.04, 0.11, Math.pow(f, 0.8)), wid = len * 0.5;   // 外側の葉は鉢の縁を越えて外へ張り出す
+    const B = [Math.sin(yaw) * 0.004, soilY + 0.004 + (1 - f) * 0.008, Math.cos(yaw) * 0.004];
+    const o = { yaw, pitch, roll: 0, len, wid, prof: tri, fold: 0.55, droop: 0.4, seg: 7 };
+    addLeaf(leafB, B, { ...o, cells: [0, 0.9], col: tone(0.9, 0.85 + R() * 0.2) });
+    addLeaf(edgeB, B, { ...o, cells: [0.9, 1], col: gray(1) });
+    // 鋸歯 (縁から外へ) と頂棘 (先端から葉の向きへ)
+    for (const side of [-1, 1]) for (let t = 0.2; t < 0.9; t += 0.11) {
+      const P = leafPoint(B, o, side, t), Q = leafPoint(B, o, side * 0.7, t), dir = [P[0] - Q[0], P[1] - Q[1] + 0.002, P[2] - Q[2]];
+      addSpine(spineB, P, dir, 0.004 + len * 0.02, 0.0012, [1, 1, 1]);
     }
-  });
-  fitCrown([leafB], { w, d, h, y0: cy });
-  g.add(leafB.mesh(vcMat(color, 0.45), true));
+    const tip = leafPoint(B, o, 0, 1), pre = leafPoint(B, o, 0, 0.95);
+    addSpine(spineB, tip, [tip[0] - pre[0], tip[1] - pre[1], tip[2] - pre[2]], 0.012, 0.0016, [1, 1, 1]);
+  }
+  fitCrown([leafB, edgeB, spineB], { w, d, h, y0: soilY });
+  g.add(leafB.mesh(vcMat(color, 0.42, 0.02), true));
+  g.add(edgeB.mesh(vcMat('#8a8270', 0.6)));
+  g.add(spineB.mesh(vcMat('#4a3c2e', 0.6)));
   return g;
 }
 
@@ -350,53 +395,70 @@ function buildRhapis({ color = '#356e3a', w = 0.7, d = 0.7, h = 1.15 } = {}) {
   return g;
 }
 
-// ---- ポトス (5号吊り鉢を棚置き): 鉢の縁から垂れるツルにハート形の斑入り葉 ----
-function buildPothos({ color = '#4a8040', w = 0.4, d = 0.4, h = 0.35 } = {}) {
+// ---- ポトス 4号 (HitoHana, 鉢込み高さ約37cm〜): 4号鉢(φ12cm)を入れた陶器の鉢カバー。株元からこんもり茂る葉と,
+//      縁を越えて垂れるツル。ハート形の葉に黄色い斑 (ゴールデンポトス) ----
+function buildPothos({ color = '#3f7a3a', w = 0.4, d = 0.4, h = 0.37 } = {}) {
   const g = new THREE.Group(), R = rng(2525);
-  const soilY = potCover(g, 0.075, 0.13, '#f1eee8', { taper: 0.8 });
+  const soilY = potCover(g, 0.068, 0.125, '#f1eee8', { taper: 0.8 });
   const vineB = new Batch(), leafB = new Batch();
   const reach = Math.min(w, d) / 2 - 0.02;
-  // 鉢の上の葉 (こんもり)
-  for (let i = 0; i < 10; i++) {
-    const yaw = i / 10 * Math.PI * 2 + R() * 0.5, B = [Math.sin(yaw) * 0.03, soilY, Math.cos(yaw) * 0.03];
-    const pet = curvePts(B, yaw, 1.0 + R() * 0.4, lerp(0.1, h - soilY - 0.07, R()), 0.3, 3); addTube(vineB, pet, 0.003, gray(0.95), 4);
-    const len = lerp(0.07, 0.1, R());
-    addLeaf(leafB, pet[pet.length - 1], { yaw, pitch: 0.2 + R() * 0.3, roll: (R() - 0.5) * 0.6, len, wid: len * 0.8, prof: PROF.heart, fold: 0.15, droop: 2, seg: 6, col: gray(0.85 + R() * 0.2) });
+  // 斑: 葉脈に沿った黄色いすじ (頂点カラーでマテリアルの緑を黄緑〜クリームへ持ち上げる)
+  const variegate = (seed, amt) => (t, c) => { const v = Math.sin(t * 11 + seed) * 0.5 + Math.sin(c * 7 + seed * 2.3) * 0.5; return v > 1 - amt ? [1.5, 1.42, 0.7] : v > 0.9 - amt ? [1.2, 1.16, 0.8] : gray(0.9 + 0.08 * Math.sin(seed)); };
+  const heartLeaf = (P, o) => addLeaf(leafB, P, { prof: PROF.heart, seg: 7, cells: [0, 0.35, 0.7, 1], colorAt: variegate(R() * 9, 0.35 + R() * 0.3), ...o });
+  // 鉢の上の株 (こんもり): 株元から立ち上がって外へ弓なりに倒れるツル 7 本に, 短い葉柄で葉が互生
+  for (let i = 0; i < 7; i++) {
+    const yaw = i / 7 * Math.PI * 2 + R() * 0.4, len = lerp(0.14, h - soilY - 0.02, R()), B = [Math.sin(yaw) * 0.02, soilY, Math.cos(yaw) * 0.02];
+    const pts = curvePts(B, yaw, 1.25 - R() * 0.25, len, 0.9 + R() * 0.5, 6); addTube(vineB, pts, 0.0028, gray(0.95), 4);
+    for (let j = 2; j <= 6; j++) {
+      const P = pts[j], side = j % 2 ? 1 : -1, lyaw = yaw + side * (0.9 + R() * 0.5), pet = curvePts(P, lyaw, 0.5, 0.03, 0, 2);
+      addTube(vineB, pet, 0.0018, gray(0.9), 3);
+      const ll = lerp(0.065, 0.095, R()) * (j === 6 ? 0.75 : 1);
+      heartLeaf(pet[2], { yaw: lyaw, pitch: 0.15 + R() * 0.45, roll: side * 0.3, len: ll, wid: ll * 0.78, fold: 0.15, droop: 2 });
+    }
   }
-  // 垂れるツル (縁を越えて下へ)
-  for (let v = 0; v < 6; v++) {
-    const yaw = v / 6 * Math.PI * 2 + 0.3, pts = [];
-    for (let i = 0; i <= 8; i++) { const t = i / 8, r = 0.07 + reach * 0.8 * Math.sin(t * 1.4), y = soilY + 0.01 - (soilY - 0.02) * Math.pow(t, 1.3); pts.push([Math.sin(yaw + t * 0.4) * r, y, Math.cos(yaw + t * 0.4) * r]); }
-    addTube(vineB, pts, 0.0025, gray(0.9), 4);
-    for (let i = 2; i <= 8; i += 2) { const len = lerp(0.05, 0.075, R()), P = pts[i]; addLeaf(leafB, P, { yaw: yaw + (i % 4 ? 0.8 : -0.8), pitch: -0.5 - R() * 0.5, roll: 0, len, wid: len * 0.8, prof: PROF.heart, fold: 0.1, droop: 1, seg: 5, col: gray(0.85 + R() * 0.2) }); }
+  // 垂れるツル (縁を越えて床まで)。節ごとに葉が互生
+  for (let v = 0; v < 7; v++) {
+    const yaw = v / 7 * Math.PI * 2 + 0.3, pts = [], drop = lerp(0.55, 1, R());
+    for (let i = 0; i <= 9; i++) { const t = i / 9, r = 0.066 + reach * 0.75 * Math.sin(t * 1.3), y = soilY + 0.012 - (soilY - 0.02) * drop * Math.pow(t, 1.25); pts.push([Math.sin(yaw + t * 0.35) * r, y, Math.cos(yaw + t * 0.35) * r]); }
+    addTube(vineB, pts, 0.0024, gray(0.9), 4);
+    for (let i = 2; i <= 9; i += 1.5) { const P = pts[Math.round(i)], len = lerp(0.05, 0.075, R()) * (1 - i / 30); heartLeaf(P, { yaw: yaw + (Math.round(i) % 2 ? 0.9 : -0.9), pitch: -0.45 - R() * 0.5, roll: 0, len, wid: len * 0.78, fold: 0.1, droop: 1 }); }
   }
   fitCrown([vineB, leafB], { w, d, h, y0: soilY });
-  g.add(vineB.mesh(vcMat('#5f8a3a', 0.7)));
-  g.add(leafB.mesh(vcMat(color, 0.45), true));
+  g.add(vineB.mesh(vcMat('#6a8a3a', 0.7)));
+  g.add(leafB.mesh(vcMat(color, 0.42), true));
   return g;
 }
 
-// ---- バンブー (ミリオンバンブーの水挿し): ガラス器 + 化粧石 + 節のある茎 5 本, 先端に細い葉 ----
-function buildBamboo({ color = '#5a9450', w = 0.35, d = 0.35, h = 0.85 } = {}) {
+// ---- ミリオンバンブー = WOOTANG 水耕栽培 L (ガラス器 H27×W10cm・木製ふた, 植物の高さ約40〜50cm):
+//      円筒のガラス器に水と白い石, 水中に赤褐色の根。木のふたの穴から節のある茎 3 本が立ち, 先端と上の節から細い葉 ----
+function buildBamboo({ color = '#4f8f45', w = 0.25, d = 0.25, h = 0.5 } = {}) {
   const g = new THREE.Group(), R = rng(9090);
-  const vr = 0.075, vh = 0.2;
-  const glass = new THREE.MeshStandardMaterial({ color: 0xd9eef0, roughness: 0.05, metalness: 0.05, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
-  const vase = new THREE.Mesh(new THREE.CylinderGeometry(vr, vr, vh, 32, 1, true), glass); vase.position.y = vh / 2; g.add(vase);
-  g.add(cylAt(vr, vr, 0.008, 32, glass, 0, 0.004, 0));
-  g.add(cylAt(vr - 0.004, vr - 0.004, 0.05, 24, mat('#e6e1d6', 0.9), 0, 0.03, 0));   // 化粧石
-  const water = new THREE.Mesh(new THREE.CylinderGeometry(vr - 0.003, vr - 0.003, 0.08, 32), new THREE.MeshStandardMaterial({ color: 0xbfe3ee, roughness: 0.05, transparent: true, opacity: 0.35 })); water.position.y = 0.095; g.add(water);
-  const stemB = new Batch(), nodeB = new Batch(), leafB = new Batch();
-  const heights = [0.72, 0.6, 0.5, 0.42, 0.66].map(k => k * (h - 0.1) / 0.72);
-  heights.forEach((sh, i) => {
-    const a = i / 5 * Math.PI * 2, x = Math.cos(a) * 0.03, z = Math.sin(a) * 0.03, n = Math.max(3, Math.round(sh / 0.12));
-    addTube(stemB, [[x, 0.05, z], [x, 0.05 + sh, z]], 0.011, gray(0.95 + (i % 2) * 0.05), 8);
-    for (let k = 1; k < n; k++) addTube(nodeB, [[x, 0.05 + sh * k / n - 0.004, z], [x, 0.05 + sh * k / n + 0.004, z]], 0.0125, gray(1), 8);
-    const T = [x, 0.05 + sh, z];
-    for (let l = 0; l < 6; l++) { const yaw = l / 6 * Math.PI * 2 + R(), len = lerp(0.09, 0.14, R()); addLeaf(leafB, T, { yaw, pitch: 0.9 - R() * 0.8, len, wid: 0.022, prof: PROF.lance, fold: 0.2, droop: 2, seg: 6, col: gray(0.85 + R() * 0.2) }); }
+  const vr = 0.05, vh = 0.27, lidH = 0.016;
+  const glass = new THREE.MeshStandardMaterial({ color: 0xdcecee, roughness: 0.04, metalness: 0.05, transparent: true, opacity: 0.26, side: THREE.DoubleSide });
+  const vase = new THREE.Mesh(new THREE.CylinderGeometry(vr, vr, vh, 40, 1, true), glass); vase.position.y = vh / 2; g.add(vase);
+  g.add(cylAt(vr, vr, 0.012, 40, glass, 0, 0.006, 0));                                                     // 厚い底
+  g.add(cylAt(vr - 0.003, vr - 0.003, 0.035, 28, mat('#ebe6da', 0.9), 0, 0.03, 0));                        // 白い石
+  const water = new THREE.Mesh(new THREE.CylinderGeometry(vr - 0.003, vr - 0.003, 0.15, 40), new THREE.MeshStandardMaterial({ color: 0xc7e6ee, roughness: 0.05, transparent: true, opacity: 0.3 }));
+  water.position.y = 0.047 + 0.075; g.add(water);
+  const lid = cylAt(vr + 0.004, vr + 0.004, lidH, 40, mat('#c9a57a', 0.62), 0, vh + lidH / 2, 0); g.add(lid);   // 木製のふた (ガラスの口に載る)
+  const stemB = new Batch(), nodeB = new Batch(), leafB = new Batch(), rootB = new Batch();
+  const top = h - 0.1;                                                                                       // 茎の上端 (葉を除く)
+  [[-0.016, -0.01, 1.0], [0.018, -0.008, 0.86], [0.0, 0.02, 0.72]].forEach(([x, z, k], si) => {
+    const y0 = 0.05, y1 = y0 + (top - y0) * k, n = Math.round((y1 - y0) / 0.065);
+    g.add(cylAt(0.0085, 0.0085, 0.002, 12, mat('#2a1e14', 0.9), x, vh + lidH + 0.0005, z));                 // ふたの穴
+    addTube(stemB, [[x, y0, z], [x, y1, z]], 0.0068, gray(0.95 + si * 0.03), 9);
+    for (let i = 1; i <= n; i++) { const y = y0 + (y1 - y0) * i / (n + 0.4); addTube(nodeB, [[x, y - 0.003, z], [x, y + 0.003, z]], 0.0078, gray(1), 9); }
+    // 根 (水中)
+    for (let r = 0; r < 4; r++) { const a = R() * Math.PI * 2, pts = []; for (let i = 0; i <= 4; i++) { const t = i / 4; pts.push([x + Math.cos(a) * 0.03 * t, y0 + 0.06 - t * 0.02 + Math.sin(t * 5 + r) * 0.004, z + Math.sin(a) * 0.03 * t]); } addTube(rootB, pts, 0.0012, gray(1), 3); }
+    // 頂部の葉 + 上の節からの脇芽
+    const T = [x, y1, z];
+    for (let l = 0; l < 5; l++) { const yaw = l / 5 * Math.PI * 2 + R(), len = lerp(0.09, 0.13, R()); addLeaf(leafB, T, { yaw, pitch: 1.0 - R() * 0.7, len, wid: 0.02, prof: PROF.lance, fold: 0.22, droop: 2.2, seg: 6, col: gray(0.85 + R() * 0.2) }); }
+    if (k > 0.8) { const S = [x, y1 - 0.07, z], yaw = R() * Math.PI * 2, sh = curvePts(S, yaw, 0.9, 0.04, 0, 2); addTube(stemB, sh, 0.0035, gray(1), 6); for (let l = 0; l < 3; l++) addLeaf(leafB, sh[2], { yaw: yaw + (l - 1) * 0.7, pitch: 0.4 + R() * 0.3, len: lerp(0.07, 0.1, R()), wid: 0.018, prof: PROF.lance, fold: 0.2, droop: 2.5, seg: 5, col: gray(0.85 + R() * 0.2) }); }
   });
-  fitCrown([stemB, nodeB, leafB], { w, d, h, y0: 0.05 });
-  g.add(stemB.mesh(vcMat('#7fb060', 0.5)));
-  g.add(nodeB.mesh(vcMat('#5c8a44', 0.6)));
+  fitCrown([stemB, nodeB, leafB], { w, d, h, y0: vh + lidH });
+  g.add(stemB.mesh(vcMat('#86b861', 0.45)));
+  g.add(nodeB.mesh(vcMat('#6a9a4c', 0.55)));
+  g.add(rootB.mesh(vcMat('#b8683c', 0.8)));
   g.add(leafB.mesh(vcMat(color, 0.5), true));
   return g;
 }
@@ -455,42 +517,45 @@ function buildBenjamin({ color = '#3d7040', w = 0.7, d = 0.7, h = 1.15 } = {}) {
   return g;
 }
 
-// ---- オリーブ: 素焼き鉢 + 少しねじれた幹, 銀緑色の細い葉 ----
-function buildOlive({ color = '#7a9a5a', w = 0.6, d = 0.6, h = 1.1 } = {}) {
+// ---- オリーブの木 (HitoHana 8号, 鉢込み高さ約110〜130cm): 素焼き鉢 + 少しねじれた灰褐色の幹, 表が緑・裏が銀白色の細い葉 ----
+function buildOlive({ color = '#7a9a5a', w = 0.6, d = 0.6, h = 1.2 } = {}) {
   const g = new THREE.Group(), R = rng(3131);
   const soilY = potCover(g, 0.15, 0.27, '#b5764e', { taper: 0.78, rough: 0.9 });
   const woodB = new Batch(), leafB = new Batch();
-  const reach = Math.min(w, d) / 2, H = h - soilY, trunkTop = soilY + H * 0.5;
-  const trunk = []; for (let i = 0; i <= 8; i++) { const t = i / 8; trunk.push([0.03 * Math.sin(t * 4), soilY - 0.02 + t * (trunkTop - soilY), 0.025 * Math.cos(t * 3)]); }
-  addTube(woodB, trunk, trunk.map((p, i) => 0.02 - i * 0.0012), gray(1), 7);
+  const reach = Math.min(w, d) / 2, H = h - soilY, trunkTop = soilY + H * 0.42;
+  // 幹: 株元が太く少しねじれた灰褐色。上で 2 本に分かれ, それぞれから小枝
+  const trunk = []; for (let i = 0; i <= 8; i++) { const t = i / 8; trunk.push([0.025 * Math.sin(t * 4), soilY - 0.02 + t * (trunkTop - soilY), 0.02 * Math.cos(t * 3)]); }
+  addTube(woodB, trunk, trunk.map((p, i) => 0.028 - i * 0.0018), gray(1), 8);
   const ends = [];
-  for (let b = 0; b < 6; b++) {
-    const yaw = b / 6 * Math.PI * 2 + R() * 0.5, pts = curvePts(trunk[8], yaw, lerp(0.6, 1.2, R()), lerp(0.2, 0.32, R()), 0.2, 4);
-    addTube(woodB, pts, 0.006, gray(0.95), 5); ends.push(pts[4]);
-  }
-  const cy = soilY + H * 0.74, rx = reach * 0.9, ry = H * 0.26;
-  for (let i = 0; i < 520; i++) {
-    const e = ends[i % ends.length], th = R() * Math.PI * 2, ph = Math.acos(2 * R() - 1), rr = Math.cbrt(R());
-    let P = [Math.sin(ph) * Math.cos(th) * rx * rr, cy + Math.cos(ph) * ry * rr, Math.sin(ph) * Math.sin(th) * rx * rr];
-    P = [lerp(P[0], e[0], 0.3), lerp(P[1], e[1], 0.25), lerp(P[2], e[2], 0.3)];
-    if (P[1] > h - 0.03) P[1] = h - 0.03 - R() * 0.03;
-    const len = lerp(0.05, 0.07, R()), silver = R() < 0.4;
-    addLeaf(leafB, P, { yaw: R() * Math.PI * 2, pitch: -0.4 + R() * 0.9, roll: (R() - 0.5), len, wid: 0.011, prof: PROF.lance, fold: 0.1, droop: 1, seg: 3, col: silver ? [1.18, 1.22, 1.15] : gray(0.8 + R() * 0.2) });
+  [[0.8, 1.0, 0.27], [3.9, 1.1, 0.25]].forEach(([yaw, pitch, len]) => {
+    const lead = curvePts(trunk[8], yaw, pitch, len, 0.15, 5); addTube(woodB, lead, [0.013, 0.012, 0.011, 0.01, 0.009, 0.008], gray(0.97), 6);
+    for (let b = 0; b < 4; b++) {
+      const P = lead[2 + (b % 4)], by = yaw + (b % 2 ? 1 : -1) * (0.7 + R() * 0.7), pts = curvePts(P, by, lerp(0.35, 0.9, R()), lerp(0.11, 0.17, R()), 0.25, 3);
+      addTube(woodB, pts, 0.0045, gray(0.95), 5); ends.push(pts[3]);
+    }
+    ends.push(lead[5]);
+  });
+  // 葉: 枝先の周りに対生の細い葉 (表=緑, 裏=銀白。3割ほど裏が見える)
+  for (let i = 0; i < 760; i++) {
+    const e = ends[i % ends.length], rr = Math.cbrt(R()) * reach * 0.36, th = R() * Math.PI * 2, ph = Math.acos(2 * R() - 1);
+    const P = [e[0] + Math.sin(ph) * Math.cos(th) * rr, Math.min(h - 0.03, e[1] + Math.cos(ph) * rr * 0.7 + 0.03), e[2] + Math.sin(ph) * Math.sin(th) * rr];
+    const len = lerp(0.045, 0.07, R()), silver = R() < 0.3;
+    addLeaf(leafB, P, { yaw: R() * Math.PI * 2, pitch: -0.4 + R() * 0.9, roll: (R() - 0.5), len, wid: 0.011, prof: PROF.lance, fold: 0.1, droop: 1, seg: 3, col: silver ? [1.12, 1.17, 1.1] : gray(0.72 + R() * 0.2) });
   }
   fitCrown([woodB, leafB], { w, d, h, y0: soilY });
-  g.add(woodB.mesh(vcMat('#6b5a44', 0.9)));
+  g.add(woodB.mesh(vcMat('#7a7064', 0.92)));
   g.add(leafB.mesh(vcMat(color, 0.6), true));
   return g;
 }
 
-// ---- ザミオクルカス (ZZプラント): 株元から弓なりに伸びる軸に, 光沢のある楕円の小葉が対生 ----
-function buildZZPlant({ color = '#2a5a28', w = 0.55, d = 0.55, h = 1.05 } = {}) {
+// ---- ザミオクルカス (HitoHana 8号, 鉢込み高さ約75cm〜): 株元の芋から弓なりに伸びる太い葉軸に, 光沢のある肉厚の楕円の小葉が対生 (1本に10〜12枚) ----
+function buildZZPlant({ color = '#2a5a28', w = 0.55, d = 0.55, h = 0.8 } = {}) {
   const g = new THREE.Group(), R = rng(2626);
-  const soilY = potCover(g, 0.15, 0.27, '#f2f0ea');
+  const soilY = potCover(g, 0.14, 0.24, '#f2f0ea');
   const stemB = new Batch(), leafB = new Batch();
   const reach = Math.min(w, d) / 2, H = h - soilY;
-  for (let s = 0; s < 9; s++) {
-    const yaw = s / 9 * Math.PI * 2 + R() * 0.3, len = lerp(0.62, 0.9, R()) * H / 0.8, pitch = lerp(1.2, 1.45, R());
+  for (let s = 0; s < 10; s++) {
+    const yaw = s * 2.39996 + R() * 0.3, len = lerp(0.62, 0.9, R()) * H / 0.8, pitch = lerp(1.15, 1.45, R());   // 黄金角で四方へ
     const pts = curvePts([Math.sin(yaw) * 0.02, soilY - 0.01, Math.cos(yaw) * 0.02], yaw, pitch, len, 0.18, 8);
     addTube(stemB, pts, pts.map((p, i) => 0.014 - i * 0.0012), gray(0.9 + R() * 0.1), 6);
     for (let i = 3; i <= 8; i++) {

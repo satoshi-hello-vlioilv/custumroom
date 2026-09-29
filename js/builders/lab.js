@@ -544,59 +544,68 @@ function buildBenchGrinder({ color='#4f7a52', w=0.46, d=0.4, h=1.2 } = {}) {
   g.add(_rod([0, ax - 0.05, -0.08], [0, 0.88, -0.14], 0.007, mat('#161616', 0.9)));                  // 電源コード
   return g;
 }
-function buildToolRack({ color='#3a3f47', w=1.0, d=0.12, h=1.2 } = {}) {
+// ---- 工具ラック = TRUSCO パンチングパネル UPR-P450 (幅900×高さ450×厚さ25mm, 5kg) ×2 枚を上下に並べて壁付け ----
+// 25mm ピッチの角穴に差したフックに工具 (スパナ・モンキー・ハンマー・ドライバー・ペンチ・金切りのこ・コンベックス) を掛け,
+// 下段にコンテナ用の棚板 (VNコンテナ 4 個)。パネル下端は床から 0.8m。壁面 = z -d/2, 使う面 = +Z
+let _upTex = null;
+function upPanelTexture() {
+  if (_upTex) return _upTex;
+  const c = document.createElement('canvas'); c.width = 576; c.height = 288;
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 576, 288);
+  const cell = 576 / 36; ctx.fillStyle = '#1a1c1e';
+  for (let i = 0; i < 36; i++) for (let k = 0; k < 18; k++) ctx.fillRect(i * cell + cell * 0.3, k * cell + cell * 0.3, cell * 0.4, cell * 0.4);   // 角穴 10mm / ピッチ 25mm
+  _upTex = new THREE.CanvasTexture(c); _upTex.colorSpace = THREE.SRGBColorSpace; _upTex.anisotropy = 4;
+  return _upTex;
+}
+function buildToolRack({ color='#a3aba6', w=0.9, d=0.12, h=0.9 } = {}) {
   const g = new THREE.Group();
-  const board = mat(color, 0.6, 0.1);
-  const metal = mat('#aab0b4', 0.3, 0.7, { env: 0.9 });
-
-  // Wall-mount backing cleats
-  [-w/2+0.06, w/2-0.06].forEach(rx => {
-    g.add(box(0.04, 0.04, 0.06, mat('#555a60', 0.4, 0.5), rx, h*0.95 + 0.2, -0.02));
+  const zw = -d / 2, pT = 0.025, zf = zw + 0.003 + pT, y0 = 0.8, ph = h / 2;
+  const face = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), map: upPanelTexture(), roughness: 0.55, metalness: 0.3 }); face.envMapIntensity = 0.5;
+  const shell = mat(color, 0.55, 0.3, { env: 0.5 });
+  const steel = mat('#c4cacf', 0.25, 0.85, { env: 0.9 }), dark = mat('#2b2d30', 0.5, 0.3);
+  // パネル 2 枚 (箱曲げの縁 + 穴の面)
+  [0, 1].forEach(k => {
+    const cy = y0 + ph * (k + 0.5);
+    const edge = plainBox(w, ph - 0.004, pT - 0.002, shell, 0, cy, zw + 0.003 + (pT - 0.002) / 2); edge.userData.colorable = true; g.add(edge);
+    const f = plainBox(w - 0.02, ph - 0.024, 0.001, face, 0, cy, zf + 0.0005); f.userData.colorable = true; g.add(f);
   });
-
-  // Pegboard panel
-  const pb = box(w, h, 0.03, mat(shade(color, 1.1), 0.7), 0, h/2 + 0.2, 0);
-  pb.userData.colorable = true; g.add(pb);
-  for (let yy = 0.4; yy < h + 0.05; yy += 0.12) {
-    for (let xx = -w/2 + 0.1; xx < w/2; xx += 0.12) {
-      g.add(cylAt(0.008, 0.008, 0.005, 6, mat('#222', 0.6), xx, yy, 0.016));
-    }
+  // 壁取付の金具 (上下の端)
+  [y0 - 0.01, y0 + h + 0.01].forEach(y => [-1, 1].forEach(s => g.add(plainBox(0.05, 0.02, 0.028, dark, s * (w / 2 - 0.08), y, zw + 0.014))));
+  const hook = (x, y, len = 0.05) => { g.add(cylAt(0.0022, 0.0022, len, 6, steel, x, y, zf + len / 2).rotateX(Math.PI / 2)); g.add(cylAt(0.0022, 0.0022, 0.015, 6, steel, x, y + 0.006, zf + len)); };
+  const hang = (mesh, x, y, z = zf + 0.03) => { mesh.position.set(x, y, z); mesh.castShadow = true; g.add(mesh); return mesh; };
+  const upY = y0 + ph * 1.5, loY = y0 + ph * 0.5;
+  // 上段: コンビネーションスパナ 5 本 (長さ順) + モンキーレンチ + ハンマー
+  [0.15, 0.17, 0.19, 0.21, 0.24].forEach((L, i) => {
+    const x = -w / 2 + 0.07 + i * 0.045, top = upY + 0.17;
+    hook(x, top); const sp = new THREE.Group(); hang(sp, x, top - 0.012 - L / 2, zf + 0.035);
+    sp.add(plainBox(0.013 + i * 0.001, L - 0.04, 0.004, steel, 0, 0, 0));
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.011 + i * 0.0012, 0.0045, 6, 14), steel); ring.position.y = L / 2 - 0.012; sp.add(ring);
+    const open = new THREE.Mesh(new THREE.TorusGeometry(0.011 + i * 0.0012, 0.0045, 6, 14, Math.PI * 1.3), steel); open.position.y = -L / 2 + 0.012; open.rotation.z = -Math.PI * 0.15 + Math.PI; sp.add(open);
+  });
+  { const x = -w / 2 + 0.33, top = upY + 0.17; hook(x, top); const mk = new THREE.Group(); hang(mk, x, top - 0.13, zf + 0.035); mk.add(plainBox(0.02, 0.2, 0.008, steel, 0, 0, 0)); mk.add(plainBox(0.045, 0.05, 0.012, steel, 0, -0.11, 0)); mk.add(plainBox(0.022, 0.12, 0.012, mat('#c0392b', 0.5), 0, 0.03, 0)); }
+  { const x = -w / 2 + 0.43, top = upY + 0.17; hook(x - 0.03, top); hook(x + 0.03, top); const hm = new THREE.Group(); hang(hm, x, top - 0.02, zf + 0.04); hm.add(plainBox(0.11, 0.032, 0.03, dark, 0, 0, 0)); hm.add(plainBox(0.026, 0.3, 0.02, mat('#9a6a3a', 0.6), 0, -0.165, 0)); hm.add(plainBox(0.03, 0.09, 0.024, mat('#1f1f1f', 0.8), 0, -0.27, 0)); }
+  // 上段右: ドライバー 4 本 (差し込みラック) + ペンチ 2 本
+  g.add(plainBox(0.2, 0.012, 0.05, dark, w / 2 - 0.26, upY + 0.12, zf + 0.025));
+  ['#e05a2b', '#2b7ae0', '#e0c42b', '#2aa05a'].forEach((c, i) => { const x = w / 2 - 0.335 + i * 0.05; g.add(cylAt(0.012, 0.011, 0.1, 10, mat(c, 0.45), x, upY + 0.176, zf + 0.025)); g.add(cylAt(0.0032, 0.0032, 0.14, 6, steel, x, upY + 0.12 - 0.07, zf + 0.025)); });
+  [w / 2 - 0.11, w / 2 - 0.06].forEach((x, i) => { hook(x, upY + 0.16); const pl = new THREE.Group(); hang(pl, x, upY + 0.07, zf + 0.035); [-1, 1].forEach(s => { const hdl = plainBox(0.014, 0.12, 0.01, mat(i ? '#2b7ae0' : '#d23a2a', 0.5), s * 0.012, -0.02, 0); hdl.rotation.z = s * 0.12; pl.add(hdl); }); pl.add(plainBox(0.024, 0.05, 0.012, steel, 0, 0.07, 0)); });
+  // 下段: 金切りのこ + やすり + コンベックス
+  { const x = -w / 2 + 0.25, top = loY + 0.16; hook(x - 0.12, top); hook(x + 0.12, top); const hs = new THREE.Group(); hang(hs, x, top - 0.02, zf + 0.03); hs.add(plainBox(0.32, 0.012, 0.01, mat('#2a6ad0', 0.5, 0.3), 0, 0, 0)); [-1, 1].forEach(s => hs.add(plainBox(0.012, 0.1, 0.01, mat('#2a6ad0', 0.5, 0.3), s * 0.155, -0.05, 0))); hs.add(plainBox(0.3, 0.012, 0.002, steel, 0, -0.095, 0)); hs.add(plainBox(0.035, 0.08, 0.022, dark, -0.175, -0.05, 0)); }
+  { const x = -w / 2 + 0.47, top = loY + 0.16; hook(x, top); hang(plainBox(0.022, 0.25, 0.006, mat('#6a6e72', 0.5, 0.7), 0, 0, 0), x, top - 0.14); hang(cylAt(0.009, 0.009, 0.09, 8, mat('#8a5a2b', 0.6), 0, 0, 0), x, top - 0.04); }
+  { const x = w / 2 - 0.2, top = loY + 0.14; hook(x, top); const tm = cylAt(0.034, 0.034, 0.03, 18, mat('#f0c020', 0.5, 0.1), 0, 0, 0); tm.rotation.x = Math.PI / 2; hang(tm, x, top - 0.045, zf + 0.035); }
+  // コンテナ用の棚板 (パネル下端の穴に掛ける) + VNコンテナ 4 個
+  const shD = 0.09, shY = y0 + 0.04;
+  g.add(plainBox(w - 0.02, 0.012, shD, dark, 0, shY, zf + shD / 2));
+  g.add(plainBox(w - 0.02, 0.03, 0.004, dark, 0, shY + 0.015, zf + shD - 0.002));
+  const binM = mat('#2f6fc0', 0.45, 0.05);
+  for (let i = 0; i < 4; i++) {                                                                      // 前面の上半分が開いた部品箱
+    const x = -w / 2 + 0.12 + i * 0.22, y = shY + 0.006;
+    g.add(plainBox(0.2, 0.004, 0.08, binM, x, y + 0.002, zf + 0.045));
+    [-1, 1].forEach(s => g.add(plainBox(0.004, 0.08, 0.08, binM, x + s * 0.098, y + 0.04, zf + 0.045)));
+    g.add(plainBox(0.2, 0.08, 0.004, binM, x, y + 0.04, zf + 0.007));
+    g.add(plainBox(0.2, 0.04, 0.004, binM, x, y + 0.02, zf + 0.083));
+    g.add(plainBox(0.07, 0.025, 0.002, mat('#f2f2ee', 0.7), x, y + 0.02, zf + 0.0855));
+    g.add(plainBox(0.19, 0.03, 0.07, mat('#8a8f94', 0.5, 0.6), x, y + 0.02, zf + 0.045));            // 中の小物 (ボルト類)
   }
-
-  // Front horizontal support rails
-  [0.6, 1.0, h + 0.05].forEach(ry => {
-    g.add(box(w - 0.06, 0.012, 0.018, metal, 0, ry + 0.2, 0.018));
-  });
-
-  // Hanging tools: wrenches (3 sizes)
-  const hangTool = (x, len, wdt, c) => g.add(box(wdt, len, 0.02, mat(c, 0.4, 0.5), x, h*0.78 - len/2 + 0.2, 0.03));
-  hangTool(-0.42, 0.34, 0.05, '#b8bcc0');
-  hangTool(-0.34, 0.3, 0.045, '#b8bcc0');
-  hangTool(-0.26, 0.26, 0.04, '#b8bcc0');
-
-  // Hammer (T-head + handle) + shadow outline
-  g.add(box(0.12, 0.052, 0.04, metal, -0.05, h*0.9 + 0.2, 0.03));
-  g.add(box(0.03, 0.26, 0.03, mat('#8a5a2b', 0.6), -0.05, h*0.75 + 0.2, 0.03));
-  g.add(box(0.14, 0.31, 0.005, mat('#1a1e24', 0.8), -0.05, h*0.81 + 0.2, 0.017));
-
-  // Screwdrivers (handle + shaft) + shadow outlines
-  [0.12, 0.2, 0.28].forEach((x, i) => {
-    g.add(box(0.03, 0.1, 0.03, mat(['#e05a2b','#2b7ae0','#e0c42b'][i], 0.4), x, h*0.85 + 0.2, 0.03));
-    g.add(box(0.012, 0.16, 0.012, metal, x, h*0.7 + 0.2, 0.03));
-    g.add(box(0.038, 0.29, 0.005, mat('#1a1e24', 0.8), x, h*0.765 + 0.2, 0.018));
-  });
-
-  // Pliers + tape measure
-  g.add(box(0.06, 0.2, 0.03, mat('#c05a3b', 0.4), 0.4, h*0.78 + 0.2, 0.03));
-  g.add(cylAt(0.038, 0.038, 0.025, 12, mat('#f0c020', 0.5, 0.1), 0.44, h*0.6 + 0.2, 0.02).rotateX(Math.PI/2));
-
-  // Bottom shelf with lip + tool boxes + small parts bin
-  g.add(box(w, 0.03, 0.18, board, 0, 0.34, 0.08));
-  g.add(box(w, 0.04, 0.012, board, 0, 0.365, 0.17));  // shelf lip
-  g.add(box(0.3, 0.14, 0.14, mat('#c0392b', 0.5, 0.2), -0.25, 0.42, 0.08));
-  g.add(box(0.26, 0.12, 0.14, mat('#2980b9', 0.5, 0.2), 0.15, 0.41, 0.08));
-  g.add(box(0.14, 0.1, 0.12, mat('#e0a020', 0.5, 0.1), 0.44, 0.39, 0.08));
-
   return g;
 }
 
