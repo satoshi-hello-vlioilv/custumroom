@@ -77,16 +77,25 @@ function cyl(rt, rb, h, seg, material) {
   m.castShadow = true; m.receiveShadow = true; return m;
 }
 
+// 配置プレビュー (半透明の緑)。入れ子のグループやボーンに付いた部品も, ルートからの変換をまとめて正しい位置に置く。
+// スキンメッシュ (人物) は今の姿勢 (立ち姿勢) の頂点を焼き込む。ルートの拡大縮小は残し, 位置・回転は配置側で決める
 function makeGhost(group) {
-  const g = new THREE.Group();
+  const g = new THREE.Group(), v = new THREE.Vector3();
+  const mat = new THREE.MeshStandardMaterial({ color: 0x62a86d, transparent: true, opacity: 0.4, roughness: 0.9 });
+  group.position.set(0, 0, 0); group.rotation.set(0, 0, 0); group.updateMatrixWorld(true);
   group.traverse(child => {
-    if (child.isMesh) {
-      const m = new THREE.Mesh(child.geometry, new THREE.MeshStandardMaterial({
-        color: 0x62a86d, transparent: true, opacity: 0.4, roughness: 0.9
-      }));
-      m.position.copy(child.position); m.rotation.copy(child.rotation); m.scale.copy(child.scale);
-      g.add(m);
+    if (!child.isMesh || child.userData.hitProxy) return;
+    let geo = child.geometry;
+    if (child.isSkinnedMesh) {
+      const P = geo.attributes.position, arr = new Float32Array(P.count * 3);
+      for (let i = 0; i < P.count; i++) { child.getVertexPosition(i, v); arr[i * 3] = v.x; arr[i * 3 + 1] = v.y; arr[i * 3 + 2] = v.z; }
+      geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+      if (child.geometry.attributes.normal) geo.setAttribute('normal', child.geometry.attributes.normal);
+      if (child.geometry.index) geo.setIndex(child.geometry.index);
     }
+    const m = new THREE.Mesh(geo, mat);
+    child.matrixWorld.decompose(m.position, m.quaternion, m.scale);
+    g.add(m);
   });
   return g;
 }

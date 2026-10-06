@@ -5,6 +5,7 @@ import { canvas, wrapper, renderer, MAX_ANISO, scene, camera, DEFAULT_CAM_POS, r
 import { makeWoodTexture, makeWallTexture, makeNoiseTexture, makeRugTexture, makeConcreteTexture, makeTileTexture, makeMarbleTexture, makeCarpetTexture, makeTatamiTexture, makeBrickTexture, makePanelTexture, makeGenkanTexture, makeDirtTexture, makeGrassTexture, makeLawnTexture, makeParquetTexture, makeDarkWoodTexture, makeRubberTexture, makeCheckerPlateTexture, makeEpoxyTexture, makeTerracottaTexture, makeStoneTexture, woodTex, concreteTex, wallTexSrc, noiseTex, tileTex, marbleTex, carpetTex, tatamiTex, brickTex, panelTex, genkanTex, dirtTex, grassTex, lawnTex, parquetTex, darkWoodTex, rubberTex, checkerTex, epoxyTex, terracottaTex, stoneTex, FLOOR_TYPES, WALL_TYPES } from './core/textures.js';
 import { GRID_SNAP, WALL_H, WALL_T, PART_H, COLORS, roundedBoxGeom, mat, fabricMat, box, plainBox, cyl, cylAt, makeGhost } from './core/helpers.js';
 import { FURNITURE_DEFS } from './catalog.js';
+import { personInteractor } from './builders/people.js';
 import { P, PRESETS } from './presets.js';
 import { validateAllPresets } from './core/orient.js';
 import { APP_VERSION } from './core/version.js';
@@ -1850,6 +1851,8 @@ const ITEM_INTERACTIONS = {
       }
     };
   },
+  // 人物: クリックで 立つ → 手を振る → 歩く → おじぎ。まばたき・呼吸はいつも
+  worker: personInteractor, man: personInteractor, woman: personInteractor, boy: personInteractor, girl: personInteractor, toddler: personInteractor,
   ind_furnace(g) {
     const p = g.userData.parts || {};
     if (!p.door) return null;

@@ -20,6 +20,7 @@ JS_FILES = [
     'js/core/scene.js',
     'js/core/textures.js',
     'js/core/helpers.js',
+    'js/builders/people.js',
     'js/builders/furniture.js',
     'js/builders/plants.js',
     'js/builders/industrial.js',
