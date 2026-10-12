@@ -908,16 +908,14 @@ function deselect() {
   if (!selectedGroup) return;
   selectedGroup.traverse(c => { if (c.isMesh && c.material && c.material.emissive) { c.material.emissive.set(0x000000); c.material.emissiveIntensity = 0; } });
   selectedGroup = null; selectionRing.visible = false;
-  document.getElementById('props-empty').style.display = 'flex';
   document.getElementById('props-panel').classList.remove('visible');
-  const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = '';
-  const pn = document.getElementById('preset-notes'); if (pn && pn.dataset.has === '1') pn.style.display = '';
+  document.getElementById('sel-toolbar').hidden = true;
 }
 function refreshSelection() {
   if (!selectedGroup) return;
   updateSelectionRing(selectedGroup);
   const it = placedItems.find(i => i.group === selectedGroup);   // 元に戻す/やり直し後も位置表示と間隔を同期
-  if (it) { document.getElementById('pos-x').textContent = it.position.x.toFixed(2) + 'm'; document.getElementById('pos-z').textContent = it.position.z.toFixed(2) + 'm'; }
+  if (it) updatePositionText(it.position);
   updateClearancePanel();
 }
 function updateSelectionRing(group) {
@@ -928,29 +926,62 @@ function updateSelectionRing(group) {
 }
 function showProperties(group, item) {
   const def = FURNITURE_DEFS.find(d => d.id === item.defId);
-  document.getElementById('props-empty').style.display = 'none';
   document.getElementById('props-panel').classList.add('visible');
-  const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = 'none';
   document.getElementById('props-name').textContent = def.name;
+  document.getElementById('sel-name').textContent = def.name;
   document.getElementById('props-dims').textContent = def.product
     ? `W ${Math.round(def.w * 1000)} × D ${Math.round(def.d * 1000)} × H ${Math.round(def.h * 1000)} mm（実寸）`
-    : `${def.w}m × ${def.d}m`;
+    : `W ${def.w} × D ${def.d} × H ${def.h} m`;
   document.getElementById('props-icon').innerHTML = `<i class="fa-solid ${def.icon}"></i>`;
-  document.getElementById('pos-x').textContent = item.position.x.toFixed(2) + 'm';
-  document.getElementById('pos-z').textContent = item.position.z.toFixed(2) + 'm';
+  updatePositionText(item.position);
   renderSpecPanel(def); updateClearancePanel();
-  const _pn = document.getElementById('preset-notes'); if (_pn) _pn.style.display = 'none';
+  renderColorSwatches(item.color);
+  document.getElementById('sel-toolbar').hidden = false;
+  positionSelToolbar();
+}
+function updatePositionText(p) {
+  document.getElementById('pos-x').textContent = p.x.toFixed(2) + 'm';
+  document.getElementById('pos-z').textContent = p.z.toFixed(2) + 'm';
+}
+// カラー: よく使う先頭10色を1行で見せ、残りは「ほか N 色」で展開する
+const COLOR_ROW = 10;
+let colorsExpanded = false;
+function renderColorSwatches(active) {
   const sw = document.getElementById('color-swatches'); sw.innerHTML = '';
-  COLORS.forEach(c => {
-    const b = document.createElement('button'); b.className = 'color-swatch' + (c === item.color ? ' active' : '');
-    b.style.background = c; b.title = c;
+  const activeIdx = COLORS.indexOf(active);
+  const shown = colorsExpanded || activeIdx >= COLOR_ROW ? COLORS : COLORS.slice(0, COLOR_ROW);
+  shown.forEach(c => {
+    const b = document.createElement('button'); b.className = 'color-swatch' + (c === active ? ' active' : '');
+    b.style.background = c; b.title = c; b.setAttribute('aria-label', '色 ' + c);
     b.addEventListener('click', () => {
       selectedColor = c; applyColor(selectedGroup, c); scheduleAutoSave();
-      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active')); b.classList.add('active');
       const pi = placedItems.find(i => i.group === selectedGroup); if (pi) pi.color = c;
+      sw.querySelectorAll('.color-swatch').forEach(s => s.classList.toggle('active', s === b));
+      setSelColorDot(c);
     });
     sw.appendChild(b);
   });
+  const more = document.getElementById('color-more');
+  const rest = COLORS.length - COLOR_ROW;
+  more.hidden = rest <= 0 || activeIdx >= COLOR_ROW;
+  more.textContent = colorsExpanded ? '閉じる' : `ほか${rest}色`;
+  more.setAttribute('aria-expanded', String(colorsExpanded));
+  setSelColorDot(active);
+}
+function setSelColorDot(c) { const dot = document.querySelector('#sel-color span'); if (dot) dot.style.background = c || 'transparent'; }
+// 選択中の家具の真上にミニツールバーを追従させる
+const _selTop = new THREE.Vector3(), _selBox = new THREE.Box3();
+function positionSelToolbar() {
+  const bar = document.getElementById('sel-toolbar');
+  if (!selectedGroup || bar.hidden) return;
+  _selBox.setFromObject(selectedGroup);
+  _selTop.set((_selBox.min.x + _selBox.max.x) / 2, _selBox.max.y, (_selBox.min.z + _selBox.max.z) / 2).project(camera);
+  const w = wrapper.clientWidth, h = wrapper.clientHeight;
+  const half = bar.offsetWidth / 2 + 8;
+  const x = clamp((_selTop.x + 1) / 2 * w, half, w - half);
+  const y = clamp((1 - _selTop.y) / 2 * h - 18, bar.offsetHeight + 8, h - 8);
+  bar.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+  bar.classList.toggle('offscreen', _selTop.z > 1);
 }
 function applyColor(group, color) {
   if (!group) return;
@@ -995,21 +1026,38 @@ function computeClearances(item) {
   }
   return out;
 }
+const CLR_SIDES = [['up', '上'], ['down', '下'], ['left', '左'], ['right', '右']];
+const CLR_COLOR = { ok: '#4e9159', tight: '#d08a1c', touch: '#9b9183', none: '#b8ae9e' };
+function clrClass(r) { return !r ? 'none' : r.dist < 0.05 ? 'touch' : r.dist < 0.6 ? 'tight' : 'ok'; }
+function escHTML(t) { return String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]); }
+// 周囲との間隔: ひとことの判定 + 上から見た図（設置面から上下左右の最寄りの壁・家具までの距離）
 function updateClearancePanel() {
   const sec = document.getElementById('props-clear'); if (!sec) return;
   const item = selectedGroup ? placedItems.find(i => i.group === selectedGroup) : null;
-  if (!item) { sec.style.display = 'none'; return; }
-  sec.style.display = '';
+  if (!item) return;
   const c = computeClearances(item);
-  const fmt = r => {
-    if (!r) return `<span class="clr-val clr-none">—</span><span class="clr-who">なし</span>`;
-    const cls = r.dist < 0.05 ? 'clr-touch' : r.dist < 0.6 ? 'clr-tight' : 'clr-ok';
-    return `<span class="clr-val ${cls}">${r.dist.toFixed(2)}<small>m</small></span><span class="clr-who${r.opening ? ' clr-open' : ''}">${r.label}</span>`;
-  };
-  document.getElementById('clr-up').innerHTML = fmt(c.up);
-  document.getElementById('clr-down').innerHTML = fmt(c.down);
-  document.getElementById('clr-left').innerHTML = fmt(c.left);
-  document.getElementById('clr-right').innerHTML = fmt(c.right);
+  const tight = CLR_SIDES.filter(([k]) => clrClass(c[k]) === 'tight').map(([, l]) => l);
+  const verdict = document.getElementById('clr-verdict');
+  verdict.className = 'clr-verdict ' + (tight.length ? 'warn' : 'ok');
+  verdict.innerHTML = tight.length
+    ? `<i class="fa-solid fa-triangle-exclamation"></i><span>${tight.join('・')}側が狭い（0.6m未満）— 人が通るなら離しましょう</span>`
+    : `<i class="fa-solid fa-circle-check"></i><span>通路として使う側は 0.6m 以上あいています</span>`;
+  const H = 112, cy = H / 2;
+  const val = k => c[k] ? `${c[k].dist.toFixed(2)}m` : '—';
+  const who = k => c[k] ? escHTML(c[k].label.length > 12 ? c[k].label.slice(0, 11) + '…' : c[k].label) : 'なし';
+  const col = k => CLR_COLOR[clrClass(c[k])];
+  const line = (x1, y1, x2, y2, k) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col(k)}" stroke-width="3" stroke-dasharray="4 3" stroke-linecap="round"/>`;
+  document.getElementById('clr-diagram').innerHTML = `<svg viewBox="0 0 240 ${H}" role="img" aria-label="周囲との間隔 上${val('up')} 下${val('down')} 左${val('left')} 右${val('right')}">
+    <rect x="1" y="1" width="238" height="${H - 2}" rx="10" class="dg-bg"/>
+    <rect x="90" y="${cy - 19}" width="60" height="38" rx="6" class="dg-item"/>
+    <text x="120" y="${cy + 4}" text-anchor="middle" class="dg-item-t">この家具</text>
+    ${line(120, 8, 120, cy - 22, 'up')}${line(120, cy + 22, 120, H - 8, 'down')}${line(8, cy, 87, cy, 'left')}${line(153, cy, 232, cy, 'right')}
+    <text x="126" y="${cy / 2 + 2}" class="dg-v" fill="${col('up')}">${val('up')}</text><text x="126" y="${cy / 2 + 12}" class="dg-w">${who('up')}</text>
+    <text x="126" y="${cy + 22 + (cy - 22) / 2 + 2}" class="dg-v" fill="${col('down')}">${val('down')}</text><text x="126" y="${cy + 22 + (cy - 22) / 2 + 12}" class="dg-w">${who('down')}</text>
+    <text x="10" y="${cy - 7}" class="dg-v" fill="${col('left')}">${val('left')}</text><text x="10" y="${cy + 14}" class="dg-w">${who('left')}</text>
+    <text x="230" y="${cy - 7}" text-anchor="end" class="dg-v" fill="${col('right')}">${val('right')}</text><text x="230" y="${cy + 14}" text-anchor="end" class="dg-w">${who('right')}</text>
+  </svg>
+  <div class="clr-legend"><span><i style="background:${CLR_COLOR.ok}"></i>0.6m以上（通れる）</span><span><i style="background:${CLR_COLOR.tight}"></i>狭い</span><span><i style="background:${CLR_COLOR.touch}"></i>密着</span><span class="clr-note" data-tip="上から見た図。上＝画面の上（2D間取りの上）。開口のある壁はその種類も表示">?</span></div>`;
 }
 // 実物家具: 採用寸法(mm)と出典リンク
 function renderSpecPanel(def) {
@@ -1034,17 +1082,17 @@ function renderSpecPanel(def) {
   ].filter(Boolean);
   tbl.innerHTML = rows.map(([k, v]) => `<div class="spec-row"><div class="spec-k">${k}</div><div class="spec-v">${v}</div></div>`).join('');
 }
-// プリセットの配置メモ (notes) を右パネルに表示
+// プリセットの配置メモ (notes) を「メモ」タブに表示
 function renderPresetNotes(layout) {
   const pn = document.getElementById('preset-notes'); if (!pn) return;
   const list = document.getElementById('pn-list'), title = document.getElementById('pn-title');
   const notes = layout && layout.notes;
-  if (!notes || !notes.length) { pn.style.display = 'none'; pn.dataset.has = '0'; return; }
-  title.textContent = `${layout.name || 'プリセット'} — 配置メモ`;
-  list.innerHTML = notes.map(n => `<li>${n}</li>`).join('');
-  pn.dataset.has = '1'; pn.classList.remove('collapsed');
-  const t = document.getElementById('pn-toggle'); if (t) t.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
-  pn.style.display = selectedGroup ? 'none' : '';
+  const has = !!(notes && notes.length);
+  pn.dataset.has = has ? '1' : '0';
+  title.textContent = has ? `${layout.name || 'プリセット'} — 配置メモ` : '配置メモ';
+  list.innerHTML = has ? notes.map(n => `<li>${n}</li>`).join('') : '';
+  document.getElementById('notes-empty').hidden = has;
+  document.getElementById('notes-dot').hidden = !has;
 }
 // 矢印キーで選択家具をスナップ幅ずつ移動 (履歴に記録)
 function nudgeSelected(key, step) {
@@ -1058,36 +1106,38 @@ function nudgeSelected(key, step) {
   item.position.copy(np); selectedGroup.position.copy(np);
   pushHistory({ type: 'move', item, from, to: np.clone() });
   refreshSelection();
-  document.getElementById('pos-x').textContent = np.x.toFixed(2) + 'm';
-  document.getElementById('pos-z').textContent = np.z.toFixed(2) + 'm';
 }
 
 // ============================================================ GHOST
 function exitPaintMode() {
   if (!paintMode) return;
   paintMode = false; paintDragging = false;
-  document.getElementById('btn-floor-paint').classList.remove('active');
-  if (state === 'PAINTING') state = 'IDLE';
+  const pb = document.getElementById('btn-floor-paint'); pb.classList.remove('active'); pb.setAttribute('aria-pressed', 'false');
+  hideModeHint();
+  if (state === 'PAINTING') { state = 'IDLE'; setStatus('準備完了'); }
 }
+// キャンバス下部のヒント: いまのモードと、その場で使える操作だけを出す
+function showModeHint(html) { const h = document.getElementById('placement-hint'); h.innerHTML = html; h.classList.add('visible'); }
+function hideModeHint() { document.getElementById('placement-hint').classList.remove('visible'); }
 function startPlacement(def) {
   exitPaintMode();
   cancelPlacement(); state = 'PLACING'; currentDef = def; ghostRotOffset = 0;
   const tmp = def.build({ color: '#62a86d', w: def.w, d: def.d, h: def.h });
   ghostGroup = makeGhost(tmp); ghostGroup.visible = false; scene.add(ghostGroup);
-  document.getElementById('placement-hint').classList.add('visible');
+  showModeHint(`<i class="fa-solid fa-hand-pointer"></i><b>${escHTML(def.name)}</b> を置く場所をクリック（続けて置けます）<span class="mh-sep"></span><kbd>R</kbd> 回転<span class="mh-sep"></span><kbd>Esc</kbd>／右クリック で終了`);
   document.querySelectorAll('.furniture-item').forEach(el => el.classList.toggle('active-place', el.dataset.id === def.id));
   setStatus('配置モード: ' + def.name, 'busy');
 }
 function cancelPlacement() {
   if (ghostGroup) { scene.remove(ghostGroup); ghostGroup = null; }
-  document.getElementById('placement-hint').classList.remove('visible');
+  if (state === 'PLACING') hideModeHint();
   document.querySelectorAll('.furniture-item').forEach(el => el.classList.remove('active-place'));
   if (state === 'PLACING') { state = 'IDLE'; setStatus('準備完了'); }
   currentDef = null;
 }
 
 // ============================================================ STATUS / TOAST
-function setStatus(t, type='idle') { document.getElementById('status-text').textContent = t; document.getElementById('status-dot').className = 'status-dot' + (type==='busy'?' busy':''); }
+function setStatus(t, type='idle') { document.getElementById('status-text').textContent = t; document.getElementById('status-dot').className = type === 'busy' ? 'busy' : ''; }   // スクリーンリーダー向けの状態通知
 function updateItemCount() { document.getElementById('item-count').textContent = placedItems.length; }
 let toastTimer = null;
 function toast(msg) {
@@ -1402,36 +1452,126 @@ const ghostPreview = (() => {
   return { show, hide };
 })();
 
+// ============================================================ CATALOG THUMBNAILS
+// カタログの各行に家具の3Dサムネイルを表示する。見えている行だけを、手の空いたときに1つずつ描いてキャッシュする。
+// 人物はモデルの計算が重いのでアイコンのまま。
+const catalogThumbs = (() => {
+  const SIZE = 96, NO_THUMB = new Set(['worker', 'man', 'woman', 'boy', 'girl', 'toddler']);
+  const cache = new Map(), queue = [], queued = new Set();
+  let rdr = null, scn, cam, failed = false, busy = false, io = null;
+  function ensure() {
+    if (rdr || failed) return rdr;
+    try {
+      const cvs = document.createElement('canvas'); cvs.width = cvs.height = SIZE;
+      rdr = new THREE.WebGLRenderer({ canvas: cvs, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    } catch (e) { failed = true; return null; }
+    rdr.setSize(SIZE, SIZE, false);
+    rdr.outputColorSpace = THREE.SRGBColorSpace;
+    rdr.toneMapping = THREE.ACESFilmicToneMapping; rdr.toneMappingExposure = 1.05;
+    scn = new THREE.Scene(); scn.environment = scene.environment;
+    scn.add(new THREE.HemisphereLight(0xfff4e0, 0xc8b89a, 0.9));
+    const key = new THREE.DirectionalLight(0xfff2dd, 1.1); key.position.set(3, 5, 4); scn.add(key);
+    cam = new THREE.PerspectiveCamera(30, 1, 0.03, 100);
+    return rdr;
+  }
+  function render(def) {
+    let m;
+    try { m = def.build({ color: COLORS[def.colorIdx], w: def.w, d: def.d, h: def.h }); } catch (e) { return null; }
+    const bb = new THREE.Box3().setFromObject(m);
+    if (!isFinite(bb.min.x) || !isFinite(bb.max.x)) return null;
+    const c = bb.getCenter(new THREE.Vector3()), z = bb.getSize(new THREE.Vector3());
+    m.position.sub(c); scn.add(m);
+    const dist = Math.max(z.x, z.y, z.z, 0.3) * 1.9 + 0.2;
+    cam.position.set(dist * 0.75, dist * 0.62, dist * 0.95); cam.lookAt(0, 0, 0);
+    rdr.render(scn, cam);
+    const url = rdr.domElement.toDataURL('image/png');
+    scn.remove(m); m.traverse(o => { if (o.isMesh && o.geometry) o.geometry.dispose(); });
+    return url;
+  }
+  const idle = cb => (window.requestIdleCallback ? requestIdleCallback(cb, { timeout: 400 }) : setTimeout(cb, 30));
+  function pump() {
+    if (busy || !queue.length) return;
+    busy = true;
+    idle(() => {
+      const el = queue.shift();
+      try {
+        if (el) {
+          const id = el.dataset.id; queued.delete(el);
+          if (el.isConnected && !cache.has(id)) {
+            const def = FURNITURE_DEFS.find(d => d.id === id);
+            cache.set(id, def && ensure() ? render(def) : null);
+          }
+          apply(el);
+        }
+      } catch (e) { console.warn('catalog thumbnail failed:', e); if (el) cache.set(el.dataset.id, null); }
+      finally { busy = false; pump(); }
+    });
+  }
+  function apply(el) {
+    const url = cache.get(el.dataset.id); if (!url) return;
+    const box = el.querySelector('.fitem-icon'); if (box && !box.classList.contains('has-thumb')) { box.classList.add('has-thumb'); box.innerHTML = `<img src="${url}" alt="">`; }
+  }
+  function observe(el) {
+    if (NO_THUMB.has(el.dataset.id) || failed) return;
+    if (cache.has(el.dataset.id)) { apply(el); return; }
+    if (!io) io = new IntersectionObserver(ents => ents.forEach(en => {
+      if (!en.isIntersecting) return; io.unobserve(en.target);
+      if (!queued.has(en.target)) { queued.add(en.target); queue.push(en.target); pump(); }
+    }), { root: document.getElementById('furniture-list'), rootMargin: '120px' });
+    io.observe(el);
+  }
+  function reset() { if (io) io.disconnect(); queue.length = 0; queued.clear(); }
+  return { observe, reset };
+})();
+
 // ============================================================ CATALOG UI
+const CAT_LABEL = {};   // カテゴリ id → { label, icon } (左のカテゴリ列から取得)
 function buildCatalog(filter = '', cat = 'all') {
-  const list = document.getElementById('furniture-list'); list.innerHTML = '';
-  // Update count badges on tabs
+  const list = document.getElementById('furniture-list'); list.innerHTML = ''; list.scrollTop = 0;
+  catalogThumbs.reset();
   document.querySelectorAll('.cat-tab[data-cat]').forEach(tab => {
     const tc = tab.dataset.cat;
-    const count = FURNITURE_DEFS.filter(d => tc==='all' || d.cat===tc).length;
-    let badge = tab.querySelector('.cat-count');
-    if (!badge) { badge = document.createElement('span'); badge.className = 'cat-count'; tab.appendChild(badge); }
-    badge.textContent = count;
+    const count = FURNITURE_DEFS.filter(d => tc === 'all' || d.cat === tc).length;
+    const label = tab.querySelector('span')?.textContent || tc;
+    CAT_LABEL[tc] = { label, icon: tab.querySelector('i')?.className || '' };
+    tab.dataset.tip = `${label}（${count}点）`;
+    tab.classList.toggle('active', tc === cat);
   });
-  const filtered = FURNITURE_DEFS.filter(d => (cat==='all'||d.cat===cat) && (filter===''||d.name.includes(filter)));
+  const q = filter.trim();
+  const filtered = FURNITURE_DEFS.filter(d => (cat === 'all' || d.cat === cat) && (q === '' || d.name.includes(q) || (d.product && `${d.product.brand} ${d.product.model || ''} ${d.product.name || ''}`.toLowerCase().includes(q.toLowerCase()))));
   if (filtered.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'text-align:center;padding:32px 16px;color:var(--text-inv-muted);font-size:12px;';
-    empty.innerHTML = '<i class="fa-solid fa-magnifying-glass" style="font-size:24px;opacity:0.4;display:block;margin-bottom:8px"></i>該当する家具が見つかりません';
-    list.appendChild(empty); return;
+    list.innerHTML = '<div class="catalog-empty"><i class="fa-solid fa-magnifying-glass"></i>該当する家具が見つかりません</div>';
+    return;
   }
-  filtered.forEach(def => {
-    const item = document.createElement('div'); item.className = 'furniture-item'; item.dataset.id = def.id;
+  // 複数カテゴリにまたがるとき（すべて・検索）はカテゴリ見出しで区切る
+  const grouped = cat === 'all';
+  const order = [...document.querySelectorAll('.cat-tab[data-cat]')].map(t => t.dataset.cat);
+  const rank = c => { const i = order.indexOf(c); return i < 0 ? order.length : i; };
+  const items = grouped ? [...filtered].sort((a, b) => rank(a.cat) - rank(b.cat)) : filtered;
+  let lastCat = null;
+  items.forEach(def => {
+    if (grouped && def.cat !== lastCat) {
+      lastCat = def.cat;
+      const info = CAT_LABEL[def.cat] || { label: 'その他', icon: 'fa-solid fa-shapes' };
+      const n = items.filter(d => d.cat === def.cat).length;
+      const h = document.createElement('div'); h.className = 'catalog-group';
+      h.innerHTML = `<i class="${info.icon}"></i>${info.label}<span>${n}</span>`;
+      list.appendChild(h);
+    }
+    const item = document.createElement('button'); item.className = 'furniture-item'; item.dataset.id = def.id;
+    if (state === 'PLACING' && currentDef === def) item.classList.add('active-place');
     const sizeTxt = def.product
-      ? `実寸 W${Math.round(def.w * 100)}×D${Math.round(def.d * 100)}×H${Math.round(def.h * 100)}cm`
-      : `${def.w}m × ${def.d}m`;
-    const modelTxt = def.product ? `<div class="fitem-model"><i class="fa-solid fa-tag"></i> ${def.product.brand} ${def.product.model.split('（')[0]}</div>` : '';
+      ? `W${Math.round(def.w * 100)}×D${Math.round(def.d * 100)}×H${Math.round(def.h * 100)}cm`
+      : `${def.w} × ${def.d} m`;
+    const brand = def.product ? `${def.product.brand} ${def.product.model.split('（')[0]}` : '';
+    item.title = brand ? `${def.name} — ${brand}` : def.name;
     item.innerHTML = `<div class="fitem-icon"><i class="fa-solid ${def.icon}"></i></div>
-      <div class="fitem-info"><div class="fitem-name">${def.name}</div>${modelTxt}<div class="fitem-size">${sizeTxt}</div></div>`;
+      <div class="fitem-info"><div class="fitem-name">${def.name}${def.product ? '<i class="fa-solid fa-tag fitem-real" aria-label="実物"></i>' : ''}</div><div class="fitem-size">${sizeTxt}</div></div>`;
     item.addEventListener('mouseenter', () => ghostPreview.show(def, item));
     item.addEventListener('mouseleave', () => ghostPreview.hide());
     item.addEventListener('click', () => { ghostPreview.hide(); if (state==='PLACING' && currentDef===def) { cancelPlacement(); return; } deselect(); startPlacement(def); });
     list.appendChild(item);
+    catalogThumbs.observe(item);
   });
 }
 
@@ -1447,14 +1587,42 @@ function rotateSelected(delta) {
   refreshSelection();
 }
 
+// ============================================================ PANEL / MODES
+function showPane(name) {
+  document.querySelectorAll('.panel-tab').forEach(t => { const on = t.dataset.pane === name; t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on)); });
+  document.querySelectorAll('.panel-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === name));
+}
+function showPaintHint() {
+  showModeHint(`<i class="fa-solid fa-fill-drip"></i>床ペイント: <b>${FLOOR_TYPES[floorType].name}</b> — 左ドラッグで塗る<span class="mh-sep"></span>右ドラッグで消す<span class="mh-sep"></span><kbd>Esc</kbd> で終了`);
+}
+function startPaintMode() {
+  if (state === 'PLACING') cancelPlacement();
+  deselect(); state = 'PAINTING'; paintMode = true;
+  const pb = document.getElementById('btn-floor-paint'); pb.classList.add('active'); pb.setAttribute('aria-pressed', 'true');
+  showPaintHint();
+  setStatus('床ペイント: ' + FLOOR_TYPES[floorType].name + '（左ドラッグで塗る / 右ドラッグで消す）', 'busy');
+}
+
 // ============================================================ UI INIT
 function initUI() {
   // スナップ幅セレクタ (家具の移動/配置/矢印キーの刻み)
   const snapSel = document.getElementById('snap-select');
   if (snapSel) snapSel.addEventListener('change', () => { furnSnap = parseFloat(snapSel.value) || GRID_SNAP; toast(`スナップ幅: ${furnSnap}m`); snapSel.blur(); });
-  // 配置メモの折りたたみ
-  const pnT = document.getElementById('pn-toggle');
-  if (pnT) pnT.addEventListener('click', () => { const pn = document.getElementById('preset-notes'); pn.classList.toggle('collapsed'); pnT.innerHTML = pn.classList.contains('collapsed') ? '<i class="fa-solid fa-chevron-down"></i>' : '<i class="fa-solid fa-chevron-up"></i>'; });
+  // 左パネルのタブ（家具 / 内装 / メモ）
+  document.querySelectorAll('.panel-tab').forEach(tab => tab.addEventListener('click', () => showPane(tab.dataset.pane)));
+  // 操作方法のポップオーバー
+  const helpBtn = document.getElementById('btn-help'), helpPop = document.getElementById('help-pop');
+  helpBtn.addEventListener('click', e => { e.stopPropagation(); helpPop.hidden = !helpPop.hidden; helpBtn.classList.toggle('active', !helpPop.hidden); helpBtn.setAttribute('aria-expanded', String(!helpPop.hidden)); });
+  document.addEventListener('pointerdown', e => { if (!helpPop.hidden && !e.target.closest('#help-pop, #btn-help')) { helpPop.hidden = true; helpBtn.classList.remove('active'); helpBtn.setAttribute('aria-expanded', 'false'); } });
+  // 選択中の家具: カラーの展開・ミニツールバーの色ボタン・選択解除
+  document.getElementById('color-more').addEventListener('click', () => { colorsExpanded = !colorsExpanded; const it = placedItems.find(i => i.group === selectedGroup); renderColorSwatches(it ? it.color : selectedColor); });
+  document.getElementById('sel-color').addEventListener('click', () => {
+    colorsExpanded = true; const it = placedItems.find(i => i.group === selectedGroup); renderColorSwatches(it ? it.color : selectedColor);
+    const row = document.getElementById('color-swatches'); row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+  });
+  document.getElementById('btn-deselect').addEventListener('click', () => { deselect(); if (state === 'SELECTED') state = 'IDLE'; });
+  document.getElementById('btn-editor-2').addEventListener('click', openEditor);
   buildCatalog(); buildPresetCards();
   document.getElementById('cat-tabs').addEventListener('click', e => {
     const tab = e.target.closest('.cat-tab'); if (!tab) return;
@@ -1480,22 +1648,11 @@ function initUI() {
   floorSel.value = floorType;
   floorSel.addEventListener('change', () => {
     floorType = floorSel.value;
-    if (paintMode) toast(FLOOR_TYPES[floorType].name + ' で塗ります（左ドラッグ）');
+    if (paintMode) showPaintHint();
     else updateFloorTexture();
   });
   // Floor paint mode toggle
-  document.getElementById('btn-floor-paint').addEventListener('click', function() {
-    paintMode = !paintMode;
-    this.classList.toggle('active', paintMode);
-    if (paintMode) {
-      if (state === 'PLACING') cancelPlacement();
-      deselect(); state = 'PAINTING';
-      setStatus('床ペイント: ' + FLOOR_TYPES[floorType].name + '（左ドラッグで塗る / 右ドラッグで消す）', 'busy');
-      toast('床ペイントモード: 床をドラッグして塗ります');
-    } else {
-      state = 'IDLE'; paintDragging = false; setStatus('準備完了');
-    }
-  });
+  document.getElementById('btn-floor-paint').addEventListener('click', () => { if (paintMode) exitPaintMode(); else startPaintMode(); });
   document.getElementById('btn-grid').addEventListener('click', function() { showGrid = !showGrid; this.classList.toggle('active', showGrid); if (gridHelper) gridHelper.visible = showGrid; });
   document.getElementById('btn-topview').addEventListener('click', function() {
     isTopView = !isTopView; this.classList.toggle('active', isTopView);
@@ -1611,7 +1768,7 @@ function initUI() {
 
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'Escape') { if (state==='PLACING') cancelPlacement(); else if (paintMode) exitPaintMode(); else { deselect(); closePresetModal(); closeEditor(); } }
+    if (e.key === 'Escape') { document.getElementById('help-pop').hidden = true; if (state==='PLACING') cancelPlacement(); else if (paintMode) exitPaintMode(); else { deselect(); closePresetModal(); closeEditor(); } }
     if ((e.key==='Delete'||e.key==='Backspace') && selectedGroup && state!=='PLACING') { removeFurniture(selectedGroup); deselect(); }
     if (e.key==='r'||e.key==='R') {
       if (state==='PLACING') { ghostRotOffset = (ghostRotOffset+90)%360; if (ghostGroup) ghostGroup.rotation.y = (ghostRotOffset*Math.PI)/180; }
@@ -1693,8 +1850,7 @@ canvas.addEventListener('pointermove', e => {
         }
         selectedGroup.position.copy(np); if (item) item.position.copy(np);
         selectionRing.position.set(np.x, 0.03, np.z);
-        document.getElementById('pos-x').textContent = np.x.toFixed(2) + 'm';
-        document.getElementById('pos-z').textContent = np.z.toFixed(2) + 'm';
+        updatePositionText(np);
         updateClearancePanel();
       }
     }
@@ -1778,6 +1934,7 @@ function updateWalls() {
 // ============================================================ RESIZE / LOOP
 function handleResize() { const w = wrapper.clientWidth, h = wrapper.clientHeight; camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); }
 window.addEventListener('resize', handleResize);
+if (window.ResizeObserver) new ResizeObserver(handleResize).observe(wrapper);   // パネルの開閉などウィンドウ以外の要因によるサイズ変化にも追従
 
 // ============================================================ ITEM INTERACTIONS
 let _animPrevT = 0;
@@ -1883,6 +2040,7 @@ function animate() {
   if (selectionRing.visible) { selectionRing.material.opacity = 0.6 + Math.sin(t*3)*0.25; selectionRing.scale.setScalar(1 + Math.sin(t*3)*0.02); }
   const ci = document.getElementById('compass-icon');
   if (ci) { const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z); ci.style.transform = `rotate(${az}rad)`; }
+  if (selectedGroup) positionSelToolbar();
   renderer.render(scene, camera);
 }
 
