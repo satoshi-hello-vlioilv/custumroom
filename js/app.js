@@ -1707,48 +1707,47 @@ function initUI() {
   // 2D floor-plan editor
   document.getElementById('btn-editor').addEventListener('click', openEditor);
   document.getElementById('editor-close').addEventListener('click', closeEditor);
+  document.getElementById('editor-apply').addEventListener('click', closeEditor);
   document.getElementById('editor-modal').addEventListener('click', e => { if (e.target.id === 'editor-modal') closeEditor(); });
-  const edHints = {
-    floor: 'クリック/ドラッグで床セルを追加。ブラシの太さで一度に塗る範囲を変更できます',
-    erase: 'クリック/ドラッグで床セルを削除（ブラシの太さ対応）',
-    unify: 'ドラッグで範囲を選択 → 範囲内の床材のどれかにまとめて統一します',
-    wall: '2点をドラッグして壁を追加（Snapあり）。壁タイプは下のメニューで選択',
-    door: '壁をクリックで開口を追加。既存の開口をクリックすると開き方を編集できます',
-    delwall: '壁をクリックして削除'
-  };
-  document.querySelectorAll('.ed-tool[data-tool]').forEach(btn => btn.addEventListener('click', () => {
-    edTool = btn.dataset.tool;
-    document.querySelectorAll('.ed-tool[data-tool]').forEach(b => b.classList.toggle('active', b === btn));
-    document.getElementById('editor-hint').textContent = edHints[edTool] || '';
-    closeDoorPop(); closeUnifyPop();
-  }));
+  document.querySelectorAll('.ed-tool[data-tool]').forEach(btn => btn.addEventListener('click', () => setEdTool(btn.dataset.tool)));
   // brush-size segmented control
   document.querySelectorAll('#ed-brush-seg button').forEach(btn => btn.addEventListener('click', () => {
     edBrush = +btn.dataset.brush;
     document.querySelectorAll('#ed-brush-seg button').forEach(b => b.classList.toggle('active', b === btn));
     drawEditor();
   }));
+  // 床材: 色見本つきのピッカー（実体は隠した select。値の読み書きは従来どおり）
   const edSel = document.getElementById('editor-floor-select');
   Object.entries(FLOOR_TYPES).forEach(([key, spec]) => { const o = document.createElement('option'); o.value = key; o.textContent = spec.name; edSel.appendChild(o); });
   edSel.value = editorFloorType;
-  edSel.addEventListener('change', () => { editorFloorType = edSel.value; });
-  // ed-wall-type and ed-opening-kind selects are static HTML — just wire change events
-  const edWallTypeSel = document.getElementById('ed-wall-type');
-  const edOpeningKindSel = document.getElementById('ed-opening-kind');
-  if (edWallTypeSel) edWallTypeSel.addEventListener('change', () => {});
+  edSel.addEventListener('change', () => { editorFloorType = edSel.value; renderFloorPicker(); drawEditor(); });
+  document.getElementById('ed-floor-btn').addEventListener('click', e => { e.stopPropagation(); toggleEdPop('ed-floor-grid', 'ed-floor-btn'); });
+  // 壁タイプ: 図面と同じ線の見本で選ぶ
+  renderWallPicker();
   // 全ての扉種類(シーン設定付き)を開口タイプ選択に展開
-  if (edOpeningKindSel) { edOpeningKindSel.innerHTML = openingKindOptionsHTML('door'); edOpeningKindSel.addEventListener('change', () => {}); }
-  document.getElementById('editor-clear').addEventListener('click', () => { roomPlan = { cells: new Map(), walls: [] }; syncPlanTo3D(); });
-  document.getElementById('editor-rect').addEventListener('click', () => { roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType); syncPlanTo3D(); });
-  document.getElementById('editor-apply').addEventListener('click', closeEditor);
-  // Room size sliders (now live in the editor panel, not the toolbar)
+  document.getElementById('ed-opening-kind').innerHTML = openingKindOptionsHTML('door');
+  // 部屋サイズ・全体の操作（ポップオーバー）
+  document.getElementById('ed-room-btn').addEventListener('click', e => { e.stopPropagation(); toggleEdPop('ed-room-pop', 'ed-room-btn'); });
+  document.addEventListener('pointerdown', e => {
+    if (!e.target.closest('#ed-room-pop, #ed-room-btn')) toggleEdPop('ed-room-pop', 'ed-room-btn', false);
+    if (!e.target.closest('#ed-floor-pick')) toggleEdPop('ed-floor-grid', 'ed-floor-btn', false);
+  });
+  document.getElementById('editor-clear').addEventListener('click', () => {
+    if (!confirm('床と壁をすべて消去します。よろしいですか？')) return;
+    roomPlan = { cells: new Map(), walls: [] }; closeDoorPop(); syncPlanTo3D();
+  });
+  document.getElementById('editor-rect').addEventListener('click', () => { roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType); closeDoorPop(); syncPlanTo3D(); edFitView(); drawEditor(); });
   ['room-w', 'room-d'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', () => {
       updateRoomSize(parseFloat(document.getElementById('room-w').value), parseFloat(document.getElementById('room-d').value));
-      refreshSelection();
+      refreshSelection(); closeDoorPop(); edFitView(); drawEditor();
     });
   });
+  // ズーム・全体表示
+  document.getElementById('ed-zoom-in').addEventListener('click', () => edZoomBy(1.2));
+  document.getElementById('ed-zoom-out').addEventListener('click', () => edZoomBy(1 / 1.2));
+  document.getElementById('ed-zoom-fit').addEventListener('click', () => { edFitView(); drawEditor(); });
 
   document.getElementById('btn-zoom-in').addEventListener('click', () => { camera.position.sub(controls.target).multiplyScalar(0.85).add(controls.target); controls.update(); });
   document.getElementById('btn-zoom-out').addEventListener('click', () => { camera.position.sub(controls.target).multiplyScalar(1.18).add(controls.target); controls.update(); });
@@ -2057,6 +2056,7 @@ let edHover = null;                   // { x, z } world coords under pointer (fo
 let edSelOpening = null;              // { wi, oi } currently selected wall opening (door/window)
 let edAnim = null;                    // editor swing-animation rAF handle
 let edSwingT = 0;                     // animated 0..1 phase for selected-door swing
+let edW = 900, edH = 600;             // キャンバスの論理サイズ (CSS px)。描画バッファは devicePixelRatio 倍
 // Opening kinds that swing on a single hinge (show 吊り元/開く向き controls)
 const SWING_KINDS = new Set(['door', 'lab_door', 'bath_door', 'toilet_door']);
 // Opening kinds with two leaves hinged at both jambs (show 開く向き only)
@@ -2069,21 +2069,145 @@ function openingAnimates(kind) { return openingSwings(kind) || SLIDE_KINDS.has(k
 // Rebuild the 3D room from the plan (live), then redraw the 2D canvas.
 function syncPlanTo3D() { buildRoom(); drawEditor(); }
 
+// ---- ツールの切替: 説明文と「そのツールに関係する設定」だけを設定バーに出す ----
+const ED_TOOL_DESC = {
+  floor:   'クリック/ドラッグで床を張ります。床材とブラシの太さを選べます',
+  erase:   'なぞった所の床を取り除きます（ブラシの太さ対応）',
+  unify:   'ドラッグで囲んだ範囲を、範囲内のどれか1つの床材にそろえます',
+  wall:    '2点をドラッグして壁を追加します（0.5m 単位で吸着、水平・垂直に補正）',
+  door:    '壁をクリックで扉・窓を追加。既存の開口をクリックすると開き方・幅を編集できます',
+  delwall: '壁をクリックして削除します',
+};
+function setEdTool(tool) {
+  edTool = tool;
+  document.querySelectorAll('.ed-tool[data-tool]').forEach(b => { const on = b.dataset.tool === tool; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
+  document.getElementById('editor-hint').textContent = ED_TOOL_DESC[tool] || '';
+  document.querySelectorAll('.ed-opt[data-for]').forEach(o => { o.hidden = !o.dataset.for.split(' ').includes(tool); });
+  closeDoorPop(); closeUnifyPop(); hideEdHoverTip();
+  toggleEdPop('ed-room-pop', 'ed-room-btn', false); toggleEdPop('ed-floor-grid', 'ed-floor-btn', false);
+}
+// ポップオーバー（部屋サイズ・床材の一覧）の開閉
+function toggleEdPop(popId, btnId, force) {
+  const pop = document.getElementById(popId), btn = document.getElementById(btnId); if (!pop) return;
+  const open = force === undefined ? pop.hidden : force;
+  if (pop.hidden === !open) return;
+  pop.hidden = !open; if (btn) btn.setAttribute('aria-expanded', String(open));
+}
+// 床材ピッカー: 色見本 + 名前のボタン。開くと全床材を色見本の一覧で選べる
+function renderFloorPicker() {
+  const sel = document.getElementById('editor-floor-select'), btn = document.getElementById('ed-floor-btn'), grid = document.getElementById('ed-floor-grid');
+  const cur = [...sel.options].find(o => o.value === sel.value);
+  btn.innerHTML = `<i class="ed-sw" style="background:${floorSwatch(sel.value)}"></i>${cur ? cur.textContent : ''}<i class="fa-solid fa-caret-down"></i>`;
+  grid.innerHTML = '';
+  [...sel.options].forEach(o => {
+    const b = document.createElement('button'); b.className = 'ed-swatch' + (o.value === sel.value ? ' active' : '');
+    b.innerHTML = `<i class="ed-sw" style="background:${floorSwatch(o.value)}"></i><span>${o.textContent}</span>`;
+    b.addEventListener('click', () => { sel.value = o.value; sel.dispatchEvent(new Event('change')); toggleEdPop('ed-floor-grid', 'ed-floor-btn', false); });
+    grid.appendChild(b);
+  });
+}
+// 壁タイプ: 図面と同じ色・線種の見本
+const ED_WALL_STYLE = {
+  wall:   { label: '普通',   color: '#5b5048', w: 5, dash: '' },
+  glass:  { label: 'ガラス', color: '#5ba4c8', w: 3, dash: '8 4' },
+  window: { label: '窓付き', color: '#7a8fa0', w: 5, dash: '' },
+  door:   { label: '扉',     color: '#b9925e', w: 5, dash: '' },
+  half:   { label: '腰壁',   color: '#a98b5a', w: 4, dash: '3 3' },
+};
+function renderWallPicker() {
+  const sel = document.getElementById('ed-wall-type'), host = document.getElementById('ed-wall-pick'); host.innerHTML = '';
+  Object.entries(ED_WALL_STYLE).forEach(([k, st]) => {
+    const name = [...sel.options].find(o => o.value === k)?.textContent || st.label;
+    const b = document.createElement('button'); b.className = 'ed-wall-opt' + (sel.value === k ? ' active' : '');
+    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(sel.value === k)); b.dataset.tip = name;
+    b.innerHTML = `<svg width="30" height="8" viewBox="0 0 30 8" aria-hidden="true"><line x1="2" y1="4" x2="28" y2="4" stroke="${st.color}" stroke-width="${st.w}" stroke-dasharray="${st.dash}" stroke-linecap="${st.dash ? 'butt' : 'round'}"/></svg><span>${st.label}</span>`;
+    b.addEventListener('click', () => { sel.value = k; renderWallPicker(); });
+    host.appendChild(b);
+  });
+}
+// 図面の中心を基準にズーム
+function edZoomBy(f) {
+  const before = screenToWorld(edW / 2, edH / 2);
+  editorScale = clamp(editorScale * f, 12, 120);
+  const after = screenToWorld(edW / 2, edH / 2);
+  editorPan.x += (after.x - before.x) * editorScale; editorPan.y += (after.z - before.z) * editorScale;
+  drawEditor();
+}
+// 壁・床にマウスを乗せたときの情報（壁の種類と長さ・開口の数 / 床材）
+const ED_WALL_NAME = { wall: '普通の壁', glass: 'ガラス壁', window: '窓付き壁', door: '扉', half: '腰壁' };
+function updateEdHoverTip(e, p, w) {
+  const tip = document.getElementById('ed-hover-tip'); if (!tip) return;
+  let html = '';
+  const hit = edFindWall(w.x, w.z, 9);
+  if (hit) {
+    const wall = roomPlan.walls[hit.index], len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1), n = (wall.openings || []).length;
+    html = `<b>${ED_WALL_NAME[wall.type || 'wall'] || '壁'}</b>長さ ${len.toFixed(2)}m${n ? `・開口 ${n}` : ''}`;
+  } else {
+    const t = roomPlan.cells.get(cellKey(Math.floor(w.x / CELL), Math.floor(w.z / CELL)));
+    if (t) html = `<b>床</b>${(FLOOR_TYPES[t] || {}).name || t}`;
+  }
+  if (!html) { tip.hidden = true; return; }
+  tip.innerHTML = html; tip.hidden = false;
+  const c = edCanvasCssPos(p.x, p.y), area = edCanvas.parentElement.getBoundingClientRect();
+  tip.style.left = clamp(c.left + 14, 4, area.width - tip.offsetWidth - 4) + 'px';
+  tip.style.top = clamp(c.top + 16, 4, area.height - tip.offsetHeight - 4) + 'px';
+}
+function hideEdHoverTip() { const tip = document.getElementById('ed-hover-tip'); if (tip) tip.hidden = true; }
+// 全体寸法（床の外形の幅・奥行）を図面の上と左に描く
+function drawPlanDimensions(ctx) {
+  if (!roomPlan.cells.size) return;
+  const b = planBounds();
+  const x0 = b.minIx * CELL, x1 = (b.maxIx + 1) * CELL, z0 = b.minIz * CELL, z1 = (b.maxIz + 1) * CELL;
+  const p0 = worldToScreen(x0, z0), p1 = worldToScreen(x1, z1), off = 22;
+  ctx.save();
+  ctx.strokeStyle = '#8a7f6c'; ctx.lineWidth = 1;
+  const seg = (ax, ay, bx, by) => { ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); };
+  seg(p0.x, p0.y - off, p1.x, p0.y - off); seg(p0.x, p0.y - off - 6, p0.x, p0.y - 4); seg(p1.x, p0.y - off - 6, p1.x, p0.y - 4);
+  seg(p0.x - off, p0.y, p0.x - off, p1.y); seg(p0.x - off - 6, p0.y, p0.x - 4, p0.y); seg(p0.x - off - 6, p1.y, p0.x - 4, p1.y);
+  const pill = (x, y, text) => {
+    ctx.font = '700 11.5px Inter, "Noto Sans JP", sans-serif';
+    const w = ctx.measureText(text).width + 12;
+    ctx.fillStyle = 'rgba(255,253,248,0.95)'; ctx.strokeStyle = 'rgba(90,80,64,0.3)';
+    ctx.beginPath(); ctx.roundRect(x - w / 2, y - 9, w, 18, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#4b443a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 0.5);
+  };
+  pill((p0.x + p1.x) / 2, p0.y - off, `${(x1 - x0).toFixed(2)} m`);
+  ctx.translate(p0.x - off, (p0.y + p1.y) / 2); ctx.rotate(-Math.PI / 2); pill(0, 0, `${(z1 - z0).toFixed(2)} m`);
+  ctx.restore();
+}
+
 // coordinate transforms (world meters ↔ canvas pixels), origin centered + pan
 function worldToScreen(wx, wz) {
-  return { x: edCanvas.width / 2 + editorPan.x + wx * editorScale,
-           y: edCanvas.height / 2 + editorPan.y + wz * editorScale };
+  return { x: edW / 2 + editorPan.x + wx * editorScale,
+           y: edH / 2 + editorPan.y + wz * editorScale };
 }
 function screenToWorld(px, py) {
-  return { x: (px - edCanvas.width / 2 - editorPan.x) / editorScale,
-           z: (py - edCanvas.height / 2 - editorPan.y) / editorScale };
+  return { x: (px - edW / 2 - editorPan.x) / editorScale,
+           z: (py - edH / 2 - editorPan.y) / editorScale };
 }
 function edSnap(v) { return Math.round(v / CELL) * CELL; }
-// canvas pixel coords from a pointer event
+// canvas coords (CSS px) from a pointer event
 function edPointer(e) {
   const r = edCanvas.getBoundingClientRect();
-  return { x: (e.clientX - r.left) * (edCanvas.width / r.width),
-           y: (e.clientY - r.top) * (edCanvas.height / r.height) };
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+// 描画バッファを表示サイズ × devicePixelRatio に合わせる (引き伸ばしによるにじみ・縦横比のゆがみを防ぐ)
+function edResizeCanvas() {
+  const r = edCanvas.getBoundingClientRect(); if (!r.width || !r.height) return false;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  edW = r.width; edH = r.height;
+  const bw = Math.round(edW * dpr), bh = Math.round(edH * dpr);
+  if (edCanvas.width !== bw || edCanvas.height !== bh) { edCanvas.width = bw; edCanvas.height = bh; }
+  edCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return true;
+}
+// 間取り全体が収まる倍率・位置にする
+function edFitView() {
+  const b = planBounds();
+  const bw = Math.max(b.w, 2), bd = Math.max(b.d, 2);
+  editorScale = clamp(Math.min(edW / (bw + 2), edH / (bd + 2)), 14, 120);
+  const cx = (b.minIx + b.maxIx + 1) / 2 * CELL, cz = (b.minIz + b.maxIz + 1) / 2 * CELL;
+  editorPan = { x: -cx * editorScale, y: -cz * editorScale };
 }
 // distance from point P to segment AB, plus projection parameter t (0..1)
 function segDist(px, pz, ax, az, bx, bz) {
@@ -2095,7 +2219,7 @@ function segDist(px, pz, ax, az, bx, bz) {
 }
 
 function drawEditor() {
-  const W = edCanvas.width, H = edCanvas.height, ctx = edCtx;
+  const W = edW, H = edH, ctx = edCtx;
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#f1ece1'; ctx.fillRect(0, 0, W, H);
   // grid (0.5m light, 1m darker)
@@ -2177,6 +2301,7 @@ function drawEditor() {
     });
   });
   ctx.lineCap = 'butt';
+  drawPlanDimensions(ctx);
   // selected opening — animated swing diagram (shows HOW the door moves)
   if (edSelOpening) drawSelectedOpening(ctx);
   // wall-drawing preview
@@ -2379,8 +2504,7 @@ function stopEdAnim() { if (edAnim) { cancelAnimationFrame(edAnim); edAnim = nul
 function edCanvasCssPos(sx, sy) {
   const rect = edCanvas.getBoundingClientRect();
   const area = edCanvas.parentElement.getBoundingClientRect();
-  return { left: (rect.left - area.left) + (sx / edCanvas.width) * rect.width,
-           top:  (rect.top - area.top) + (sy / edCanvas.height) * rect.height };
+  return { left: (rect.left - area.left) + sx, top: (rect.top - area.top) + sy };
 }
 
 // 開口(扉/窓)の種類レジストリ。各扉が「使えるシーン(用途カテゴリ)」設定を持つ。
@@ -2395,6 +2519,10 @@ const OPENING_KINDS = {
   fusuma:      { label: '襖（ふすま）',   scenes: ['住宅'] },
   shoji:       { label: '障子',           scenes: ['住宅'] },
   window:      { label: '窓',             scenes: ['住宅', 'オフィス', '店舗', '工場', '特殊'] },
+};
+const OPENING_KIND_ICON = {
+  door: 'fa-door-open', double_door: 'fa-door-closed', glass_door: 'fa-table-columns', auto_door: 'fa-arrows-left-right-to-line',
+  bath_door: 'fa-bath', toilet_door: 'fa-toilet', lab_door: 'fa-flask', fusuma: 'fa-border-all', shoji: 'fa-table-cells', window: 'fa-window-maximize',
 };
 const OPENING_KIND_LABELS = Object.fromEntries(Object.entries(OPENING_KINDS).map(([k, v]) => [k, v.label]));
 // 種類セレクト用の<option>群 (使えるシーンを併記)
@@ -2431,13 +2559,13 @@ function openDoorPop() {
   const { wall, op } = sel, kind = op.kind || 'door';
   const showHinge = SWING_KINDS.has(kind);
   const showSwing = SWING_KINDS.has(kind) || DOUBLE_KINDS.has(kind);
-  const opts = openingKindOptionsHTML(kind);
+  const kinds = Object.entries(OPENING_KINDS).map(([k, v]) =>
+    `<button class="ed-kind${k === kind ? ' active' : ''}" data-kind="${k}" data-tip="使えるシーン: ${v.scenes.join('・')}"><i class="fa-solid ${OPENING_KIND_ICON[k] || 'fa-door-open'}"></i><span>${v.label}</span></button>`).join('');
   pop.innerHTML = `
     <div class="ed-pop-head"><i class="fa-solid fa-door-open"></i><span>開口の編集</span>
       <button class="ed-pop-x" data-act="close" title="閉じる"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="ed-pop-body">
-      <label class="ed-pop-field"><span>種類</span>
-        <select class="ed-pop-kind ed-select">${opts}</select></label>
+      <div class="ed-pop-field"><span>種類</span><div class="ed-kind-grid">${kinds}</div></div>
       <label class="ed-pop-field"><span>幅 <b class="ed-pop-wval">${(op.w || 0.9).toFixed(1)}m</b></span>
         <input type="range" class="ed-pop-width ed-slider" min="0.6" max="2" step="0.1" value="${op.w || 0.9}"></label>
       ${showHinge ? `<button class="ed-pop-btn" data-act="hinge"><i class="fa-solid fa-left-right"></i> 吊り元を左右反転</button>` : ''}
@@ -2446,24 +2574,15 @@ function openDoorPop() {
     <div class="ed-pop-foot">
       <button class="ed-pop-del" data-act="delete"><i class="fa-solid fa-trash"></i> この開口を削除</button>
     </div>`;
-  // position near the opening midpoint
-  const len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
-  const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len, s = clamp(op.t, 0, 1) * len;
-  const mid = worldToScreen(wall.x1 + ux * s, wall.z1 + uz * s);
-  const css = edCanvasCssPos(mid.x, mid.y);
-  pop.hidden = false;
-  const area = edCanvas.parentElement.getBoundingClientRect();
-  let left = css.left + 14, top = css.top + 14;
-  left = clamp(left, 6, area.width - pop.offsetWidth - 6);
-  top = clamp(top, 6, area.height - pop.offsetHeight - 6);
-  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  // 図面を隠さないよう、キャンバス右上に固定して表示する（選んだ開口は図面上で緑に強調される）
+  pop.classList.add('docked'); pop.hidden = false;
   // wire controls
-  pop.querySelector('.ed-pop-kind').addEventListener('change', e => {
-    op.kind = e.target.value;
+  pop.querySelectorAll('.ed-kind').forEach(b => b.addEventListener('click', () => {
+    op.kind = b.dataset.kind;
     if (openingSwings(op.kind)) { if (op.hinge == null) op.hinge = 0; if (op.swing == null) op.swing = 1; }
     if (op.kind === 'window' && op.w < 1.0) op.w = 1.2;
     syncPlanTo3D(); openDoorPop();
-  });
+  }));
   pop.querySelector('.ed-pop-width').addEventListener('input', e => {
     op.w = parseFloat(e.target.value); pop.querySelector('.ed-pop-wval').textContent = op.w.toFixed(1) + 'm';
     syncPlanTo3D();
@@ -2522,7 +2641,7 @@ function openUnifyChooser(range, sx, sy) {
 function closeUnifyPop() { const pop = document.getElementById('ed-unify-pop'); if (pop) pop.hidden = true; }
 
 edCanvas.addEventListener('pointerdown', e => {
-  e.preventDefault(); edCanvas.setPointerCapture(e.pointerId);
+  e.preventDefault(); edCanvas.setPointerCapture(e.pointerId); hideEdHoverTip();
   const p = edPointer(e);
   // middle button or right button = pan
   if (e.button === 1 || e.button === 2) { edDrag = { type: 'pan', sx: p.x, sy: p.y, ox: editorPan.x, oy: editorPan.y }; return; }
@@ -2549,7 +2668,8 @@ edCanvas.addEventListener('pointermove', e => {
   const p = edPointer(e);
   const w = screenToWorld(p.x, p.y);
   edHover = { x: w.x, z: w.z };
-  if (!edDrag) { drawEditor(); return; }
+  if (!edDrag) { updateEdHoverTip(e, p, w); drawEditor(); return; }
+  hideEdHoverTip();
   if (edDrag.type === 'pan') { editorPan.x = edDrag.ox + (p.x - edDrag.sx); editorPan.y = edDrag.oy + (p.y - edDrag.sy); drawEditor(); return; }
   if (edDrag.type === 'paint') { if (edApplyAt(p.x, p.y)) syncPlanTo3D(); else drawEditor(); return; }
   if (edDrag.type === 'wall') { edDrag.cur = { x: edSnap(w.x), z: edSnap(w.z) }; drawEditor(); return; }
@@ -2573,7 +2693,7 @@ edCanvas.addEventListener('pointerup', e => {
   }
   edDrag = null;
 });
-edCanvas.addEventListener('pointerleave', () => { edHover = null; if (edDrag && edDrag.type !== 'wall') edDrag = null; drawEditor(); });
+edCanvas.addEventListener('pointerleave', () => { edHover = null; hideEdHoverTip(); if (edDrag && edDrag.type !== 'wall') edDrag = null; drawEditor(); });
 edCanvas.addEventListener('contextmenu', e => e.preventDefault());
 edCanvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -2599,20 +2719,40 @@ function openEditor() {
     const rwv = document.getElementById('room-w-val'); if (rwv) rwv.textContent = roomW + 'm';
     const rdv = document.getElementById('room-d-val'); if (rdv) rdv.textContent = roomD + 'm';
     const disp = document.getElementById('ed-room-display'); if (disp) disp.textContent = `${roomW}m × ${roomD}m`;
-    const b = planBounds();
-    const bw = Math.max(b.w, 2), bd = Math.max(b.d, 2);
-    editorScale = clamp(Math.min(edCanvas.width / (bw + 4), edCanvas.height / (bd + 4)), 14, 100);
-    editorPan = { x: 0, y: 0 };
     edSelOpening = null; edHover = null; edDrag = null;
     closeDoorPop(); closeUnifyPop();
-    // sync brush-size control
+    // sync brush-size control / tool / pickers
     document.querySelectorAll('#ed-brush-seg button').forEach(b => b.classList.toggle('active', +b.dataset.brush === edBrush));
+    renderFloorPicker(); renderWallPicker(); setEdTool(edTool);
+    toggleEdPop('ed-room-pop', 'ed-room-btn', false); toggleEdPop('ed-floor-grid', 'ed-floor-btn', false);
     document.getElementById('editor-modal').classList.add('open');
-    requestAnimationFrame(() => drawEditor());
+    requestAnimationFrame(() => { edResizeCanvas(); edFitView(); drawEditor(); });
   } catch(err) { console.error('openEditor:', err); }
 }
+// モーダルの大きさが変わったら描画バッファを合わせて描き直す
+if (window.ResizeObserver) new ResizeObserver(() => { if (document.getElementById('editor-modal').classList.contains('open') && edResizeCanvas()) drawEditor(); }).observe(edCanvas);
+// エディタを開いている間のキー操作: ツールの切替 (F/E/U/W/D/X)、Esc は開いているものから順に閉じる
+const ED_TOOL_KEYS = { f: 'floor', e: 'erase', u: 'unify', w: 'wall', d: 'door', x: 'delwall' };
+window.addEventListener('keydown', e => {
+  if (!document.getElementById('editor-modal').classList.contains('open')) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'Escape') {
+    e.stopPropagation(); e.preventDefault();
+    const roomPop = document.getElementById('ed-room-pop'), floorGrid = document.getElementById('ed-floor-grid');
+    if (!roomPop.hidden) toggleEdPop('ed-room-pop', 'ed-room-btn', false);
+    else if (!floorGrid.hidden) toggleEdPop('ed-floor-grid', 'ed-floor-btn', false);
+    else if (!document.getElementById('ed-door-pop').hidden) closeDoorPop();
+    else if (!document.getElementById('ed-unify-pop').hidden) closeUnifyPop();
+    else closeEditor();
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tool = ED_TOOL_KEYS[e.key.toLowerCase()];
+  if (tool) { e.stopPropagation(); e.preventDefault(); setEdTool(tool); }
+  else e.stopPropagation();   // 3D ビュー用のショートカット (R/Del/矢印) をエディタ表示中は無効にする
+}, true);
 function closeEditor() {
-  stopEdAnim(); closeDoorPop(); closeUnifyPop();
+  stopEdAnim(); closeDoorPop(); closeUnifyPop(); hideEdHoverTip();
   document.getElementById('editor-modal').classList.remove('open');
 }
 
