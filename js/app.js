@@ -1244,58 +1244,41 @@ const PLAN_FLOOR_COLOR = {
   rubber:'#404040', checker_plate:'#909898', epoxy:'#4a8850',
   dirt:'#907050', grass:'#60904a', lawn:'#70a054',
 };
-function presetPlanSVG(p) {
-  const svgW = 130, svgH = 104;
-  const rw = p.room.w, rd = p.room.d;
-  const pad = 10;
-  const scale = Math.min((svgW - pad*2) / rw, (svgH - pad*2) / rd);
-  // 実際の外形 (rectToPlan と同じ量子化) の中心を SVG 中央に置く
-  const pnx = Math.max(1, Math.round(rw / CELL)), pnz = Math.max(1, Math.round(rd / CELL));
-  const bx0 = -Math.floor(pnx / 2) * CELL, bz0 = -Math.floor(pnz / 2) * CELL;
-  const bcx = bx0 + pnx * CELL / 2, bcz = bz0 + pnz * CELL / 2;
-  const ox = svgW/2 - bcx * scale, oy = svgH/2 - bcz * scale;
-  const wx = v => ox + v * scale, wz = v => oy + v * scale;
-  const x0 = wx(bx0), y0 = wz(bz0);
-  const rW = pnx*CELL*scale, rH = pnz*CELL*scale;
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`;
-  // Room fill
-  const mainFloor = PLAN_FLOOR_COLOR[p.floorType] || '#d4c8b4';
-  s += `<rect x="${x0}" y="${y0}" width="${rW}" height="${rH}" fill="${mainFloor}" opacity="0.7"/>`;
-  // Zone floors
+// 間取りの平面図サムネイル（SVG）: 床・床材ゾーン・家具の外形・壁と開口（窓/ガラス=水色、扉=薄茶）
+function presetPlanSVG(p, W = 230, H = 146, pad = 8) {
+  const plan = rectToPlan(p.room.w, p.room.d, p.partitions || [], p.floorType || 'wood', p.walls || null);
+  let minx = Infinity, maxx = -Infinity, minz = Infinity, maxz = -Infinity;
+  plan.cells.forEach((_, k) => { const [ix, iz] = k.split(',').map(Number); minx = Math.min(minx, ix * CELL); maxx = Math.max(maxx, (ix + 1) * CELL); minz = Math.min(minz, iz * CELL); maxz = Math.max(maxz, (iz + 1) * CELL); });
+  const sc = Math.min((W - pad * 2) / (maxx - minx), (H - pad * 2) / (maxz - minz));
+  const ox = (W - (maxx - minx) * sc) / 2 - minx * sc, oy = (H - (maxz - minz) * sc) / 2 - minz * sc;
+  const tx = x => (ox + x * sc).toFixed(1), tz = z => (oy + z * sc).toFixed(1);
+  const fc = t => PLAN_FLOOR_COLOR[t] || floorSwatch(t);
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`;
+  s += `<rect x="${tx(minx)}" y="${tz(minz)}" width="${((maxx - minx) * sc).toFixed(1)}" height="${((maxz - minz) * sc).toFixed(1)}" fill="${fc(p.floorType)}" opacity="0.55"/>`;
   (p.floors || []).forEach(f => {
-    const c = PLAN_FLOOR_COLOR[f.type] || '#c8c0b0';
-    const fx0=wx(Math.min(f.x1,f.x2)), fx1=wx(Math.max(f.x1,f.x2));
-    const fz0=wz(Math.min(f.z1,f.z2)), fz1=wz(Math.max(f.z1,f.z2));
-    s += `<rect x="${fx0}" y="${fz0}" width="${fx1-fx0}" height="${fz1-fz0}" fill="${c}" opacity="0.85"/>`;
+    s += `<rect x="${tx(Math.min(f.x1, f.x2))}" y="${tz(Math.min(f.z1, f.z2))}" width="${(Math.abs(f.x2 - f.x1) * sc).toFixed(1)}" height="${(Math.abs(f.z2 - f.z1) * sc).toFixed(1)}" fill="${fc(f.type)}" opacity="0.7"/>`;
   });
-  // Room outline
-  s += `<rect x="${x0}" y="${y0}" width="${rW}" height="${rH}" fill="none" stroke="#5a5040" stroke-width="2.5"/>`;
-  // Partitions
-  (p.partitions || []).forEach(part => {
-    const px1=wx(part.x1), pz1=wz(part.z1), px2=wx(part.x2), pz2=wz(part.z2);
-    if (part.openings && part.openings.length) {
-      // Draw wall in segments around openings
-      const len = Math.hypot(part.x2-part.x1, part.z2-part.z1);
-      part.openings.forEach(op => {
-        const t0 = op.t - op.w/2/len, t1 = op.t + op.w/2/len;
-        const ax0=px1+(px2-px1)*Math.max(t0,0), az0=pz1+(pz2-pz1)*Math.max(t0,0);
-        const ax1=px1+(px2-px1)*Math.min(t1,1), az1=pz1+(pz2-pz1)*Math.min(t1,1);
-        if (t0 > 0) s += `<line x1="${px1}" y1="${pz1}" x2="${ax0}" y2="${az0}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
-        if (t1 < 1) s += `<line x1="${ax1}" y1="${az1}" x2="${px2}" y2="${pz2}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
-        // Door arc symbol
-        const mx=(ax0+ax1)/2, mz=(az0+az1)/2;
-        const dw = op.w * scale * 0.5;
-        s += `<line x1="${ax0}" y1="${az0}" x2="${ax1}" y2="${az1}" stroke="#98c8a8" stroke-width="2.5" stroke-linecap="round"/>`;
-        s += `<circle cx="${mx}" cy="${mz}" r="3" fill="#62a86d" opacity="0.9"/>`;
-      });
-    } else {
-      s += `<line x1="${px1}" y1="${pz1}" x2="${px2}" y2="${pz2}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
-    }
+  (p.items || []).forEach(it => {
+    const d = FURNITURE_DEFS.find(q => q.id === it.defId); if (!d || d.wallMount || (d.h || 0) < 0.02) return;
+    const w = d.w * sc, h = d.d * sc;
+    s += `<rect x="${(-w / 2).toFixed(1)}" y="${(-h / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${(Math.min(w, h) * 0.15).toFixed(1)}" fill="${it.color || COLORS[d.colorIdx] || '#c8a06a'}" fill-opacity="0.85" stroke="rgba(40,30,20,0.45)" stroke-width="0.6" transform="translate(${tx(it.x)} ${tz(it.z)}) rotate(${-(it.rotY || 0)})"/>`;
   });
-  // Room size label
-  s += `<text x="${svgW/2}" y="${svgH - 3}" text-anchor="middle" font-size="8" fill="#888" font-family="sans-serif">${rw}m × ${rd}m</text>`;
-  s += `</svg>`;
-  return s;
+  const lw = Math.max(1.4, Math.min(3, sc * 0.14));
+  plan.walls.forEach(w => {
+    const len = Math.hypot(w.x2 - w.x1, w.z2 - w.z1); if (len < 0.01) return;
+    const ux = (w.x2 - w.x1) / len, uz = (w.z2 - w.z1) / len;
+    const seg = (a, b, st) => { s += `<line x1="${tx(w.x1 + ux * a)}" y1="${tz(w.z1 + uz * a)}" x2="${tx(w.x1 + ux * b)}" y2="${tz(w.z1 + uz * b)}" ${st}/>`; };
+    const wallSt = w.type === 'glass' ? `stroke="#5ba4c8" stroke-width="${(lw * 0.7).toFixed(2)}" stroke-dasharray="3 2"` : `stroke="#4b4236" stroke-width="${lw.toFixed(2)}" stroke-linecap="square"`;
+    const gaps = (w.openings || []).map(g => [g.t * len - (g.w || 0.9) / 2, g.t * len + (g.w || 0.9) / 2, g.kind || 'door']).sort((a, b) => a[0] - b[0]);
+    let cur = 0;
+    gaps.forEach(([a, b, k]) => {
+      if (a > cur) seg(cur, a, wallSt);
+      seg(Math.max(a, 0), Math.min(b, len), /window|glass|auto/.test(k) ? `stroke="#6fb3d6" stroke-width="${(lw * 0.6).toFixed(2)}"` : `stroke="#e3caa0" stroke-width="${(lw * 0.6).toFixed(2)}"`);
+      cur = Math.max(cur, b);
+    });
+    if (cur < len) seg(cur, len, wallSt);
+  });
+  return s + '</svg>';
 }
 
 let _presetActiveCat = 'all';
@@ -1310,6 +1293,8 @@ const FLOOR_NAME_JA = {
 };
 const FEATURED_PRESETS = new Set(['apt_3ldk_sample', 'aluminum_factory', 'family', 'factory_lg', 'office', 'laboratory']);
 
+const PRESET_CAT_NAME = { '住宅': '住宅', 'オフィス': 'オフィス', '店舗': '店舗', '工場': '工場・製造', '特殊': '特殊・文化' };
+let _presetSelectedId = null;
 function renderPresetGrid() {
   // Update category count badges on filter buttons
   document.querySelectorAll('.pc-cat-btn[data-pcat]').forEach(btn => {
@@ -1320,57 +1305,108 @@ function renderPresetGrid() {
     badge.textContent = cnt;
   });
   const grid = document.getElementById('preset-grid'); grid.innerHTML = '';
-  const q = _presetSearch.toLowerCase();
+  const q = _presetSearch.trim().toLowerCase();
   const filtered = PRESETS.filter(p =>
     (_presetActiveCat === 'all' || p.cat === _presetActiveCat) &&
-    (!q || p.name.includes(q) || (p.desc||'').includes(q))
+    (!q || p.name.toLowerCase().includes(q) || (p.desc || '').toLowerCase().includes(q) || (PRESET_CAT_NAME[p.cat] || '').includes(q))
   );
   if (filtered.length === 0) {
     const empty = document.createElement('div'); empty.className = 'preset-empty';
     empty.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>該当するプリセットが見つかりません';
-    grid.appendChild(empty); return;
+    grid.appendChild(empty); if (_presetSelectedId) selectPreset(null); return;
   }
-  filtered.forEach((p, idx) => {
+  filtered.forEach(p => {
     const card = document.createElement('button');
-    card.className = 'pc-card' + (p.id === _lastUsedPresetId ? ' last-used' : '');
-    card.style.animationDelay = (idx * 0.04) + 's';
-    const tagCls = `pc-tag pc-tag-${p.cat || ''}`;
+    card.className = 'pc-card' + (p.id === _lastUsedPresetId ? ' last-used' : '') + (p.id === _presetSelectedId ? ' selected' : '');
+    card.dataset.pid = p.id;
+    card.setAttribute('aria-pressed', String(p.id === _presetSelectedId));
     const floorBadge = p.floorType
-      ? `<span class="pc-badge pc-badge-floor"><i class="fa-solid fa-grip"></i>${FLOOR_NAME_JA[p.floorType] || p.floorType}</span>`
-      : '';
+      ? `<span class="pc-badge pc-badge-floor"><i class="fa-solid fa-grip"></i>${FLOOR_NAME_JA[p.floorType] || p.floorType}</span>` : '';
     const featuredBadge = FEATURED_PRESETS.has(p.id) ? '<div class="pc-featured-badge">★ おすすめ</div>' : '';
+    const usedBadge = p.id === _lastUsedPresetId ? '<div class="pc-used-badge"><i class="fa-solid fa-check"></i> 前回読み込み</div>' : '';
     card.innerHTML = `
       <div class="pc-plan-area">
         ${presetPlanSVG(p)}
-        <div class="${tagCls}">${p.cat || ''}</div>
-        ${featuredBadge}
+        <div class="pc-tag pc-tag-${p.cat || ''}">${PRESET_CAT_NAME[p.cat] || p.cat || ''}</div>
+        ${featuredBadge}${usedBadge}
       </div>
       <div class="pc-info">
-        <div class="pc-name"><i class="fa-solid ${p.icon}" style="margin-right:5px;opacity:0.7"></i>${p.name}</div>
+        <div class="pc-name"><i class="fa-solid ${p.icon}"></i>${p.name}</div>
         <div class="pc-desc">${p.desc}</div>
         <div class="pc-badges">
           <span class="pc-badge"><i class="fa-solid fa-ruler-combined"></i>${p.room.w}×${p.room.d}m</span>
           <span class="pc-badge"><i class="fa-solid fa-cube"></i>${p.items.length}点</span>
           ${floorBadge}
-          ${p.partitions && p.partitions.length ? `<span class="pc-badge"><i class="fa-solid fa-border-none"></i>間仕切${p.partitions.length}本</span>` : ''}
         </div>
       </div>`;
-    card.addEventListener('click', () => {
-      _lastUsedPresetId = p.id;
-      applyLayout(p); closePresetModal();
-      toast(p.name + ' を読み込みました');
-    });
+    card.addEventListener('click', () => selectPreset(p.id));
+    card.addEventListener('dblclick', () => loadPreset(p));
     grid.appendChild(card);
   });
+  // 絞り込みで見えなくなった間取りの詳細は閉じる
+  if (_presetSelectedId && !filtered.some(p => p.id === _presetSelectedId)) selectPreset(null);
+}
+// カードを選ぶと右に大きな平面図・説明・読み込みボタンを表示（読み込みは明示的な操作だけ）
+function selectPreset(id) {
+  const p = PRESETS.find(x => x.id === id); const det = document.getElementById('preset-detail');
+  if (!p) { _presetSelectedId = null; det.hidden = true; det.innerHTML = ''; document.querySelectorAll('#preset-grid .pc-card').forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-pressed', 'false'); }); return; }
+  _presetSelectedId = id;
+  document.querySelectorAll('#preset-grid .pc-card').forEach(c => { const on = c.dataset.pid === id; c.classList.toggle('selected', on); c.setAttribute('aria-pressed', String(on)); });
+  const facts = [
+    `<span><i class="fa-solid fa-ruler-combined"></i>${p.room.w}×${p.room.d}m</span>`,
+    `<span><i class="fa-solid fa-cube"></i>家具 ${p.items.length}点</span>`,
+    p.floorType ? `<span><i class="fa-solid fa-grip"></i>${FLOOR_NAME_JA[p.floorType] || p.floorType}</span>` : '',
+    (p.partitions || []).length ? `<span><i class="fa-solid fa-border-none"></i>間仕切 ${p.partitions.length}本</span>` : '',
+    (p.notes || []).length ? `<span><i class="fa-solid fa-clipboard-list"></i>配置メモ付き</span>` : '',
+  ].join('');
+  det.innerHTML = `
+    <button class="pd-close" id="preset-detail-close" aria-label="詳細を閉じる"><i class="fa-solid fa-xmark"></i></button>
+    <div class="pd-plan">${presetPlanSVG(p, 320, 230, 12)}</div>
+    <div class="pd-name"><i class="fa-solid ${p.icon}"></i><b>${p.name}</b></div>
+    <span class="pc-tag pc-tag-${p.cat || ''} pd-tag">${PRESET_CAT_NAME[p.cat] || p.cat || ''}</span>
+    <p class="pd-desc">${p.desc}</p>
+    <div class="pd-facts">${facts}</div>
+    <div class="pd-actions">
+      <button class="pd-load" id="preset-load"><i class="fa-solid fa-download"></i> この間取りを読み込む</button>
+      <small><i class="fa-solid fa-circle-info"></i> 今のレイアウトは置き換わります（Ctrl+Z で戻せます）</small>
+    </div>`;
+  det.hidden = false;
+  det.querySelector('#preset-detail-close').addEventListener('click', () => selectPreset(null));
+  det.querySelector('#preset-load').addEventListener('click', () => loadPreset(p));
+}
+function loadPreset(p) {
+  _lastUsedPresetId = p.id;
+  applyLayout(p); closePresetModal();
+  toast(p.name + ' を読み込みました');
+}
+// 空の部屋（サイズを選んで作成）
+const NEW_ROOM_SIZES = [['約6畳', 3.5, 3], ['約8畳', 3.5, 4], ['1LDK', 7, 6], ['2LDK', 8, 8], ['店舗', 10, 8], ['倉庫・工場', 20, 15]];
+function createEmptyRoom(w, d) {
+  w = clamp(Math.round((+w || 6) * 2) / 2, 3, 50); d = clamp(Math.round((+d || 6) * 2) / 2, 3, 50);
+  clearItems(); renderPresetNotes(null);
+  updateRoomSize(w, d);
+  closePresetModal(); toast(`${w}m × ${d}m の空の部屋を作成しました`);
+}
+function togglePresetNewPop(force) {
+  const pop = document.getElementById('preset-new-pop'), btn = document.getElementById('btn-preset-new');
+  const open = force === undefined ? pop.hidden : force;
+  pop.hidden = !open; btn.setAttribute('aria-expanded', String(open));
+  if (open) { document.getElementById('pnp-w').value = roomW; document.getElementById('pnp-d').value = roomD; }
 }
 
-function buildPresetCards() { renderPresetGrid(); }
+function buildPresetCards() {
+  renderPresetGrid();
+  const sizes = document.getElementById('pnp-sizes');
+  sizes.innerHTML = NEW_ROOM_SIZES.map(([n, w, d]) => `<button data-w="${w}" data-d="${d}"><b>${n}</b><span>${w} × ${d}m</span></button>`).join('');
+  sizes.querySelectorAll('button').forEach(b => b.addEventListener('click', () => createEmptyRoom(b.dataset.w, b.dataset.d)));
+}
 
 function openPresetModal() {
   document.getElementById('preset-modal').classList.add('open');
-  renderPresetGrid();
+  togglePresetNewPop(false);
+  renderPresetGrid(); selectPreset(_presetSelectedId);
 }
-function closePresetModal() { document.getElementById('preset-modal').classList.remove('open'); }
+function closePresetModal() { togglePresetNewPop(false); document.getElementById('preset-modal').classList.remove('open'); }
 
 // ============================================================ 3D ホバープレビュー (カタログ選択補助)
 // カタログ項目にマウスオーバーすると、その家具の3Dモデルを小窓でくるくる表示する。
@@ -1677,16 +1713,26 @@ function initUI() {
   document.getElementById('preset-close').addEventListener('click', closePresetModal);
   document.getElementById('preset-modal').addEventListener('click', e => { if (e.target.id === 'preset-modal') closePresetModal(); });
   document.getElementById('preset-modal').addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      if (!document.getElementById('preset-new-pop').hidden) togglePresetNewPop(false); else closePresetModal();
+      return;
+    }
+    if (e.target.tagName === 'INPUT') return;
     const cards = [...document.querySelectorAll('#preset-grid .pc-card')];
     if (!cards.length) return;
     const idx = cards.indexOf(document.activeElement);
-    const cols = document.querySelector('.preset-grid-new').offsetWidth < 520 ? 2 : 3;
+    const cols = getComputedStyle(document.getElementById('preset-grid')).gridTemplateColumns.split(' ').length || 3;
     const move = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols };
     if (move[e.key] !== undefined && idx >= 0) {
       const next = idx + move[e.key];
       if (next >= 0 && next < cards.length) { cards[next].focus(); e.preventDefault(); }
-    } else if (e.key === 'Escape') { closePresetModal(); }
+    }
   });
+  document.getElementById('btn-preset-new').addEventListener('click', e => { e.stopPropagation(); togglePresetNewPop(); });
+  document.getElementById('pnp-create').addEventListener('click', () => createEmptyRoom(document.getElementById('pnp-w').value, document.getElementById('pnp-d').value));
+  ['pnp-w', 'pnp-d'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('pnp-create').click(); }));
+  document.getElementById('preset-modal').addEventListener('pointerdown', e => { if (!e.target.closest('#preset-new-pop, #btn-preset-new')) togglePresetNewPop(false); });
   // Preset search
   document.getElementById('preset-search-input').addEventListener('input', e => {
     _presetSearch = e.target.value; renderPresetGrid();
@@ -1698,12 +1744,6 @@ function initUI() {
     document.querySelectorAll('.pc-cat-btn').forEach(b => b.classList.toggle('active', b === btn));
     renderPresetGrid();
   });
-  // New empty room
-  document.getElementById('btn-preset-new').addEventListener('click', () => {
-    clearItems(); partitions = []; roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType);
-    buildRoom(); closePresetModal(); toast('新しい空のルームを作成しました');
-  });
-
   // 2D floor-plan editor
   document.getElementById('btn-editor').addEventListener('click', openEditor);
   document.getElementById('editor-close').addEventListener('click', closeEditor);
