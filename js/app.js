@@ -908,16 +908,14 @@ function deselect() {
   if (!selectedGroup) return;
   selectedGroup.traverse(c => { if (c.isMesh && c.material && c.material.emissive) { c.material.emissive.set(0x000000); c.material.emissiveIntensity = 0; } });
   selectedGroup = null; selectionRing.visible = false;
-  document.getElementById('props-empty').style.display = 'flex';
   document.getElementById('props-panel').classList.remove('visible');
-  const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = '';
-  const pn = document.getElementById('preset-notes'); if (pn && pn.dataset.has === '1') pn.style.display = '';
+  document.getElementById('sel-toolbar').hidden = true;
 }
 function refreshSelection() {
   if (!selectedGroup) return;
   updateSelectionRing(selectedGroup);
   const it = placedItems.find(i => i.group === selectedGroup);   // 元に戻す/やり直し後も位置表示と間隔を同期
-  if (it) { document.getElementById('pos-x').textContent = it.position.x.toFixed(2) + 'm'; document.getElementById('pos-z').textContent = it.position.z.toFixed(2) + 'm'; }
+  if (it) updatePositionText(it.position);
   updateClearancePanel();
 }
 function updateSelectionRing(group) {
@@ -928,29 +926,62 @@ function updateSelectionRing(group) {
 }
 function showProperties(group, item) {
   const def = FURNITURE_DEFS.find(d => d.id === item.defId);
-  document.getElementById('props-empty').style.display = 'none';
   document.getElementById('props-panel').classList.add('visible');
-  const sc = document.getElementById('props-shortcuts'); if (sc) sc.style.display = 'none';
   document.getElementById('props-name').textContent = def.name;
+  document.getElementById('sel-name').textContent = def.name;
   document.getElementById('props-dims').textContent = def.product
     ? `W ${Math.round(def.w * 1000)} × D ${Math.round(def.d * 1000)} × H ${Math.round(def.h * 1000)} mm（実寸）`
-    : `${def.w}m × ${def.d}m`;
+    : `W ${def.w} × D ${def.d} × H ${def.h} m`;
   document.getElementById('props-icon').innerHTML = `<i class="fa-solid ${def.icon}"></i>`;
-  document.getElementById('pos-x').textContent = item.position.x.toFixed(2) + 'm';
-  document.getElementById('pos-z').textContent = item.position.z.toFixed(2) + 'm';
+  updatePositionText(item.position);
   renderSpecPanel(def); updateClearancePanel();
-  const _pn = document.getElementById('preset-notes'); if (_pn) _pn.style.display = 'none';
+  renderColorSwatches(item.color);
+  document.getElementById('sel-toolbar').hidden = false;
+  positionSelToolbar();
+}
+function updatePositionText(p) {
+  document.getElementById('pos-x').textContent = p.x.toFixed(2) + 'm';
+  document.getElementById('pos-z').textContent = p.z.toFixed(2) + 'm';
+}
+// カラー: よく使う先頭10色を1行で見せ、残りは「ほか N 色」で展開する
+const COLOR_ROW = 10;
+let colorsExpanded = false;
+function renderColorSwatches(active) {
   const sw = document.getElementById('color-swatches'); sw.innerHTML = '';
-  COLORS.forEach(c => {
-    const b = document.createElement('button'); b.className = 'color-swatch' + (c === item.color ? ' active' : '');
-    b.style.background = c; b.title = c;
+  const activeIdx = COLORS.indexOf(active);
+  const shown = colorsExpanded || activeIdx >= COLOR_ROW ? COLORS : COLORS.slice(0, COLOR_ROW);
+  shown.forEach(c => {
+    const b = document.createElement('button'); b.className = 'color-swatch' + (c === active ? ' active' : '');
+    b.style.background = c; b.title = c; b.setAttribute('aria-label', '色 ' + c);
     b.addEventListener('click', () => {
       selectedColor = c; applyColor(selectedGroup, c); scheduleAutoSave();
-      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active')); b.classList.add('active');
       const pi = placedItems.find(i => i.group === selectedGroup); if (pi) pi.color = c;
+      sw.querySelectorAll('.color-swatch').forEach(s => s.classList.toggle('active', s === b));
+      setSelColorDot(c);
     });
     sw.appendChild(b);
   });
+  const more = document.getElementById('color-more');
+  const rest = COLORS.length - COLOR_ROW;
+  more.hidden = rest <= 0 || activeIdx >= COLOR_ROW;
+  more.textContent = colorsExpanded ? '閉じる' : `ほか${rest}色`;
+  more.setAttribute('aria-expanded', String(colorsExpanded));
+  setSelColorDot(active);
+}
+function setSelColorDot(c) { const dot = document.querySelector('#sel-color span'); if (dot) dot.style.background = c || 'transparent'; }
+// 選択中の家具の真上にミニツールバーを追従させる
+const _selTop = new THREE.Vector3(), _selBox = new THREE.Box3();
+function positionSelToolbar() {
+  const bar = document.getElementById('sel-toolbar');
+  if (!selectedGroup || bar.hidden) return;
+  _selBox.setFromObject(selectedGroup);
+  _selTop.set((_selBox.min.x + _selBox.max.x) / 2, _selBox.max.y, (_selBox.min.z + _selBox.max.z) / 2).project(camera);
+  const w = wrapper.clientWidth, h = wrapper.clientHeight;
+  const half = bar.offsetWidth / 2 + 8;
+  const x = clamp((_selTop.x + 1) / 2 * w, half, w - half);
+  const y = clamp((1 - _selTop.y) / 2 * h - 18, bar.offsetHeight + 8, h - 8);
+  bar.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+  bar.classList.toggle('offscreen', _selTop.z > 1);
 }
 function applyColor(group, color) {
   if (!group) return;
@@ -995,21 +1026,38 @@ function computeClearances(item) {
   }
   return out;
 }
+const CLR_SIDES = [['up', '上'], ['down', '下'], ['left', '左'], ['right', '右']];
+const CLR_COLOR = { ok: '#4e9159', tight: '#d08a1c', touch: '#9b9183', none: '#b8ae9e' };
+function clrClass(r) { return !r ? 'none' : r.dist < 0.05 ? 'touch' : r.dist < 0.6 ? 'tight' : 'ok'; }
+function escHTML(t) { return String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]); }
+// 周囲との間隔: ひとことの判定 + 上から見た図（設置面から上下左右の最寄りの壁・家具までの距離）
 function updateClearancePanel() {
   const sec = document.getElementById('props-clear'); if (!sec) return;
   const item = selectedGroup ? placedItems.find(i => i.group === selectedGroup) : null;
-  if (!item) { sec.style.display = 'none'; return; }
-  sec.style.display = '';
+  if (!item) return;
   const c = computeClearances(item);
-  const fmt = r => {
-    if (!r) return `<span class="clr-val clr-none">—</span><span class="clr-who">なし</span>`;
-    const cls = r.dist < 0.05 ? 'clr-touch' : r.dist < 0.6 ? 'clr-tight' : 'clr-ok';
-    return `<span class="clr-val ${cls}">${r.dist.toFixed(2)}<small>m</small></span><span class="clr-who${r.opening ? ' clr-open' : ''}">${r.label}</span>`;
-  };
-  document.getElementById('clr-up').innerHTML = fmt(c.up);
-  document.getElementById('clr-down').innerHTML = fmt(c.down);
-  document.getElementById('clr-left').innerHTML = fmt(c.left);
-  document.getElementById('clr-right').innerHTML = fmt(c.right);
+  const tight = CLR_SIDES.filter(([k]) => clrClass(c[k]) === 'tight').map(([, l]) => l);
+  const verdict = document.getElementById('clr-verdict');
+  verdict.className = 'clr-verdict ' + (tight.length ? 'warn' : 'ok');
+  verdict.innerHTML = tight.length
+    ? `<i class="fa-solid fa-triangle-exclamation"></i><span>${tight.join('・')}側が狭い（0.6m未満）— 人が通るなら離しましょう</span>`
+    : `<i class="fa-solid fa-circle-check"></i><span>通路として使う側は 0.6m 以上あいています</span>`;
+  const H = 112, cy = H / 2;
+  const val = k => c[k] ? `${c[k].dist.toFixed(2)}m` : '—';
+  const who = k => c[k] ? escHTML(c[k].label.length > 12 ? c[k].label.slice(0, 11) + '…' : c[k].label) : 'なし';
+  const col = k => CLR_COLOR[clrClass(c[k])];
+  const line = (x1, y1, x2, y2, k) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col(k)}" stroke-width="3" stroke-dasharray="4 3" stroke-linecap="round"/>`;
+  document.getElementById('clr-diagram').innerHTML = `<svg viewBox="0 0 240 ${H}" role="img" aria-label="周囲との間隔 上${val('up')} 下${val('down')} 左${val('left')} 右${val('right')}">
+    <rect x="1" y="1" width="238" height="${H - 2}" rx="10" class="dg-bg"/>
+    <rect x="90" y="${cy - 19}" width="60" height="38" rx="6" class="dg-item"/>
+    <text x="120" y="${cy + 4}" text-anchor="middle" class="dg-item-t">この家具</text>
+    ${line(120, 8, 120, cy - 22, 'up')}${line(120, cy + 22, 120, H - 8, 'down')}${line(8, cy, 87, cy, 'left')}${line(153, cy, 232, cy, 'right')}
+    <text x="126" y="${cy / 2 + 2}" class="dg-v" fill="${col('up')}">${val('up')}</text><text x="126" y="${cy / 2 + 12}" class="dg-w">${who('up')}</text>
+    <text x="126" y="${cy + 22 + (cy - 22) / 2 + 2}" class="dg-v" fill="${col('down')}">${val('down')}</text><text x="126" y="${cy + 22 + (cy - 22) / 2 + 12}" class="dg-w">${who('down')}</text>
+    <text x="10" y="${cy - 7}" class="dg-v" fill="${col('left')}">${val('left')}</text><text x="10" y="${cy + 14}" class="dg-w">${who('left')}</text>
+    <text x="230" y="${cy - 7}" text-anchor="end" class="dg-v" fill="${col('right')}">${val('right')}</text><text x="230" y="${cy + 14}" text-anchor="end" class="dg-w">${who('right')}</text>
+  </svg>
+  <div class="clr-legend"><span><i style="background:${CLR_COLOR.ok}"></i>0.6m以上（通れる）</span><span><i style="background:${CLR_COLOR.tight}"></i>狭い</span><span><i style="background:${CLR_COLOR.touch}"></i>密着</span><span class="clr-note" data-tip="上から見た図。上＝画面の上（2D間取りの上）。開口のある壁はその種類も表示">?</span></div>`;
 }
 // 実物家具: 採用寸法(mm)と出典リンク
 function renderSpecPanel(def) {
@@ -1034,17 +1082,17 @@ function renderSpecPanel(def) {
   ].filter(Boolean);
   tbl.innerHTML = rows.map(([k, v]) => `<div class="spec-row"><div class="spec-k">${k}</div><div class="spec-v">${v}</div></div>`).join('');
 }
-// プリセットの配置メモ (notes) を右パネルに表示
+// プリセットの配置メモ (notes) を「メモ」タブに表示
 function renderPresetNotes(layout) {
   const pn = document.getElementById('preset-notes'); if (!pn) return;
   const list = document.getElementById('pn-list'), title = document.getElementById('pn-title');
   const notes = layout && layout.notes;
-  if (!notes || !notes.length) { pn.style.display = 'none'; pn.dataset.has = '0'; return; }
-  title.textContent = `${layout.name || 'プリセット'} — 配置メモ`;
-  list.innerHTML = notes.map(n => `<li>${n}</li>`).join('');
-  pn.dataset.has = '1'; pn.classList.remove('collapsed');
-  const t = document.getElementById('pn-toggle'); if (t) t.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
-  pn.style.display = selectedGroup ? 'none' : '';
+  const has = !!(notes && notes.length);
+  pn.dataset.has = has ? '1' : '0';
+  title.textContent = has ? `${layout.name || 'プリセット'} — 配置メモ` : '配置メモ';
+  list.innerHTML = has ? notes.map(n => `<li>${n}</li>`).join('') : '';
+  document.getElementById('notes-empty').hidden = has;
+  document.getElementById('notes-dot').hidden = !has;
 }
 // 矢印キーで選択家具をスナップ幅ずつ移動 (履歴に記録)
 function nudgeSelected(key, step) {
@@ -1058,36 +1106,38 @@ function nudgeSelected(key, step) {
   item.position.copy(np); selectedGroup.position.copy(np);
   pushHistory({ type: 'move', item, from, to: np.clone() });
   refreshSelection();
-  document.getElementById('pos-x').textContent = np.x.toFixed(2) + 'm';
-  document.getElementById('pos-z').textContent = np.z.toFixed(2) + 'm';
 }
 
 // ============================================================ GHOST
 function exitPaintMode() {
   if (!paintMode) return;
   paintMode = false; paintDragging = false;
-  document.getElementById('btn-floor-paint').classList.remove('active');
-  if (state === 'PAINTING') state = 'IDLE';
+  const pb = document.getElementById('btn-floor-paint'); pb.classList.remove('active'); pb.setAttribute('aria-pressed', 'false');
+  hideModeHint();
+  if (state === 'PAINTING') { state = 'IDLE'; setStatus('準備完了'); }
 }
+// キャンバス下部のヒント: いまのモードと、その場で使える操作だけを出す
+function showModeHint(html) { const h = document.getElementById('placement-hint'); h.innerHTML = html; h.classList.add('visible'); }
+function hideModeHint() { document.getElementById('placement-hint').classList.remove('visible'); }
 function startPlacement(def) {
   exitPaintMode();
   cancelPlacement(); state = 'PLACING'; currentDef = def; ghostRotOffset = 0;
   const tmp = def.build({ color: '#62a86d', w: def.w, d: def.d, h: def.h });
   ghostGroup = makeGhost(tmp); ghostGroup.visible = false; scene.add(ghostGroup);
-  document.getElementById('placement-hint').classList.add('visible');
+  showModeHint(`<i class="fa-solid fa-hand-pointer"></i><b>${escHTML(def.name)}</b> を置く場所をクリック（続けて置けます）<span class="mh-sep"></span><kbd>R</kbd> 回転<span class="mh-sep"></span><kbd>Esc</kbd>／右クリック で終了`);
   document.querySelectorAll('.furniture-item').forEach(el => el.classList.toggle('active-place', el.dataset.id === def.id));
   setStatus('配置モード: ' + def.name, 'busy');
 }
 function cancelPlacement() {
   if (ghostGroup) { scene.remove(ghostGroup); ghostGroup = null; }
-  document.getElementById('placement-hint').classList.remove('visible');
+  if (state === 'PLACING') hideModeHint();
   document.querySelectorAll('.furniture-item').forEach(el => el.classList.remove('active-place'));
   if (state === 'PLACING') { state = 'IDLE'; setStatus('準備完了'); }
   currentDef = null;
 }
 
 // ============================================================ STATUS / TOAST
-function setStatus(t, type='idle') { document.getElementById('status-text').textContent = t; document.getElementById('status-dot').className = 'status-dot' + (type==='busy'?' busy':''); }
+function setStatus(t, type='idle') { document.getElementById('status-text').textContent = t; document.getElementById('status-dot').className = type === 'busy' ? 'busy' : ''; }   // スクリーンリーダー向けの状態通知
 function updateItemCount() { document.getElementById('item-count').textContent = placedItems.length; }
 let toastTimer = null;
 function toast(msg) {
@@ -1194,58 +1244,41 @@ const PLAN_FLOOR_COLOR = {
   rubber:'#404040', checker_plate:'#909898', epoxy:'#4a8850',
   dirt:'#907050', grass:'#60904a', lawn:'#70a054',
 };
-function presetPlanSVG(p) {
-  const svgW = 130, svgH = 104;
-  const rw = p.room.w, rd = p.room.d;
-  const pad = 10;
-  const scale = Math.min((svgW - pad*2) / rw, (svgH - pad*2) / rd);
-  // 実際の外形 (rectToPlan と同じ量子化) の中心を SVG 中央に置く
-  const pnx = Math.max(1, Math.round(rw / CELL)), pnz = Math.max(1, Math.round(rd / CELL));
-  const bx0 = -Math.floor(pnx / 2) * CELL, bz0 = -Math.floor(pnz / 2) * CELL;
-  const bcx = bx0 + pnx * CELL / 2, bcz = bz0 + pnz * CELL / 2;
-  const ox = svgW/2 - bcx * scale, oy = svgH/2 - bcz * scale;
-  const wx = v => ox + v * scale, wz = v => oy + v * scale;
-  const x0 = wx(bx0), y0 = wz(bz0);
-  const rW = pnx*CELL*scale, rH = pnz*CELL*scale;
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`;
-  // Room fill
-  const mainFloor = PLAN_FLOOR_COLOR[p.floorType] || '#d4c8b4';
-  s += `<rect x="${x0}" y="${y0}" width="${rW}" height="${rH}" fill="${mainFloor}" opacity="0.7"/>`;
-  // Zone floors
+// 間取りの平面図サムネイル（SVG）: 床・床材ゾーン・家具の外形・壁と開口（窓/ガラス=水色、扉=薄茶）
+function presetPlanSVG(p, W = 230, H = 146, pad = 8) {
+  const plan = rectToPlan(p.room.w, p.room.d, p.partitions || [], p.floorType || 'wood', p.walls || null);
+  let minx = Infinity, maxx = -Infinity, minz = Infinity, maxz = -Infinity;
+  plan.cells.forEach((_, k) => { const [ix, iz] = k.split(',').map(Number); minx = Math.min(minx, ix * CELL); maxx = Math.max(maxx, (ix + 1) * CELL); minz = Math.min(minz, iz * CELL); maxz = Math.max(maxz, (iz + 1) * CELL); });
+  const sc = Math.min((W - pad * 2) / (maxx - minx), (H - pad * 2) / (maxz - minz));
+  const ox = (W - (maxx - minx) * sc) / 2 - minx * sc, oy = (H - (maxz - minz) * sc) / 2 - minz * sc;
+  const tx = x => (ox + x * sc).toFixed(1), tz = z => (oy + z * sc).toFixed(1);
+  const fc = t => PLAN_FLOOR_COLOR[t] || floorSwatch(t);
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`;
+  s += `<rect x="${tx(minx)}" y="${tz(minz)}" width="${((maxx - minx) * sc).toFixed(1)}" height="${((maxz - minz) * sc).toFixed(1)}" fill="${fc(p.floorType)}" opacity="0.55"/>`;
   (p.floors || []).forEach(f => {
-    const c = PLAN_FLOOR_COLOR[f.type] || '#c8c0b0';
-    const fx0=wx(Math.min(f.x1,f.x2)), fx1=wx(Math.max(f.x1,f.x2));
-    const fz0=wz(Math.min(f.z1,f.z2)), fz1=wz(Math.max(f.z1,f.z2));
-    s += `<rect x="${fx0}" y="${fz0}" width="${fx1-fx0}" height="${fz1-fz0}" fill="${c}" opacity="0.85"/>`;
+    s += `<rect x="${tx(Math.min(f.x1, f.x2))}" y="${tz(Math.min(f.z1, f.z2))}" width="${(Math.abs(f.x2 - f.x1) * sc).toFixed(1)}" height="${(Math.abs(f.z2 - f.z1) * sc).toFixed(1)}" fill="${fc(f.type)}" opacity="0.7"/>`;
   });
-  // Room outline
-  s += `<rect x="${x0}" y="${y0}" width="${rW}" height="${rH}" fill="none" stroke="#5a5040" stroke-width="2.5"/>`;
-  // Partitions
-  (p.partitions || []).forEach(part => {
-    const px1=wx(part.x1), pz1=wz(part.z1), px2=wx(part.x2), pz2=wz(part.z2);
-    if (part.openings && part.openings.length) {
-      // Draw wall in segments around openings
-      const len = Math.hypot(part.x2-part.x1, part.z2-part.z1);
-      part.openings.forEach(op => {
-        const t0 = op.t - op.w/2/len, t1 = op.t + op.w/2/len;
-        const ax0=px1+(px2-px1)*Math.max(t0,0), az0=pz1+(pz2-pz1)*Math.max(t0,0);
-        const ax1=px1+(px2-px1)*Math.min(t1,1), az1=pz1+(pz2-pz1)*Math.min(t1,1);
-        if (t0 > 0) s += `<line x1="${px1}" y1="${pz1}" x2="${ax0}" y2="${az0}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
-        if (t1 < 1) s += `<line x1="${ax1}" y1="${az1}" x2="${px2}" y2="${pz2}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
-        // Door arc symbol
-        const mx=(ax0+ax1)/2, mz=(az0+az1)/2;
-        const dw = op.w * scale * 0.5;
-        s += `<line x1="${ax0}" y1="${az0}" x2="${ax1}" y2="${az1}" stroke="#98c8a8" stroke-width="2.5" stroke-linecap="round"/>`;
-        s += `<circle cx="${mx}" cy="${mz}" r="3" fill="#62a86d" opacity="0.9"/>`;
-      });
-    } else {
-      s += `<line x1="${px1}" y1="${pz1}" x2="${px2}" y2="${pz2}" stroke="#5a5040" stroke-width="2" stroke-linecap="round"/>`;
-    }
+  (p.items || []).forEach(it => {
+    const d = FURNITURE_DEFS.find(q => q.id === it.defId); if (!d || d.wallMount || (d.h || 0) < 0.02) return;
+    const w = d.w * sc, h = d.d * sc;
+    s += `<rect x="${(-w / 2).toFixed(1)}" y="${(-h / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${(Math.min(w, h) * 0.15).toFixed(1)}" fill="${it.color || COLORS[d.colorIdx] || '#c8a06a'}" fill-opacity="0.85" stroke="rgba(40,30,20,0.45)" stroke-width="0.6" transform="translate(${tx(it.x)} ${tz(it.z)}) rotate(${-(it.rotY || 0)})"/>`;
   });
-  // Room size label
-  s += `<text x="${svgW/2}" y="${svgH - 3}" text-anchor="middle" font-size="8" fill="#888" font-family="sans-serif">${rw}m × ${rd}m</text>`;
-  s += `</svg>`;
-  return s;
+  const lw = Math.max(1.4, Math.min(3, sc * 0.14));
+  plan.walls.forEach(w => {
+    const len = Math.hypot(w.x2 - w.x1, w.z2 - w.z1); if (len < 0.01) return;
+    const ux = (w.x2 - w.x1) / len, uz = (w.z2 - w.z1) / len;
+    const seg = (a, b, st) => { s += `<line x1="${tx(w.x1 + ux * a)}" y1="${tz(w.z1 + uz * a)}" x2="${tx(w.x1 + ux * b)}" y2="${tz(w.z1 + uz * b)}" ${st}/>`; };
+    const wallSt = w.type === 'glass' ? `stroke="#5ba4c8" stroke-width="${(lw * 0.7).toFixed(2)}" stroke-dasharray="3 2"` : `stroke="#4b4236" stroke-width="${lw.toFixed(2)}" stroke-linecap="square"`;
+    const gaps = (w.openings || []).map(g => [g.t * len - (g.w || 0.9) / 2, g.t * len + (g.w || 0.9) / 2, g.kind || 'door']).sort((a, b) => a[0] - b[0]);
+    let cur = 0;
+    gaps.forEach(([a, b, k]) => {
+      if (a > cur) seg(cur, a, wallSt);
+      seg(Math.max(a, 0), Math.min(b, len), /window|glass|auto/.test(k) ? `stroke="#6fb3d6" stroke-width="${(lw * 0.6).toFixed(2)}"` : `stroke="#e3caa0" stroke-width="${(lw * 0.6).toFixed(2)}"`);
+      cur = Math.max(cur, b);
+    });
+    if (cur < len) seg(cur, len, wallSt);
+  });
+  return s + '</svg>';
 }
 
 let _presetActiveCat = 'all';
@@ -1260,6 +1293,8 @@ const FLOOR_NAME_JA = {
 };
 const FEATURED_PRESETS = new Set(['apt_3ldk_sample', 'aluminum_factory', 'family', 'factory_lg', 'office', 'laboratory']);
 
+const PRESET_CAT_NAME = { '住宅': '住宅', 'オフィス': 'オフィス', '店舗': '店舗', '工場': '工場・製造', '特殊': '特殊・文化' };
+let _presetSelectedId = null;
 function renderPresetGrid() {
   // Update category count badges on filter buttons
   document.querySelectorAll('.pc-cat-btn[data-pcat]').forEach(btn => {
@@ -1270,57 +1305,108 @@ function renderPresetGrid() {
     badge.textContent = cnt;
   });
   const grid = document.getElementById('preset-grid'); grid.innerHTML = '';
-  const q = _presetSearch.toLowerCase();
+  const q = _presetSearch.trim().toLowerCase();
   const filtered = PRESETS.filter(p =>
     (_presetActiveCat === 'all' || p.cat === _presetActiveCat) &&
-    (!q || p.name.includes(q) || (p.desc||'').includes(q))
+    (!q || p.name.toLowerCase().includes(q) || (p.desc || '').toLowerCase().includes(q) || (PRESET_CAT_NAME[p.cat] || '').includes(q))
   );
   if (filtered.length === 0) {
     const empty = document.createElement('div'); empty.className = 'preset-empty';
     empty.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>該当するプリセットが見つかりません';
-    grid.appendChild(empty); return;
+    grid.appendChild(empty); if (_presetSelectedId) selectPreset(null); return;
   }
-  filtered.forEach((p, idx) => {
+  filtered.forEach(p => {
     const card = document.createElement('button');
-    card.className = 'pc-card' + (p.id === _lastUsedPresetId ? ' last-used' : '');
-    card.style.animationDelay = (idx * 0.04) + 's';
-    const tagCls = `pc-tag pc-tag-${p.cat || ''}`;
+    card.className = 'pc-card' + (p.id === _lastUsedPresetId ? ' last-used' : '') + (p.id === _presetSelectedId ? ' selected' : '');
+    card.dataset.pid = p.id;
+    card.setAttribute('aria-pressed', String(p.id === _presetSelectedId));
     const floorBadge = p.floorType
-      ? `<span class="pc-badge pc-badge-floor"><i class="fa-solid fa-grip"></i>${FLOOR_NAME_JA[p.floorType] || p.floorType}</span>`
-      : '';
+      ? `<span class="pc-badge pc-badge-floor"><i class="fa-solid fa-grip"></i>${FLOOR_NAME_JA[p.floorType] || p.floorType}</span>` : '';
     const featuredBadge = FEATURED_PRESETS.has(p.id) ? '<div class="pc-featured-badge">★ おすすめ</div>' : '';
+    const usedBadge = p.id === _lastUsedPresetId ? '<div class="pc-used-badge"><i class="fa-solid fa-check"></i> 前回読み込み</div>' : '';
     card.innerHTML = `
       <div class="pc-plan-area">
         ${presetPlanSVG(p)}
-        <div class="${tagCls}">${p.cat || ''}</div>
-        ${featuredBadge}
+        <div class="pc-tag pc-tag-${p.cat || ''}">${PRESET_CAT_NAME[p.cat] || p.cat || ''}</div>
+        ${featuredBadge}${usedBadge}
       </div>
       <div class="pc-info">
-        <div class="pc-name"><i class="fa-solid ${p.icon}" style="margin-right:5px;opacity:0.7"></i>${p.name}</div>
+        <div class="pc-name"><i class="fa-solid ${p.icon}"></i>${p.name}</div>
         <div class="pc-desc">${p.desc}</div>
         <div class="pc-badges">
           <span class="pc-badge"><i class="fa-solid fa-ruler-combined"></i>${p.room.w}×${p.room.d}m</span>
           <span class="pc-badge"><i class="fa-solid fa-cube"></i>${p.items.length}点</span>
           ${floorBadge}
-          ${p.partitions && p.partitions.length ? `<span class="pc-badge"><i class="fa-solid fa-border-none"></i>間仕切${p.partitions.length}本</span>` : ''}
         </div>
       </div>`;
-    card.addEventListener('click', () => {
-      _lastUsedPresetId = p.id;
-      applyLayout(p); closePresetModal();
-      toast(p.name + ' を読み込みました');
-    });
+    card.addEventListener('click', () => selectPreset(p.id));
+    card.addEventListener('dblclick', () => loadPreset(p));
     grid.appendChild(card);
   });
+  // 絞り込みで見えなくなった間取りの詳細は閉じる
+  if (_presetSelectedId && !filtered.some(p => p.id === _presetSelectedId)) selectPreset(null);
+}
+// カードを選ぶと右に大きな平面図・説明・読み込みボタンを表示（読み込みは明示的な操作だけ）
+function selectPreset(id) {
+  const p = PRESETS.find(x => x.id === id); const det = document.getElementById('preset-detail');
+  if (!p) { _presetSelectedId = null; det.hidden = true; det.innerHTML = ''; document.querySelectorAll('#preset-grid .pc-card').forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-pressed', 'false'); }); return; }
+  _presetSelectedId = id;
+  document.querySelectorAll('#preset-grid .pc-card').forEach(c => { const on = c.dataset.pid === id; c.classList.toggle('selected', on); c.setAttribute('aria-pressed', String(on)); });
+  const facts = [
+    `<span><i class="fa-solid fa-ruler-combined"></i>${p.room.w}×${p.room.d}m</span>`,
+    `<span><i class="fa-solid fa-cube"></i>家具 ${p.items.length}点</span>`,
+    p.floorType ? `<span><i class="fa-solid fa-grip"></i>${FLOOR_NAME_JA[p.floorType] || p.floorType}</span>` : '',
+    (p.partitions || []).length ? `<span><i class="fa-solid fa-border-none"></i>間仕切 ${p.partitions.length}本</span>` : '',
+    (p.notes || []).length ? `<span><i class="fa-solid fa-clipboard-list"></i>配置メモ付き</span>` : '',
+  ].join('');
+  det.innerHTML = `
+    <button class="pd-close" id="preset-detail-close" aria-label="詳細を閉じる"><i class="fa-solid fa-xmark"></i></button>
+    <div class="pd-plan">${presetPlanSVG(p, 320, 230, 12)}</div>
+    <div class="pd-name"><i class="fa-solid ${p.icon}"></i><b>${p.name}</b></div>
+    <span class="pc-tag pc-tag-${p.cat || ''} pd-tag">${PRESET_CAT_NAME[p.cat] || p.cat || ''}</span>
+    <p class="pd-desc">${p.desc}</p>
+    <div class="pd-facts">${facts}</div>
+    <div class="pd-actions">
+      <button class="pd-load" id="preset-load"><i class="fa-solid fa-download"></i> この間取りを読み込む</button>
+      <small><i class="fa-solid fa-circle-info"></i> 今のレイアウトは置き換わります（Ctrl+Z で戻せます）</small>
+    </div>`;
+  det.hidden = false;
+  det.querySelector('#preset-detail-close').addEventListener('click', () => selectPreset(null));
+  det.querySelector('#preset-load').addEventListener('click', () => loadPreset(p));
+}
+function loadPreset(p) {
+  _lastUsedPresetId = p.id;
+  applyLayout(p); closePresetModal();
+  toast(p.name + ' を読み込みました');
+}
+// 空の部屋（サイズを選んで作成）
+const NEW_ROOM_SIZES = [['約6畳', 3.5, 3], ['約8畳', 3.5, 4], ['1LDK', 7, 6], ['2LDK', 8, 8], ['店舗', 10, 8], ['倉庫・工場', 20, 15]];
+function createEmptyRoom(w, d) {
+  w = clamp(Math.round((+w || 6) * 2) / 2, 3, 50); d = clamp(Math.round((+d || 6) * 2) / 2, 3, 50);
+  clearItems(); renderPresetNotes(null);
+  updateRoomSize(w, d);
+  closePresetModal(); toast(`${w}m × ${d}m の空の部屋を作成しました`);
+}
+function togglePresetNewPop(force) {
+  const pop = document.getElementById('preset-new-pop'), btn = document.getElementById('btn-preset-new');
+  const open = force === undefined ? pop.hidden : force;
+  pop.hidden = !open; btn.setAttribute('aria-expanded', String(open));
+  if (open) { document.getElementById('pnp-w').value = roomW; document.getElementById('pnp-d').value = roomD; }
 }
 
-function buildPresetCards() { renderPresetGrid(); }
+function buildPresetCards() {
+  renderPresetGrid();
+  const sizes = document.getElementById('pnp-sizes');
+  sizes.innerHTML = NEW_ROOM_SIZES.map(([n, w, d]) => `<button data-w="${w}" data-d="${d}"><b>${n}</b><span>${w} × ${d}m</span></button>`).join('');
+  sizes.querySelectorAll('button').forEach(b => b.addEventListener('click', () => createEmptyRoom(b.dataset.w, b.dataset.d)));
+}
 
 function openPresetModal() {
   document.getElementById('preset-modal').classList.add('open');
-  renderPresetGrid();
+  togglePresetNewPop(false);
+  renderPresetGrid(); selectPreset(_presetSelectedId);
 }
-function closePresetModal() { document.getElementById('preset-modal').classList.remove('open'); }
+function closePresetModal() { togglePresetNewPop(false); document.getElementById('preset-modal').classList.remove('open'); }
 
 // ============================================================ 3D ホバープレビュー (カタログ選択補助)
 // カタログ項目にマウスオーバーすると、その家具の3Dモデルを小窓でくるくる表示する。
@@ -1402,36 +1488,126 @@ const ghostPreview = (() => {
   return { show, hide };
 })();
 
+// ============================================================ CATALOG THUMBNAILS
+// カタログの各行に家具の3Dサムネイルを表示する。見えている行だけを、手の空いたときに1つずつ描いてキャッシュする。
+// 人物はモデルの計算が重いのでアイコンのまま。
+const catalogThumbs = (() => {
+  const SIZE = 96, NO_THUMB = new Set(['worker', 'man', 'woman', 'boy', 'girl', 'toddler']);
+  const cache = new Map(), queue = [], queued = new Set();
+  let rdr = null, scn, cam, failed = false, busy = false, io = null;
+  function ensure() {
+    if (rdr || failed) return rdr;
+    try {
+      const cvs = document.createElement('canvas'); cvs.width = cvs.height = SIZE;
+      rdr = new THREE.WebGLRenderer({ canvas: cvs, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    } catch (e) { failed = true; return null; }
+    rdr.setSize(SIZE, SIZE, false);
+    rdr.outputColorSpace = THREE.SRGBColorSpace;
+    rdr.toneMapping = THREE.ACESFilmicToneMapping; rdr.toneMappingExposure = 1.05;
+    scn = new THREE.Scene(); scn.environment = scene.environment;
+    scn.add(new THREE.HemisphereLight(0xfff4e0, 0xc8b89a, 0.9));
+    const key = new THREE.DirectionalLight(0xfff2dd, 1.1); key.position.set(3, 5, 4); scn.add(key);
+    cam = new THREE.PerspectiveCamera(30, 1, 0.03, 100);
+    return rdr;
+  }
+  function render(def) {
+    let m;
+    try { m = def.build({ color: COLORS[def.colorIdx], w: def.w, d: def.d, h: def.h }); } catch (e) { return null; }
+    const bb = new THREE.Box3().setFromObject(m);
+    if (!isFinite(bb.min.x) || !isFinite(bb.max.x)) return null;
+    const c = bb.getCenter(new THREE.Vector3()), z = bb.getSize(new THREE.Vector3());
+    m.position.sub(c); scn.add(m);
+    const dist = Math.max(z.x, z.y, z.z, 0.3) * 1.9 + 0.2;
+    cam.position.set(dist * 0.75, dist * 0.62, dist * 0.95); cam.lookAt(0, 0, 0);
+    rdr.render(scn, cam);
+    const url = rdr.domElement.toDataURL('image/png');
+    scn.remove(m); m.traverse(o => { if (o.isMesh && o.geometry) o.geometry.dispose(); });
+    return url;
+  }
+  const idle = cb => (window.requestIdleCallback ? requestIdleCallback(cb, { timeout: 400 }) : setTimeout(cb, 30));
+  function pump() {
+    if (busy || !queue.length) return;
+    busy = true;
+    idle(() => {
+      const el = queue.shift();
+      try {
+        if (el) {
+          const id = el.dataset.id; queued.delete(el);
+          if (el.isConnected && !cache.has(id)) {
+            const def = FURNITURE_DEFS.find(d => d.id === id);
+            cache.set(id, def && ensure() ? render(def) : null);
+          }
+          apply(el);
+        }
+      } catch (e) { console.warn('catalog thumbnail failed:', e); if (el) cache.set(el.dataset.id, null); }
+      finally { busy = false; pump(); }
+    });
+  }
+  function apply(el) {
+    const url = cache.get(el.dataset.id); if (!url) return;
+    const box = el.querySelector('.fitem-icon'); if (box && !box.classList.contains('has-thumb')) { box.classList.add('has-thumb'); box.innerHTML = `<img src="${url}" alt="">`; }
+  }
+  function observe(el) {
+    if (NO_THUMB.has(el.dataset.id) || failed) return;
+    if (cache.has(el.dataset.id)) { apply(el); return; }
+    if (!io) io = new IntersectionObserver(ents => ents.forEach(en => {
+      if (!en.isIntersecting) return; io.unobserve(en.target);
+      if (!queued.has(en.target)) { queued.add(en.target); queue.push(en.target); pump(); }
+    }), { root: document.getElementById('furniture-list'), rootMargin: '120px' });
+    io.observe(el);
+  }
+  function reset() { if (io) io.disconnect(); queue.length = 0; queued.clear(); }
+  return { observe, reset };
+})();
+
 // ============================================================ CATALOG UI
+const CAT_LABEL = {};   // カテゴリ id → { label, icon } (左のカテゴリ列から取得)
 function buildCatalog(filter = '', cat = 'all') {
-  const list = document.getElementById('furniture-list'); list.innerHTML = '';
-  // Update count badges on tabs
+  const list = document.getElementById('furniture-list'); list.innerHTML = ''; list.scrollTop = 0;
+  catalogThumbs.reset();
   document.querySelectorAll('.cat-tab[data-cat]').forEach(tab => {
     const tc = tab.dataset.cat;
-    const count = FURNITURE_DEFS.filter(d => tc==='all' || d.cat===tc).length;
-    let badge = tab.querySelector('.cat-count');
-    if (!badge) { badge = document.createElement('span'); badge.className = 'cat-count'; tab.appendChild(badge); }
-    badge.textContent = count;
+    const count = FURNITURE_DEFS.filter(d => tc === 'all' || d.cat === tc).length;
+    const label = tab.querySelector('span')?.textContent || tc;
+    CAT_LABEL[tc] = { label, icon: tab.querySelector('i')?.className || '' };
+    tab.dataset.tip = `${label}（${count}点）`;
+    tab.classList.toggle('active', tc === cat);
   });
-  const filtered = FURNITURE_DEFS.filter(d => (cat==='all'||d.cat===cat) && (filter===''||d.name.includes(filter)));
+  const q = filter.trim();
+  const filtered = FURNITURE_DEFS.filter(d => (cat === 'all' || d.cat === cat) && (q === '' || d.name.includes(q) || (d.product && `${d.product.brand} ${d.product.model || ''} ${d.product.name || ''}`.toLowerCase().includes(q.toLowerCase()))));
   if (filtered.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'text-align:center;padding:32px 16px;color:var(--text-inv-muted);font-size:12px;';
-    empty.innerHTML = '<i class="fa-solid fa-magnifying-glass" style="font-size:24px;opacity:0.4;display:block;margin-bottom:8px"></i>該当する家具が見つかりません';
-    list.appendChild(empty); return;
+    list.innerHTML = '<div class="catalog-empty"><i class="fa-solid fa-magnifying-glass"></i>該当する家具が見つかりません</div>';
+    return;
   }
-  filtered.forEach(def => {
-    const item = document.createElement('div'); item.className = 'furniture-item'; item.dataset.id = def.id;
+  // 複数カテゴリにまたがるとき（すべて・検索）はカテゴリ見出しで区切る
+  const grouped = cat === 'all';
+  const order = [...document.querySelectorAll('.cat-tab[data-cat]')].map(t => t.dataset.cat);
+  const rank = c => { const i = order.indexOf(c); return i < 0 ? order.length : i; };
+  const items = grouped ? [...filtered].sort((a, b) => rank(a.cat) - rank(b.cat)) : filtered;
+  let lastCat = null;
+  items.forEach(def => {
+    if (grouped && def.cat !== lastCat) {
+      lastCat = def.cat;
+      const info = CAT_LABEL[def.cat] || { label: 'その他', icon: 'fa-solid fa-shapes' };
+      const n = items.filter(d => d.cat === def.cat).length;
+      const h = document.createElement('div'); h.className = 'catalog-group';
+      h.innerHTML = `<i class="${info.icon}"></i>${info.label}<span>${n}</span>`;
+      list.appendChild(h);
+    }
+    const item = document.createElement('button'); item.className = 'furniture-item'; item.dataset.id = def.id;
+    if (state === 'PLACING' && currentDef === def) item.classList.add('active-place');
     const sizeTxt = def.product
-      ? `実寸 W${Math.round(def.w * 100)}×D${Math.round(def.d * 100)}×H${Math.round(def.h * 100)}cm`
-      : `${def.w}m × ${def.d}m`;
-    const modelTxt = def.product ? `<div class="fitem-model"><i class="fa-solid fa-tag"></i> ${def.product.brand} ${def.product.model.split('（')[0]}</div>` : '';
+      ? `W${Math.round(def.w * 100)}×D${Math.round(def.d * 100)}×H${Math.round(def.h * 100)}cm`
+      : `${def.w} × ${def.d} m`;
+    const brand = def.product ? `${def.product.brand} ${def.product.model.split('（')[0]}` : '';
+    item.title = brand ? `${def.name} — ${brand}` : def.name;
     item.innerHTML = `<div class="fitem-icon"><i class="fa-solid ${def.icon}"></i></div>
-      <div class="fitem-info"><div class="fitem-name">${def.name}</div>${modelTxt}<div class="fitem-size">${sizeTxt}</div></div>`;
+      <div class="fitem-info"><div class="fitem-name">${def.name}${def.product ? '<i class="fa-solid fa-tag fitem-real" aria-label="実物"></i>' : ''}</div><div class="fitem-size">${sizeTxt}</div></div>`;
     item.addEventListener('mouseenter', () => ghostPreview.show(def, item));
     item.addEventListener('mouseleave', () => ghostPreview.hide());
     item.addEventListener('click', () => { ghostPreview.hide(); if (state==='PLACING' && currentDef===def) { cancelPlacement(); return; } deselect(); startPlacement(def); });
     list.appendChild(item);
+    catalogThumbs.observe(item);
   });
 }
 
@@ -1447,14 +1623,42 @@ function rotateSelected(delta) {
   refreshSelection();
 }
 
+// ============================================================ PANEL / MODES
+function showPane(name) {
+  document.querySelectorAll('.panel-tab').forEach(t => { const on = t.dataset.pane === name; t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on)); });
+  document.querySelectorAll('.panel-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === name));
+}
+function showPaintHint() {
+  showModeHint(`<i class="fa-solid fa-fill-drip"></i>床ペイント: <b>${FLOOR_TYPES[floorType].name}</b> — 左ドラッグで塗る<span class="mh-sep"></span>右ドラッグで消す<span class="mh-sep"></span><kbd>Esc</kbd> で終了`);
+}
+function startPaintMode() {
+  if (state === 'PLACING') cancelPlacement();
+  deselect(); state = 'PAINTING'; paintMode = true;
+  const pb = document.getElementById('btn-floor-paint'); pb.classList.add('active'); pb.setAttribute('aria-pressed', 'true');
+  showPaintHint();
+  setStatus('床ペイント: ' + FLOOR_TYPES[floorType].name + '（左ドラッグで塗る / 右ドラッグで消す）', 'busy');
+}
+
 // ============================================================ UI INIT
 function initUI() {
   // スナップ幅セレクタ (家具の移動/配置/矢印キーの刻み)
   const snapSel = document.getElementById('snap-select');
   if (snapSel) snapSel.addEventListener('change', () => { furnSnap = parseFloat(snapSel.value) || GRID_SNAP; toast(`スナップ幅: ${furnSnap}m`); snapSel.blur(); });
-  // 配置メモの折りたたみ
-  const pnT = document.getElementById('pn-toggle');
-  if (pnT) pnT.addEventListener('click', () => { const pn = document.getElementById('preset-notes'); pn.classList.toggle('collapsed'); pnT.innerHTML = pn.classList.contains('collapsed') ? '<i class="fa-solid fa-chevron-down"></i>' : '<i class="fa-solid fa-chevron-up"></i>'; });
+  // 左パネルのタブ（家具 / 内装 / メモ）
+  document.querySelectorAll('.panel-tab').forEach(tab => tab.addEventListener('click', () => showPane(tab.dataset.pane)));
+  // 操作方法のポップオーバー
+  const helpBtn = document.getElementById('btn-help'), helpPop = document.getElementById('help-pop');
+  helpBtn.addEventListener('click', e => { e.stopPropagation(); helpPop.hidden = !helpPop.hidden; helpBtn.classList.toggle('active', !helpPop.hidden); helpBtn.setAttribute('aria-expanded', String(!helpPop.hidden)); });
+  document.addEventListener('pointerdown', e => { if (!helpPop.hidden && !e.target.closest('#help-pop, #btn-help')) { helpPop.hidden = true; helpBtn.classList.remove('active'); helpBtn.setAttribute('aria-expanded', 'false'); } });
+  // 選択中の家具: カラーの展開・ミニツールバーの色ボタン・選択解除
+  document.getElementById('color-more').addEventListener('click', () => { colorsExpanded = !colorsExpanded; const it = placedItems.find(i => i.group === selectedGroup); renderColorSwatches(it ? it.color : selectedColor); });
+  document.getElementById('sel-color').addEventListener('click', () => {
+    colorsExpanded = true; const it = placedItems.find(i => i.group === selectedGroup); renderColorSwatches(it ? it.color : selectedColor);
+    const row = document.getElementById('color-swatches'); row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+  });
+  document.getElementById('btn-deselect').addEventListener('click', () => { deselect(); if (state === 'SELECTED') state = 'IDLE'; });
+  document.getElementById('btn-editor-2').addEventListener('click', openEditor);
   buildCatalog(); buildPresetCards();
   document.getElementById('cat-tabs').addEventListener('click', e => {
     const tab = e.target.closest('.cat-tab'); if (!tab) return;
@@ -1480,22 +1684,11 @@ function initUI() {
   floorSel.value = floorType;
   floorSel.addEventListener('change', () => {
     floorType = floorSel.value;
-    if (paintMode) toast(FLOOR_TYPES[floorType].name + ' で塗ります（左ドラッグ）');
+    if (paintMode) showPaintHint();
     else updateFloorTexture();
   });
   // Floor paint mode toggle
-  document.getElementById('btn-floor-paint').addEventListener('click', function() {
-    paintMode = !paintMode;
-    this.classList.toggle('active', paintMode);
-    if (paintMode) {
-      if (state === 'PLACING') cancelPlacement();
-      deselect(); state = 'PAINTING';
-      setStatus('床ペイント: ' + FLOOR_TYPES[floorType].name + '（左ドラッグで塗る / 右ドラッグで消す）', 'busy');
-      toast('床ペイントモード: 床をドラッグして塗ります');
-    } else {
-      state = 'IDLE'; paintDragging = false; setStatus('準備完了');
-    }
-  });
+  document.getElementById('btn-floor-paint').addEventListener('click', () => { if (paintMode) exitPaintMode(); else startPaintMode(); });
   document.getElementById('btn-grid').addEventListener('click', function() { showGrid = !showGrid; this.classList.toggle('active', showGrid); if (gridHelper) gridHelper.visible = showGrid; });
   document.getElementById('btn-topview').addEventListener('click', function() {
     isTopView = !isTopView; this.classList.toggle('active', isTopView);
@@ -1520,16 +1713,26 @@ function initUI() {
   document.getElementById('preset-close').addEventListener('click', closePresetModal);
   document.getElementById('preset-modal').addEventListener('click', e => { if (e.target.id === 'preset-modal') closePresetModal(); });
   document.getElementById('preset-modal').addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      if (!document.getElementById('preset-new-pop').hidden) togglePresetNewPop(false); else closePresetModal();
+      return;
+    }
+    if (e.target.tagName === 'INPUT') return;
     const cards = [...document.querySelectorAll('#preset-grid .pc-card')];
     if (!cards.length) return;
     const idx = cards.indexOf(document.activeElement);
-    const cols = document.querySelector('.preset-grid-new').offsetWidth < 520 ? 2 : 3;
+    const cols = getComputedStyle(document.getElementById('preset-grid')).gridTemplateColumns.split(' ').length || 3;
     const move = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols };
     if (move[e.key] !== undefined && idx >= 0) {
       const next = idx + move[e.key];
       if (next >= 0 && next < cards.length) { cards[next].focus(); e.preventDefault(); }
-    } else if (e.key === 'Escape') { closePresetModal(); }
+    }
   });
+  document.getElementById('btn-preset-new').addEventListener('click', e => { e.stopPropagation(); togglePresetNewPop(); });
+  document.getElementById('pnp-create').addEventListener('click', () => createEmptyRoom(document.getElementById('pnp-w').value, document.getElementById('pnp-d').value));
+  ['pnp-w', 'pnp-d'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('pnp-create').click(); }));
+  document.getElementById('preset-modal').addEventListener('pointerdown', e => { if (!e.target.closest('#preset-new-pop, #btn-preset-new')) togglePresetNewPop(false); });
   // Preset search
   document.getElementById('preset-search-input').addEventListener('input', e => {
     _presetSearch = e.target.value; renderPresetGrid();
@@ -1541,57 +1744,50 @@ function initUI() {
     document.querySelectorAll('.pc-cat-btn').forEach(b => b.classList.toggle('active', b === btn));
     renderPresetGrid();
   });
-  // New empty room
-  document.getElementById('btn-preset-new').addEventListener('click', () => {
-    clearItems(); partitions = []; roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType);
-    buildRoom(); closePresetModal(); toast('新しい空のルームを作成しました');
-  });
-
   // 2D floor-plan editor
   document.getElementById('btn-editor').addEventListener('click', openEditor);
   document.getElementById('editor-close').addEventListener('click', closeEditor);
+  document.getElementById('editor-apply').addEventListener('click', closeEditor);
   document.getElementById('editor-modal').addEventListener('click', e => { if (e.target.id === 'editor-modal') closeEditor(); });
-  const edHints = {
-    floor: 'クリック/ドラッグで床セルを追加。ブラシの太さで一度に塗る範囲を変更できます',
-    erase: 'クリック/ドラッグで床セルを削除（ブラシの太さ対応）',
-    unify: 'ドラッグで範囲を選択 → 範囲内の床材のどれかにまとめて統一します',
-    wall: '2点をドラッグして壁を追加（Snapあり）。壁タイプは下のメニューで選択',
-    door: '壁をクリックで開口を追加。既存の開口をクリックすると開き方を編集できます',
-    delwall: '壁をクリックして削除'
-  };
-  document.querySelectorAll('.ed-tool[data-tool]').forEach(btn => btn.addEventListener('click', () => {
-    edTool = btn.dataset.tool;
-    document.querySelectorAll('.ed-tool[data-tool]').forEach(b => b.classList.toggle('active', b === btn));
-    document.getElementById('editor-hint').textContent = edHints[edTool] || '';
-    closeDoorPop(); closeUnifyPop();
-  }));
+  document.querySelectorAll('.ed-tool[data-tool]').forEach(btn => btn.addEventListener('click', () => setEdTool(btn.dataset.tool)));
   // brush-size segmented control
   document.querySelectorAll('#ed-brush-seg button').forEach(btn => btn.addEventListener('click', () => {
     edBrush = +btn.dataset.brush;
     document.querySelectorAll('#ed-brush-seg button').forEach(b => b.classList.toggle('active', b === btn));
     drawEditor();
   }));
+  // 床材: 色見本つきのピッカー（実体は隠した select。値の読み書きは従来どおり）
   const edSel = document.getElementById('editor-floor-select');
   Object.entries(FLOOR_TYPES).forEach(([key, spec]) => { const o = document.createElement('option'); o.value = key; o.textContent = spec.name; edSel.appendChild(o); });
   edSel.value = editorFloorType;
-  edSel.addEventListener('change', () => { editorFloorType = edSel.value; });
-  // ed-wall-type and ed-opening-kind selects are static HTML — just wire change events
-  const edWallTypeSel = document.getElementById('ed-wall-type');
-  const edOpeningKindSel = document.getElementById('ed-opening-kind');
-  if (edWallTypeSel) edWallTypeSel.addEventListener('change', () => {});
+  edSel.addEventListener('change', () => { editorFloorType = edSel.value; renderFloorPicker(); drawEditor(); });
+  document.getElementById('ed-floor-btn').addEventListener('click', e => { e.stopPropagation(); toggleEdPop('ed-floor-grid', 'ed-floor-btn'); });
+  // 壁タイプ: 図面と同じ線の見本で選ぶ
+  renderWallPicker();
   // 全ての扉種類(シーン設定付き)を開口タイプ選択に展開
-  if (edOpeningKindSel) { edOpeningKindSel.innerHTML = openingKindOptionsHTML('door'); edOpeningKindSel.addEventListener('change', () => {}); }
-  document.getElementById('editor-clear').addEventListener('click', () => { roomPlan = { cells: new Map(), walls: [] }; syncPlanTo3D(); });
-  document.getElementById('editor-rect').addEventListener('click', () => { roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType); syncPlanTo3D(); });
-  document.getElementById('editor-apply').addEventListener('click', closeEditor);
-  // Room size sliders (now live in the editor panel, not the toolbar)
+  document.getElementById('ed-opening-kind').innerHTML = openingKindOptionsHTML('door');
+  // 部屋サイズ・全体の操作（ポップオーバー）
+  document.getElementById('ed-room-btn').addEventListener('click', e => { e.stopPropagation(); toggleEdPop('ed-room-pop', 'ed-room-btn'); });
+  document.addEventListener('pointerdown', e => {
+    if (!e.target.closest('#ed-room-pop, #ed-room-btn')) toggleEdPop('ed-room-pop', 'ed-room-btn', false);
+    if (!e.target.closest('#ed-floor-pick')) toggleEdPop('ed-floor-grid', 'ed-floor-btn', false);
+  });
+  document.getElementById('editor-clear').addEventListener('click', () => {
+    if (!confirm('床と壁をすべて消去します。よろしいですか？')) return;
+    roomPlan = { cells: new Map(), walls: [] }; closeDoorPop(); syncPlanTo3D();
+  });
+  document.getElementById('editor-rect').addEventListener('click', () => { roomPlan = rectToPlan(roomW || 6, roomD || 6, [], floorType); closeDoorPop(); syncPlanTo3D(); edFitView(); drawEditor(); });
   ['room-w', 'room-d'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', () => {
       updateRoomSize(parseFloat(document.getElementById('room-w').value), parseFloat(document.getElementById('room-d').value));
-      refreshSelection();
+      refreshSelection(); closeDoorPop(); edFitView(); drawEditor();
     });
   });
+  // ズーム・全体表示
+  document.getElementById('ed-zoom-in').addEventListener('click', () => edZoomBy(1.2));
+  document.getElementById('ed-zoom-out').addEventListener('click', () => edZoomBy(1 / 1.2));
+  document.getElementById('ed-zoom-fit').addEventListener('click', () => { edFitView(); drawEditor(); });
 
   document.getElementById('btn-zoom-in').addEventListener('click', () => { camera.position.sub(controls.target).multiplyScalar(0.85).add(controls.target); controls.update(); });
   document.getElementById('btn-zoom-out').addEventListener('click', () => { camera.position.sub(controls.target).multiplyScalar(1.18).add(controls.target); controls.update(); });
@@ -1611,7 +1807,7 @@ function initUI() {
 
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'Escape') { if (state==='PLACING') cancelPlacement(); else if (paintMode) exitPaintMode(); else { deselect(); closePresetModal(); closeEditor(); } }
+    if (e.key === 'Escape') { document.getElementById('help-pop').hidden = true; if (state==='PLACING') cancelPlacement(); else if (paintMode) exitPaintMode(); else { deselect(); closePresetModal(); closeEditor(); } }
     if ((e.key==='Delete'||e.key==='Backspace') && selectedGroup && state!=='PLACING') { removeFurniture(selectedGroup); deselect(); }
     if (e.key==='r'||e.key==='R') {
       if (state==='PLACING') { ghostRotOffset = (ghostRotOffset+90)%360; if (ghostGroup) ghostGroup.rotation.y = (ghostRotOffset*Math.PI)/180; }
@@ -1693,8 +1889,7 @@ canvas.addEventListener('pointermove', e => {
         }
         selectedGroup.position.copy(np); if (item) item.position.copy(np);
         selectionRing.position.set(np.x, 0.03, np.z);
-        document.getElementById('pos-x').textContent = np.x.toFixed(2) + 'm';
-        document.getElementById('pos-z').textContent = np.z.toFixed(2) + 'm';
+        updatePositionText(np);
         updateClearancePanel();
       }
     }
@@ -1778,6 +1973,7 @@ function updateWalls() {
 // ============================================================ RESIZE / LOOP
 function handleResize() { const w = wrapper.clientWidth, h = wrapper.clientHeight; camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); }
 window.addEventListener('resize', handleResize);
+if (window.ResizeObserver) new ResizeObserver(handleResize).observe(wrapper);   // パネルの開閉などウィンドウ以外の要因によるサイズ変化にも追従
 
 // ============================================================ ITEM INTERACTIONS
 let _animPrevT = 0;
@@ -1883,6 +2079,7 @@ function animate() {
   if (selectionRing.visible) { selectionRing.material.opacity = 0.6 + Math.sin(t*3)*0.25; selectionRing.scale.setScalar(1 + Math.sin(t*3)*0.02); }
   const ci = document.getElementById('compass-icon');
   if (ci) { const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z); ci.style.transform = `rotate(${az}rad)`; }
+  if (selectedGroup) positionSelToolbar();
   renderer.render(scene, camera);
 }
 
@@ -1899,6 +2096,7 @@ let edHover = null;                   // { x, z } world coords under pointer (fo
 let edSelOpening = null;              // { wi, oi } currently selected wall opening (door/window)
 let edAnim = null;                    // editor swing-animation rAF handle
 let edSwingT = 0;                     // animated 0..1 phase for selected-door swing
+let edW = 900, edH = 600;             // キャンバスの論理サイズ (CSS px)。描画バッファは devicePixelRatio 倍
 // Opening kinds that swing on a single hinge (show 吊り元/開く向き controls)
 const SWING_KINDS = new Set(['door', 'lab_door', 'bath_door', 'toilet_door']);
 // Opening kinds with two leaves hinged at both jambs (show 開く向き only)
@@ -1911,21 +2109,145 @@ function openingAnimates(kind) { return openingSwings(kind) || SLIDE_KINDS.has(k
 // Rebuild the 3D room from the plan (live), then redraw the 2D canvas.
 function syncPlanTo3D() { buildRoom(); drawEditor(); }
 
+// ---- ツールの切替: 説明文と「そのツールに関係する設定」だけを設定バーに出す ----
+const ED_TOOL_DESC = {
+  floor:   'クリック/ドラッグで床を張ります。床材とブラシの太さを選べます',
+  erase:   'なぞった所の床を取り除きます（ブラシの太さ対応）',
+  unify:   'ドラッグで囲んだ範囲を、範囲内のどれか1つの床材にそろえます',
+  wall:    '2点をドラッグして壁を追加します（0.5m 単位で吸着、水平・垂直に補正）',
+  door:    '壁をクリックで扉・窓を追加。既存の開口をクリックすると開き方・幅を編集できます',
+  delwall: '壁をクリックして削除します',
+};
+function setEdTool(tool) {
+  edTool = tool;
+  document.querySelectorAll('.ed-tool[data-tool]').forEach(b => { const on = b.dataset.tool === tool; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
+  document.getElementById('editor-hint').textContent = ED_TOOL_DESC[tool] || '';
+  document.querySelectorAll('.ed-opt[data-for]').forEach(o => { o.hidden = !o.dataset.for.split(' ').includes(tool); });
+  closeDoorPop(); closeUnifyPop(); hideEdHoverTip();
+  toggleEdPop('ed-room-pop', 'ed-room-btn', false); toggleEdPop('ed-floor-grid', 'ed-floor-btn', false);
+}
+// ポップオーバー（部屋サイズ・床材の一覧）の開閉
+function toggleEdPop(popId, btnId, force) {
+  const pop = document.getElementById(popId), btn = document.getElementById(btnId); if (!pop) return;
+  const open = force === undefined ? pop.hidden : force;
+  if (pop.hidden === !open) return;
+  pop.hidden = !open; if (btn) btn.setAttribute('aria-expanded', String(open));
+}
+// 床材ピッカー: 色見本 + 名前のボタン。開くと全床材を色見本の一覧で選べる
+function renderFloorPicker() {
+  const sel = document.getElementById('editor-floor-select'), btn = document.getElementById('ed-floor-btn'), grid = document.getElementById('ed-floor-grid');
+  const cur = [...sel.options].find(o => o.value === sel.value);
+  btn.innerHTML = `<i class="ed-sw" style="background:${floorSwatch(sel.value)}"></i>${cur ? cur.textContent : ''}<i class="fa-solid fa-caret-down"></i>`;
+  grid.innerHTML = '';
+  [...sel.options].forEach(o => {
+    const b = document.createElement('button'); b.className = 'ed-swatch' + (o.value === sel.value ? ' active' : '');
+    b.innerHTML = `<i class="ed-sw" style="background:${floorSwatch(o.value)}"></i><span>${o.textContent}</span>`;
+    b.addEventListener('click', () => { sel.value = o.value; sel.dispatchEvent(new Event('change')); toggleEdPop('ed-floor-grid', 'ed-floor-btn', false); });
+    grid.appendChild(b);
+  });
+}
+// 壁タイプ: 図面と同じ色・線種の見本
+const ED_WALL_STYLE = {
+  wall:   { label: '普通',   color: '#5b5048', w: 5, dash: '' },
+  glass:  { label: 'ガラス', color: '#5ba4c8', w: 3, dash: '8 4' },
+  window: { label: '窓付き', color: '#7a8fa0', w: 5, dash: '' },
+  door:   { label: '扉',     color: '#b9925e', w: 5, dash: '' },
+  half:   { label: '腰壁',   color: '#a98b5a', w: 4, dash: '3 3' },
+};
+function renderWallPicker() {
+  const sel = document.getElementById('ed-wall-type'), host = document.getElementById('ed-wall-pick'); host.innerHTML = '';
+  Object.entries(ED_WALL_STYLE).forEach(([k, st]) => {
+    const name = [...sel.options].find(o => o.value === k)?.textContent || st.label;
+    const b = document.createElement('button'); b.className = 'ed-wall-opt' + (sel.value === k ? ' active' : '');
+    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(sel.value === k)); b.dataset.tip = name;
+    b.innerHTML = `<svg width="30" height="8" viewBox="0 0 30 8" aria-hidden="true"><line x1="2" y1="4" x2="28" y2="4" stroke="${st.color}" stroke-width="${st.w}" stroke-dasharray="${st.dash}" stroke-linecap="${st.dash ? 'butt' : 'round'}"/></svg><span>${st.label}</span>`;
+    b.addEventListener('click', () => { sel.value = k; renderWallPicker(); });
+    host.appendChild(b);
+  });
+}
+// 図面の中心を基準にズーム
+function edZoomBy(f) {
+  const before = screenToWorld(edW / 2, edH / 2);
+  editorScale = clamp(editorScale * f, 12, 120);
+  const after = screenToWorld(edW / 2, edH / 2);
+  editorPan.x += (after.x - before.x) * editorScale; editorPan.y += (after.z - before.z) * editorScale;
+  drawEditor();
+}
+// 壁・床にマウスを乗せたときの情報（壁の種類と長さ・開口の数 / 床材）
+const ED_WALL_NAME = { wall: '普通の壁', glass: 'ガラス壁', window: '窓付き壁', door: '扉', half: '腰壁' };
+function updateEdHoverTip(e, p, w) {
+  const tip = document.getElementById('ed-hover-tip'); if (!tip) return;
+  let html = '';
+  const hit = edFindWall(w.x, w.z, 9);
+  if (hit) {
+    const wall = roomPlan.walls[hit.index], len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1), n = (wall.openings || []).length;
+    html = `<b>${ED_WALL_NAME[wall.type || 'wall'] || '壁'}</b>長さ ${len.toFixed(2)}m${n ? `・開口 ${n}` : ''}`;
+  } else {
+    const t = roomPlan.cells.get(cellKey(Math.floor(w.x / CELL), Math.floor(w.z / CELL)));
+    if (t) html = `<b>床</b>${(FLOOR_TYPES[t] || {}).name || t}`;
+  }
+  if (!html) { tip.hidden = true; return; }
+  tip.innerHTML = html; tip.hidden = false;
+  const c = edCanvasCssPos(p.x, p.y), area = edCanvas.parentElement.getBoundingClientRect();
+  tip.style.left = clamp(c.left + 14, 4, area.width - tip.offsetWidth - 4) + 'px';
+  tip.style.top = clamp(c.top + 16, 4, area.height - tip.offsetHeight - 4) + 'px';
+}
+function hideEdHoverTip() { const tip = document.getElementById('ed-hover-tip'); if (tip) tip.hidden = true; }
+// 全体寸法（床の外形の幅・奥行）を図面の上と左に描く
+function drawPlanDimensions(ctx) {
+  if (!roomPlan.cells.size) return;
+  const b = planBounds();
+  const x0 = b.minIx * CELL, x1 = (b.maxIx + 1) * CELL, z0 = b.minIz * CELL, z1 = (b.maxIz + 1) * CELL;
+  const p0 = worldToScreen(x0, z0), p1 = worldToScreen(x1, z1), off = 22;
+  ctx.save();
+  ctx.strokeStyle = '#8a7f6c'; ctx.lineWidth = 1;
+  const seg = (ax, ay, bx, by) => { ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); };
+  seg(p0.x, p0.y - off, p1.x, p0.y - off); seg(p0.x, p0.y - off - 6, p0.x, p0.y - 4); seg(p1.x, p0.y - off - 6, p1.x, p0.y - 4);
+  seg(p0.x - off, p0.y, p0.x - off, p1.y); seg(p0.x - off - 6, p0.y, p0.x - 4, p0.y); seg(p0.x - off - 6, p1.y, p0.x - 4, p1.y);
+  const pill = (x, y, text) => {
+    ctx.font = '700 11.5px Inter, "Noto Sans JP", sans-serif';
+    const w = ctx.measureText(text).width + 12;
+    ctx.fillStyle = 'rgba(255,253,248,0.95)'; ctx.strokeStyle = 'rgba(90,80,64,0.3)';
+    ctx.beginPath(); ctx.roundRect(x - w / 2, y - 9, w, 18, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#4b443a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 0.5);
+  };
+  pill((p0.x + p1.x) / 2, p0.y - off, `${(x1 - x0).toFixed(2)} m`);
+  ctx.translate(p0.x - off, (p0.y + p1.y) / 2); ctx.rotate(-Math.PI / 2); pill(0, 0, `${(z1 - z0).toFixed(2)} m`);
+  ctx.restore();
+}
+
 // coordinate transforms (world meters ↔ canvas pixels), origin centered + pan
 function worldToScreen(wx, wz) {
-  return { x: edCanvas.width / 2 + editorPan.x + wx * editorScale,
-           y: edCanvas.height / 2 + editorPan.y + wz * editorScale };
+  return { x: edW / 2 + editorPan.x + wx * editorScale,
+           y: edH / 2 + editorPan.y + wz * editorScale };
 }
 function screenToWorld(px, py) {
-  return { x: (px - edCanvas.width / 2 - editorPan.x) / editorScale,
-           z: (py - edCanvas.height / 2 - editorPan.y) / editorScale };
+  return { x: (px - edW / 2 - editorPan.x) / editorScale,
+           z: (py - edH / 2 - editorPan.y) / editorScale };
 }
 function edSnap(v) { return Math.round(v / CELL) * CELL; }
-// canvas pixel coords from a pointer event
+// canvas coords (CSS px) from a pointer event
 function edPointer(e) {
   const r = edCanvas.getBoundingClientRect();
-  return { x: (e.clientX - r.left) * (edCanvas.width / r.width),
-           y: (e.clientY - r.top) * (edCanvas.height / r.height) };
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+// 描画バッファを表示サイズ × devicePixelRatio に合わせる (引き伸ばしによるにじみ・縦横比のゆがみを防ぐ)
+function edResizeCanvas() {
+  const r = edCanvas.getBoundingClientRect(); if (!r.width || !r.height) return false;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  edW = r.width; edH = r.height;
+  const bw = Math.round(edW * dpr), bh = Math.round(edH * dpr);
+  if (edCanvas.width !== bw || edCanvas.height !== bh) { edCanvas.width = bw; edCanvas.height = bh; }
+  edCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return true;
+}
+// 間取り全体が収まる倍率・位置にする
+function edFitView() {
+  const b = planBounds();
+  const bw = Math.max(b.w, 2), bd = Math.max(b.d, 2);
+  editorScale = clamp(Math.min(edW / (bw + 2), edH / (bd + 2)), 14, 120);
+  const cx = (b.minIx + b.maxIx + 1) / 2 * CELL, cz = (b.minIz + b.maxIz + 1) / 2 * CELL;
+  editorPan = { x: -cx * editorScale, y: -cz * editorScale };
 }
 // distance from point P to segment AB, plus projection parameter t (0..1)
 function segDist(px, pz, ax, az, bx, bz) {
@@ -1937,7 +2259,7 @@ function segDist(px, pz, ax, az, bx, bz) {
 }
 
 function drawEditor() {
-  const W = edCanvas.width, H = edCanvas.height, ctx = edCtx;
+  const W = edW, H = edH, ctx = edCtx;
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#f1ece1'; ctx.fillRect(0, 0, W, H);
   // grid (0.5m light, 1m darker)
@@ -2019,6 +2341,7 @@ function drawEditor() {
     });
   });
   ctx.lineCap = 'butt';
+  drawPlanDimensions(ctx);
   // selected opening — animated swing diagram (shows HOW the door moves)
   if (edSelOpening) drawSelectedOpening(ctx);
   // wall-drawing preview
@@ -2221,8 +2544,7 @@ function stopEdAnim() { if (edAnim) { cancelAnimationFrame(edAnim); edAnim = nul
 function edCanvasCssPos(sx, sy) {
   const rect = edCanvas.getBoundingClientRect();
   const area = edCanvas.parentElement.getBoundingClientRect();
-  return { left: (rect.left - area.left) + (sx / edCanvas.width) * rect.width,
-           top:  (rect.top - area.top) + (sy / edCanvas.height) * rect.height };
+  return { left: (rect.left - area.left) + sx, top: (rect.top - area.top) + sy };
 }
 
 // 開口(扉/窓)の種類レジストリ。各扉が「使えるシーン(用途カテゴリ)」設定を持つ。
@@ -2237,6 +2559,10 @@ const OPENING_KINDS = {
   fusuma:      { label: '襖（ふすま）',   scenes: ['住宅'] },
   shoji:       { label: '障子',           scenes: ['住宅'] },
   window:      { label: '窓',             scenes: ['住宅', 'オフィス', '店舗', '工場', '特殊'] },
+};
+const OPENING_KIND_ICON = {
+  door: 'fa-door-open', double_door: 'fa-door-closed', glass_door: 'fa-table-columns', auto_door: 'fa-arrows-left-right-to-line',
+  bath_door: 'fa-bath', toilet_door: 'fa-toilet', lab_door: 'fa-flask', fusuma: 'fa-border-all', shoji: 'fa-table-cells', window: 'fa-window-maximize',
 };
 const OPENING_KIND_LABELS = Object.fromEntries(Object.entries(OPENING_KINDS).map(([k, v]) => [k, v.label]));
 // 種類セレクト用の<option>群 (使えるシーンを併記)
@@ -2273,13 +2599,13 @@ function openDoorPop() {
   const { wall, op } = sel, kind = op.kind || 'door';
   const showHinge = SWING_KINDS.has(kind);
   const showSwing = SWING_KINDS.has(kind) || DOUBLE_KINDS.has(kind);
-  const opts = openingKindOptionsHTML(kind);
+  const kinds = Object.entries(OPENING_KINDS).map(([k, v]) =>
+    `<button class="ed-kind${k === kind ? ' active' : ''}" data-kind="${k}" data-tip="使えるシーン: ${v.scenes.join('・')}"><i class="fa-solid ${OPENING_KIND_ICON[k] || 'fa-door-open'}"></i><span>${v.label}</span></button>`).join('');
   pop.innerHTML = `
     <div class="ed-pop-head"><i class="fa-solid fa-door-open"></i><span>開口の編集</span>
       <button class="ed-pop-x" data-act="close" title="閉じる"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="ed-pop-body">
-      <label class="ed-pop-field"><span>種類</span>
-        <select class="ed-pop-kind ed-select">${opts}</select></label>
+      <div class="ed-pop-field"><span>種類</span><div class="ed-kind-grid">${kinds}</div></div>
       <label class="ed-pop-field"><span>幅 <b class="ed-pop-wval">${(op.w || 0.9).toFixed(1)}m</b></span>
         <input type="range" class="ed-pop-width ed-slider" min="0.6" max="2" step="0.1" value="${op.w || 0.9}"></label>
       ${showHinge ? `<button class="ed-pop-btn" data-act="hinge"><i class="fa-solid fa-left-right"></i> 吊り元を左右反転</button>` : ''}
@@ -2288,24 +2614,15 @@ function openDoorPop() {
     <div class="ed-pop-foot">
       <button class="ed-pop-del" data-act="delete"><i class="fa-solid fa-trash"></i> この開口を削除</button>
     </div>`;
-  // position near the opening midpoint
-  const len = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
-  const ux = (wall.x2 - wall.x1) / len, uz = (wall.z2 - wall.z1) / len, s = clamp(op.t, 0, 1) * len;
-  const mid = worldToScreen(wall.x1 + ux * s, wall.z1 + uz * s);
-  const css = edCanvasCssPos(mid.x, mid.y);
-  pop.hidden = false;
-  const area = edCanvas.parentElement.getBoundingClientRect();
-  let left = css.left + 14, top = css.top + 14;
-  left = clamp(left, 6, area.width - pop.offsetWidth - 6);
-  top = clamp(top, 6, area.height - pop.offsetHeight - 6);
-  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  // 図面を隠さないよう、キャンバス右上に固定して表示する（選んだ開口は図面上で緑に強調される）
+  pop.classList.add('docked'); pop.hidden = false;
   // wire controls
-  pop.querySelector('.ed-pop-kind').addEventListener('change', e => {
-    op.kind = e.target.value;
+  pop.querySelectorAll('.ed-kind').forEach(b => b.addEventListener('click', () => {
+    op.kind = b.dataset.kind;
     if (openingSwings(op.kind)) { if (op.hinge == null) op.hinge = 0; if (op.swing == null) op.swing = 1; }
     if (op.kind === 'window' && op.w < 1.0) op.w = 1.2;
     syncPlanTo3D(); openDoorPop();
-  });
+  }));
   pop.querySelector('.ed-pop-width').addEventListener('input', e => {
     op.w = parseFloat(e.target.value); pop.querySelector('.ed-pop-wval').textContent = op.w.toFixed(1) + 'm';
     syncPlanTo3D();
@@ -2364,7 +2681,7 @@ function openUnifyChooser(range, sx, sy) {
 function closeUnifyPop() { const pop = document.getElementById('ed-unify-pop'); if (pop) pop.hidden = true; }
 
 edCanvas.addEventListener('pointerdown', e => {
-  e.preventDefault(); edCanvas.setPointerCapture(e.pointerId);
+  e.preventDefault(); edCanvas.setPointerCapture(e.pointerId); hideEdHoverTip();
   const p = edPointer(e);
   // middle button or right button = pan
   if (e.button === 1 || e.button === 2) { edDrag = { type: 'pan', sx: p.x, sy: p.y, ox: editorPan.x, oy: editorPan.y }; return; }
@@ -2391,7 +2708,8 @@ edCanvas.addEventListener('pointermove', e => {
   const p = edPointer(e);
   const w = screenToWorld(p.x, p.y);
   edHover = { x: w.x, z: w.z };
-  if (!edDrag) { drawEditor(); return; }
+  if (!edDrag) { updateEdHoverTip(e, p, w); drawEditor(); return; }
+  hideEdHoverTip();
   if (edDrag.type === 'pan') { editorPan.x = edDrag.ox + (p.x - edDrag.sx); editorPan.y = edDrag.oy + (p.y - edDrag.sy); drawEditor(); return; }
   if (edDrag.type === 'paint') { if (edApplyAt(p.x, p.y)) syncPlanTo3D(); else drawEditor(); return; }
   if (edDrag.type === 'wall') { edDrag.cur = { x: edSnap(w.x), z: edSnap(w.z) }; drawEditor(); return; }
@@ -2415,7 +2733,7 @@ edCanvas.addEventListener('pointerup', e => {
   }
   edDrag = null;
 });
-edCanvas.addEventListener('pointerleave', () => { edHover = null; if (edDrag && edDrag.type !== 'wall') edDrag = null; drawEditor(); });
+edCanvas.addEventListener('pointerleave', () => { edHover = null; hideEdHoverTip(); if (edDrag && edDrag.type !== 'wall') edDrag = null; drawEditor(); });
 edCanvas.addEventListener('contextmenu', e => e.preventDefault());
 edCanvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -2441,20 +2759,40 @@ function openEditor() {
     const rwv = document.getElementById('room-w-val'); if (rwv) rwv.textContent = roomW + 'm';
     const rdv = document.getElementById('room-d-val'); if (rdv) rdv.textContent = roomD + 'm';
     const disp = document.getElementById('ed-room-display'); if (disp) disp.textContent = `${roomW}m × ${roomD}m`;
-    const b = planBounds();
-    const bw = Math.max(b.w, 2), bd = Math.max(b.d, 2);
-    editorScale = clamp(Math.min(edCanvas.width / (bw + 4), edCanvas.height / (bd + 4)), 14, 100);
-    editorPan = { x: 0, y: 0 };
     edSelOpening = null; edHover = null; edDrag = null;
     closeDoorPop(); closeUnifyPop();
-    // sync brush-size control
+    // sync brush-size control / tool / pickers
     document.querySelectorAll('#ed-brush-seg button').forEach(b => b.classList.toggle('active', +b.dataset.brush === edBrush));
+    renderFloorPicker(); renderWallPicker(); setEdTool(edTool);
+    toggleEdPop('ed-room-pop', 'ed-room-btn', false); toggleEdPop('ed-floor-grid', 'ed-floor-btn', false);
     document.getElementById('editor-modal').classList.add('open');
-    requestAnimationFrame(() => drawEditor());
+    requestAnimationFrame(() => { edResizeCanvas(); edFitView(); drawEditor(); });
   } catch(err) { console.error('openEditor:', err); }
 }
+// モーダルの大きさが変わったら描画バッファを合わせて描き直す
+if (window.ResizeObserver) new ResizeObserver(() => { if (document.getElementById('editor-modal').classList.contains('open') && edResizeCanvas()) drawEditor(); }).observe(edCanvas);
+// エディタを開いている間のキー操作: ツールの切替 (F/E/U/W/D/X)、Esc は開いているものから順に閉じる
+const ED_TOOL_KEYS = { f: 'floor', e: 'erase', u: 'unify', w: 'wall', d: 'door', x: 'delwall' };
+window.addEventListener('keydown', e => {
+  if (!document.getElementById('editor-modal').classList.contains('open')) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'Escape') {
+    e.stopPropagation(); e.preventDefault();
+    const roomPop = document.getElementById('ed-room-pop'), floorGrid = document.getElementById('ed-floor-grid');
+    if (!roomPop.hidden) toggleEdPop('ed-room-pop', 'ed-room-btn', false);
+    else if (!floorGrid.hidden) toggleEdPop('ed-floor-grid', 'ed-floor-btn', false);
+    else if (!document.getElementById('ed-door-pop').hidden) closeDoorPop();
+    else if (!document.getElementById('ed-unify-pop').hidden) closeUnifyPop();
+    else closeEditor();
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tool = ED_TOOL_KEYS[e.key.toLowerCase()];
+  if (tool) { e.stopPropagation(); e.preventDefault(); setEdTool(tool); }
+  else e.stopPropagation();   // 3D ビュー用のショートカット (R/Del/矢印) をエディタ表示中は無効にする
+}, true);
 function closeEditor() {
-  stopEdAnim(); closeDoorPop(); closeUnifyPop();
+  stopEdAnim(); closeDoorPop(); closeUnifyPop(); hideEdHoverTip();
   document.getElementById('editor-modal').classList.remove('open');
 }
 
